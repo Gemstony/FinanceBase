@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+  <title>DukaBase DB Logo (Flat)</title>
+  <rect x="12" y="12" width="136" height="136" rx="28" fill="#0EA5E9"/>
+  <rect x="12" y="12" width="136" height="136" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="3"/>
+  <g fill="#ffffff" transform="translate(30,34)">
+    <!-- D -->
+    <path d="M0 16h28c19 0 34 15 34 34s-15 34-34 34H0V16zm16 16v36h10c10 0 18-8 18-18s-8-18-18-18H16z"/>
+    <!-- B -->
+    <path d="M70 16h26c10 0 18 8 18 18 0 7-4 12-9 15 7 3 11 9 11 17 0 12-10 22-22 22H70V16zm16 16v12h9c4 0 7-3 7-6 0-4-3-6-7-6h-9zm0 28v16h11c5 0 8-3 8-8s-3-8-8-8H86z"/>
+  </g>
+</svg>

@@ -160,9 +160,10 @@
                                 <strong>Instructions:</strong>
                                 <ul class="mb-0 mt-1 pl-3">
                                     <li>Accepted file type: CSV only.</li>
-                                    <li>Required column: <code>name</code>. Optional: <code>contact_person, email, phone, address, is_active</code>.</li>
+                                    <li>Required column: <code>name</code>.</li>
                                     <li>Set <code>is_active</code> as 1 (active) or 0 (inactive). If omitted, customers are set active.</li>
                                     <li>Use the <strong>Download Sample</strong> to get the correct column order.</li>
+                                    <li><i class="fas fa-info-circle text-warning"></i> Note: make sure the <code>Birth date</code> is in this format <code>YYYY-MM-DD</code>, Example: <code>2002-01-25</code></li>
                                 </ul>
                             </div>
                         </div>
@@ -211,13 +212,14 @@
                     <tr>
                         <th>No.</th>
                         <th>Name</th>
-                        <th>Contact Person</th>
-                        <th>Email</th>
+                        <th>Gender</th>
                         <th>Phone</th>
+                        <th>Category</th>
+                        <th>Region</th>
+                        <th>District</th>
+                        <th>Ward</th>
+                        <th>Street</th>
                         <th>Status</th>
-                        <th>Orders</th>
-                        <th>Total Spent</th>
-                        <th>Created At</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -226,18 +228,43 @@
                         @foreach($customers as $customer)
                             <tr>
                                 <td>#{{ $loop->iteration }}</td>
-                                <td>{{ $customer->name }}</td>
-                                <td>{{ $customer->contact_person ?? 'N/A' }}</td>
-                                <td>{{ $customer->email ?? 'N/A' }}</td>
-                                <td>{{ $customer->phone ?? 'N/A' }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle bg-primary text-white mr-2" style="width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                                            {{ strtoupper(substr( $customer->name , 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <strong>{{ $customer->name }}</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $customer->gender ?? 'N/A' }}</td>
+                                <td>
+                                    <div class="d-flex align-items-left">
+                                        <div>
+                                            <span><i class="fas fa-phone"></i> {{ $customer->phone ?? 'N/A' }}</span> 
+                                            @if($customer->altenative_phone)
+                                                <br><small class="text-muted"><i class="fas fa-phone"></i> {{ $customer->altenative_phone }}</small>
+                                            @endif
+
+                                            @if($customer->email)
+                                                <br><small class="text-muted"><i class="fas fa-google"></i> {{ $customer->email }}</small>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ $customer->category ?? 'N/A' }}</td>
+                                <td>{{ $customer->region  ?? 'N/A'}}</td>
+                                <td>{{ $customer->district ?? 'N/A' }}</td>
+                                <td>{{ $customer->ward ?? 'N/A' }}</td>
+                                <td>{{ $customer->street ?? 'N/A' }}</td>
+                              
                                 <td>
                                     <span class="badge {{ $customer->is_active ? 'badge-success' : 'badge-secondary' }}">
                                         {{ $customer->is_active ? 'Active' : 'Inactive' }}
                                     </span>
                                 </td>
-                                <td class="text-center">{{ number_format($customer->orders_count ?? 0) }}</td>
-                                <td class="text-right">{{ number_format($customer->total_spent ?? 0, 2) }}</td>
-                                <td>{{ $customer->created_at->format('d/m/Y') }}</td>
+                                
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm btn-primary view-customer" 
@@ -253,12 +280,28 @@
                                         </button>
                                         @can('edit_customers')
                                         <button type="button" class="btn btn-sm btn-info" data-toggle="modal" data-target="#editCustomerModal" 
+                                           
                                             data-id="{{ $customer->id }}" 
                                             data-name="{{ $customer->name }}" 
+                                            data-gender="{{ $customer->gender }}" 
                                             data-email="{{ $customer->email }}" 
                                             data-phone="{{ $customer->phone }}" 
-                                            data-address="{{ $customer->address }}" 
-                                            data-contact_person="{{ $customer->contact_person }}" 
+                                            data-altenative_phone ="{{ $customer->altenative_phone }}" 
+                                            data-birth_date="{{ $customer->birth_date }}" 
+                                            data-region="{{ $customer->region }}" 
+
+                                            data-district="{{ $customer->district }}" 
+                                            data-ward="{{ $customer->ward }}" 
+                                            data-street="{{ $customer->street }}" 
+                                            data-house_no="{{ $customer->house_no }}" 
+                                            data-work ="{{ $customer->work }}" 
+                                            data-work_address ="{{ $customer->work_address }}" 
+                                            data-id_type="{{ $customer->id_type }}" 
+
+                                            data-id_number ="{{ $customer->id_number }}" 
+                                            data-category="{{ $customer->category }}" 
+
+
                                             data-active="{{ $customer->is_active ? '1' : '0' }}">
                                             <i class="fas fa-edit"></i>
                                         </button>
@@ -288,32 +331,53 @@
 
 <!-- Add Customer Modal -->
 <div class="modal fade" id="addCustomerModal" tabindex="-1" role="dialog" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <form action="{{ route('customers.store') }}" method="POST" id="addCustomerForm">
                 @csrf
                 <input type="hidden" name="subshop_id" value="{{ $subshop->id }}">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addCustomerModalLabel">Add New Customer</h5>
+                <div class="modal-header " style="background: linear-gradient(135deg, #004e92, #000428); color: white;" >
+                    <h5 class="modal-title text-white" id="addCustomerModalLabel">Add New Customer</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <span aria-hidden="true" class="text-white">&times;</span>
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="name">Customer Name <span class="text-danger">*</span></label>
+                                <label for="name">Customer Full Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="name" name="name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="contact_person">Contact Person</label>
-                                <input type="text" class="form-control" id="contact_person" name="contact_person">
+                                <label for="gender">Gender <span class="text-danger">*</span></label>
+                                <select name="gender" class="form-control">
+                                    <option value="" selected disabled>Choose Gender</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                </select>
                             </div>
                         </div>
                     </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="phone">Phone  <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="phone" name="phone" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="altenative_phone">Altenative phone </label>
+                                <input type="text" class="form-control" id="altenative_phone" name="altenative_phone">
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
@@ -321,21 +385,118 @@
                                 <input type="email" class="form-control" id="email" name="email">
                             </div>
                         </div>
+
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="phone">Phone</label>
-                                <input type="text" class="form-control" id="phone" name="phone">
+                                <label for="birth_date">Birth Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="birth_date" name="birth_date" required>
                             </div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="address">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="2"></textarea>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="region">Region <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="region" name="region" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="district">District <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="district" name="district" required>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" checked>
-                        <label class="form-check-label" for="is_active">Active</label>
+
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="ward">Ward <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="ward" name="ward" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="street">Street <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="street" name="street" required>
+                            </div>
+                        </div>
                     </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="house_no">House No <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="house_no" name="house_no" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="work">Work </label>
+                                <input type="text" class="form-control" id="work" name="work">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="work_address">Work address </label>
+                                <input type="text" class="form-control" id="work_address" name="work_address">
+                            </div>
+                        </div>
+                    </div>
+
+
+                        
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_type">ID type </label>
+                                <select name="id_type" class="form-control">
+                                    <option value="" selected disabled>Choose ID</option>
+                                    <option value="NIDA">NIDA Id</option>
+                                    <option value="Driving Lesence">Driving Lesence Id</option>
+                                    <option value="Voter Id">Voter Id</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_number">ID number </label>
+                                <input type="text" class="form-control" id="id_number" name="id_number">
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="category">Category <span class="text-danger">*</span></label>
+                                <select name="category" class="form-control">
+                                    <option value="" selected disabled>Choose Category</option>
+                                    <option value="borrower">Borrower</option>
+                                    <option value="guarantor">Guarantor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" checked>
+                                <label class="form-check-label" for="is_active">Active</label>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -348,55 +509,178 @@
 
 <!-- Edit Customer Modal -->
 <div class="modal fade" id="editCustomerModal" tabindex="-1" role="dialog" aria-labelledby="editCustomerModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <form id="editCustomerForm" method="POST">
                 @csrf
                 @method('PUT')
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editCustomerModalLabel">Edit Customer</h5>
+                <div class="modal-header" style="background: linear-gradient(135deg, #004e92, #000428); color: white;">
+                    <h5 class="modal-title text-light" id="editCustomerModalLabel">Edit Customer</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+                        <span aria-hidden="true" class="text-light">&times;</span>
                     </button>
                 </div>
                 <div class="modal-body">
+
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="edit_name">Customer Name <span class="text-danger">*</span></label>
+                                <label for="name">Customer Full Name <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="edit_name" name="name" required>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="edit_contact_person">Contact Person</label>
-                                <input type="text" class="form-control" id="edit_contact_person" name="contact_person">
+                                <label for="gender">Gender <span class="text-danger">*</span></label>
+                                <select id="edit_gender" name="gender" class="form-control">
+                                    <option value="" selected disabled>Choose Gender</option>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                </select>
                             </div>
                         </div>
                     </div>
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="edit_email">Email</label>
+                                <label for="phone">Phone  <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_phone" name="phone" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="altenative_phone">Altenative phone </label>
+                                <input type="text" class="form-control" id="edit_altenative_phone" name="altenative_phone">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="email">Email</label>
                                 <input type="email" class="form-control" id="edit_email" name="email">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="birth_date">Birth Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="edit_birth_date" name="birth_date" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="region">Region <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_region" name="region" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="district">District <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_district" name="district" required>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="ward">Ward <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_ward" name="ward" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="street">Street <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="edit_street" name="street" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="house_no">House No <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="edit_house_no" name="house_no" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="work">Work </label>
+                                <input type="text" class="form-control" id="edit_work" name="work">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="edit_phone">Phone</label>
-                                <input type="text" class="form-control" id="edit_phone" name="phone">
+                                <label for="work_address">Work address </label>
+                                <input type="text" class="form-control" id="edit_work_address" name="work_address">
                             </div>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="edit_address">Address</label>
-                        <textarea class="form-control" id="edit_address" name="address" rows="2"></textarea>
+
+
+                        
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_type">ID type </label>
+                                <select name="id_type"  id="edit_id_type" class="form-control">
+                                    <option value="" selected disabled>Choose ID</option>
+                                    <option value="NIDA">NIDA Id</option>
+                                    <option value="Driving Lesence">Driving Lesence Id</option>
+                                    <option value="Voter Id">Voter Id</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_number">ID number </label>
+                                <input type="text" class="form-control" id="edit_id_number" name="id_number">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_is_active" name="is_active" value="1">
-                        <label class="form-check-label" for="edit_is_active">Active</label>
+
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="category">Category <span class="text-danger">*</span></label>
+                                <select name="category" id="edit_category" class="form-control">
+                                    <option value="" selected disabled>Choose Category</option>
+                                    <option value="borrower">Borrower</option>
+                                    <option value="guarantor">Guarantor</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="edit_is_active" name="is_active" value="1" checked>
+                                <label class="form-check-label" for="is_active">Active</label>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
+
+
+
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
                     <button type="submit" class="btn btn-primary">Update Customer</button>
@@ -732,7 +1016,7 @@ $(function () {
             if (this.api().data().length === 0) {
                 $(this).find('tbody').html(
                     '<tr>' +
-                    '<td colspan="8" class="text-center">No customers found.</td>' +
+                    '<td colspan="13" class="text-center">No customers found.</td>' +
                     '</tr>'
                 );
                 
@@ -1178,10 +1462,27 @@ function loadCustomerStatistics(customerId) {
             
             // Fill in the form fields
             modal.find('#edit_name').val(button.data('name'));
-            modal.find('#edit_contact_person').val(button.data('contact_person') || '');
+            modal.find('#edit_gender').val(button.data('gender') || '');
+            modal.find('#edit_birth_date').val(button.data('birth_date') || '');
             modal.find('#edit_email').val(button.data('email') || '');
             modal.find('#edit_phone').val(button.data('phone') || '');
-            modal.find('#edit_address').val(button.data('address') || '');
+            modal.find('#edit_altenative_phone').val(button.data('altenative_phone') || '');
+
+            modal.find('#edit_region').val(button.data('region'));
+            modal.find('#edit_district').val(button.data('district') || '');
+            modal.find('#edit_ward').val(button.data('ward') || '');
+            modal.find('#edit_street').val(button.data('street') || '');
+            modal.find('#edit_house_no').val(button.data('house_no') || '');
+
+            modal.find('#edit_work').val(button.data('work'));
+            modal.find('#edit_work_address').val(button.data('work_address') || '');
+            modal.find('#edit_id_type').val(button.data('id_type') || '');
+            modal.find('#edit_id_number').val(button.data('id_number') || '');
+            modal.find('#edit_category').val(button.data('category') || '');
+
+
+
+
             modal.find('#edit_is_active').prop('checked', button.data('active') == '1');
         });
 

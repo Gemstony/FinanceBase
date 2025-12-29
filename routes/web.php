@@ -1,14 +1,21 @@
 <?php
 
+use App\Http\Controllers\AccountClassController;
+use App\Http\Controllers\AccountGroupsController;
+use App\Http\Controllers\AccountingSettingsController;
 use App\Http\Controllers\CategoriesController;
+use App\Http\Controllers\ChartsOfAccountController;
 use App\Http\Controllers\CustomersController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InvoicesController;
+use App\Http\Controllers\LoanProductTypesController;
+use App\Http\Controllers\LoansSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrdersController;
 use App\Http\Controllers\PurchaseReturnsController;
+use App\Http\Controllers\RepaymentFrequenciesController;
 use App\Http\Controllers\RolesPermissionsController;
 use App\Http\Controllers\SalesReturnsController;
 use App\Http\Controllers\SecurityController;
@@ -70,7 +77,8 @@ Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 
 Route::middleware(['auth'])->group(function () {
-   
+
+
     // API Routes
     Route::get('/api/items/summary', [ItemsController::class, 'getSummaryData'])->name('api.items.summary');
     
@@ -170,6 +178,57 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_dashboard')
             ->name('dashboard');
 
+        //Accounting routes
+        //charts of account
+        Route::get('/accounting/charts_of_account/', [ChartsOfAccountController::class, 'index'])->name('accounting.charts_of_account.index');
+        Route::get('/accounting/charts_of_account/export/{format}', [ChartsOfAccountController::class, 'export'])->name('accounting.charts_of_account.export');
+        Route::post('/accounting/charts_of_account', [ChartsOfAccountController::class, 'store'])->name('accounting.charts_of_account.store');
+        Route::put('/accounting/charts_of_account/{account}', [ChartsOfAccountController::class, 'update'])->name('accounting.charts_of_account.update');
+        Route::delete('/accounting/charts_of_account/{account}', [ChartsOfAccountController::class, 'destroy'])->name('accounting.charts_of_account.destroy');
+
+        //accounting settings
+        Route::get('/accounting/accounting_settings', [AccountingSettingsController::class, 'index'])->name('accounting.accounting_settings.index');
+
+        // Account Class Routes
+        Route::prefix('accounting/account_class')->name('accounting.account_class.')->group(function () {
+            Route::get('/', [AccountClassController::class, 'index'])->name('index');
+            Route::post('/', [AccountClassController::class, 'store'])->name('store');
+            Route::put('/{accountClass}', [AccountClassController::class, 'update'])->name('update');
+            Route::delete('/{accountClass}', [AccountClassController::class, 'destroy'])->name('destroy');
+        });
+
+
+        // Account group Routes
+        Route::prefix('accounting/account_groups')->name('accounting.account_groups.')->group(function () {
+            Route::get('/', [AccountGroupsController::class, 'index'])->name('index');
+            Route::post('/', [AccountGroupsController::class, 'store'])->name('store');
+            Route::put('/{accountGroup}', [AccountGroupsController::class, 'update'])->name('update');
+            Route::delete('/{accountGroup}', [AccountGroupsController::class, 'destroy'])->name('destroy');
+        });
+
+
+
+        //loans settings
+        Route::get('/loans/loans_settings', [LoansSettingsController::class, 'index'])->name('loans.loans_settings.index');
+
+        // Loan product types Routes
+        Route::prefix('loans/loan_product_types')->name('loans.loan_product_types.')->group(function () {
+            Route::get('/', [LoanProductTypesController::class, 'index'])->name('index');
+            Route::post('/', [LoanProductTypesController::class, 'store'])->name('store');
+            Route::put('/{productType}', [LoanProductTypesController::class, 'update'])->name('update');
+            Route::delete('/{productType}', [LoanProductTypesController::class, 'destroy'])->name('destroy');
+        });
+
+
+        // Repayment frequencies Routes
+        Route::prefix('loans/loans_settings/repayment_frequencies')->name('loans.repayment_frequencies.')->group(function () {
+            Route::get('/', [RepaymentFrequenciesController::class, 'index'])->name('index');
+            Route::post('/', [RepaymentFrequenciesController::class, 'store'])->name('store');
+            Route::put('/{frequency}', [RepaymentFrequenciesController::class, 'update'])->name('update');
+            Route::delete('/{frequency}', [RepaymentFrequenciesController::class, 'destroy'])->name('destroy');
+        });
+
+        
         Route::get('/dashboard/analytics/payments-daily', [DashboardController::class, 'paymentsDaily'])->name('dashboard.analytics.payments');
         Route::get('/dashboard/analytics/orders-daily', [DashboardController::class, 'ordersDaily'])->name('dashboard.analytics.orders');
         Route::get('/dashboard/analytics/net-payments-refunds', [DashboardController::class, 'netPaymentsRefunds'])->name('dashboard.analytics.net');
@@ -418,75 +477,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/inventory/items/import/sample', [ItemsController::class, 'downloadSample'])->name('items.import.sample');
         Route::post('/admin/inventory/items/import', [ItemsController::class, 'import'])->name('items.import');
         
-        // Test import route (temporary for debugging)
-        // Route::get('/admin/inventory/items/test-import', function() {
-        //     $subshopId = 1; // Change this to your subshop ID
-        //     \Log::info('Starting test import');
-            
-        //     try {
-        //         // Create test categories and suppliers if they don't exist
-        //         $category = \App\Models\Category::firstOrCreate(
-        //             ['name' => 'Test Category', 'subshop_id' => $subshopId],
-        //             ['description' => 'Test Category']
-        //         );
-                
-        //         $supplier = \App\Models\Suppliers::firstOrCreate(
-        //             ['name' => 'Test Supplier', 'subshop_id' => $subshopId],
-        //             ['email' => 'test@example.com', 'phone' => '1234567890']
-        //         );
-                
-        //         // Create test item data
-        //         $itemData = [
-        //             'name' => 'Test Item ' . time(),
-        //             'description' => 'Test item created at ' . now(),
-        //             'category_id' => $category->id,
-        //             'supplier_id' => $supplier->id,
-        //             'price' => 1000,
-        //             'cost_price' => 500,
-        //             'quantity' => 10,
-        //             'min_quantity' => 2,
-        //             'max_quantity' => 50,
-        //             'unit' => 'piece',
-        //             'is_active' => true,
-        //             'subshop_id' => $subshopId,
-        //             'batch' => \App\Models\Item::generateBatchNumber(),
-        //         ];
-                
-        //         \Log::info('Creating test item:', $itemData);
-                
-        //         // Create the item
-        //         $item = \App\Models\Item::create($itemData);
-                
-        //         if ($item->exists) {
-        //             \Log::info('Test item created successfully', ['id' => $item->id]);
-        //             return response()->json([
-        //                 'success' => true,
-        //                 'message' => 'Test item created successfully',
-        //                 'item' => $item
-        //             ]);
-        //         } else {
-        //             throw new \Exception('Failed to create test item');
-        //         }
-                
-        //     } catch (\Exception $e) {
-        //         \Log::error('Test import failed: ' . $e->getMessage(), [
-        //             'trace' => $e->getTraceAsString()
-        //         ]);
-                
-        //         return response()->json([
-        //             'success' => false,
-        //             'message' => 'Test import failed: ' . $e->getMessage(),
-        //             'exception' => config('app.debug') ? [
-        //                 'message' => $e->getMessage(),
-        //                 'file' => $e->getFile(),
-        //                 'line' => $e->getLine(),
-        //             ] : null
-        //         ], 500);
-        //     }
-        // })->name('items.test-import');
 
         
-
 
         //Write offs       
         Route::get('/admin/inventory/subshops', [WriteOffsController::class, 'subshops'])->name('writeoffs.subshops');

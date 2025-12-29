@@ -6,7 +6,7 @@
       <link rel="dukabase-logo" href="{{ asset('img/dukabase-logo.png') }}">
      <link rel="icon" type="image/svg+xml" href="{{ asset('img/db-logo.svg') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Forgot Password - DukaBase</title>
+    <title>Forgot Password - FinanceBase</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -18,7 +18,7 @@
 <body class="hold-transition login-page">
 <div class="login-box">
   <div class="login-logo">
-    <a href="{{ url('/') }}"><b>Duka</b>Base</a>
+    <a href="{{ url('/') }}"><b>Finance</b>Base</a>
   </div>
   <!-- /.login-logo -->
   <div class="card">

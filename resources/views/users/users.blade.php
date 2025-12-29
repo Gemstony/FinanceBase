@@ -9,7 +9,7 @@
                 <div>
                     <h1 class="d-none d-md-block text-light"><i class="fas fa-users-cog"></i> Users Management</h1>
                     <h1 class="d-md-none text-light"><i class="fas fa-users-cog"></i> Users</h1>
-                    <p class="mb-0 text-light">Manage users, roles, and subshop assignments.</p>
+                    <p class="mb-0 text-light">Manage users, roles, and Branches assignments.</p>
                 </div>
                 <button class="btn btn-light" data-toggle="modal" data-target="#addUserModal">
                     <i class="fas fa-user-plus"></i> Add User
@@ -38,7 +38,7 @@
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Role</th>
-                    <th>Assigned Subshops</th>
+                    <th>Assigned Branches</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -77,7 +77,7 @@
                                 data-id="{{ $u->id }}"
                                 data-name="{{ $u->name }}"
                                 data-subshops='@json($u->subshops->pluck("id"))'>
-                                <i class="fas fa-sitemap"></i> Assign Subshops
+                                <i class="fas fa-sitemap"></i> Assign Branches
                             </button>
                             <button class="btn btn-sm btn-outline-warning mr-1 reset-password-btn"
                                 data-id="{{ $u->id }}"
@@ -161,7 +161,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label>Assign Subshops (optional)</label>
+            <label>Assign Branches (optional)</label>
             <select class="form-control" name="subshop_ids[]" id="create_subshops" multiple>
               @foreach($subshops as $s)
                 <option value="{{ $s->id }}">{{ $s->name }}</option>
@@ -178,14 +178,14 @@
   </div>
  </div>
 
-<!-- Assign Subshops Modal -->
+<!-- Assign Branches Modal -->
 <div class="modal fade" id="assignModal" tabindex="-1" role="dialog" aria-labelledby="assignTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <form id="assignForm" method="POST">
         @csrf
         <div class="modal-header">
-          <h5 class="modal-title" id="assignTitle">Assign Subshops</h5>
+          <h5 class="modal-title" id="assignTitle">Assign Branches</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -193,13 +193,13 @@
         <div class="modal-body">
           <input type="hidden" name="user_id" id="assign_user_id">
           <div class="form-group">
-            <label for="assign_subshops">Subshops</label>
+            <label for="assign_subshops">Branches</label>
             <select class="form-control" name="subshop_ids[]" id="assign_subshops" multiple required>
               @foreach($subshops as $s)
                 <option value="{{ $s->id }}">{{ $s->name }}</option>
               @endforeach
             </select>
-            <small class="form-text text-muted">Select one or more subshops to assign to this user</small>
+            <small class="form-text text-muted">Select one or more Branches to assign to this user</small>
           </div>
         </div>
         <div class="modal-footer">
@@ -260,7 +260,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label>Assign Subshops</label>
+            <label>Assign Branches</label>
             <select class="form-control" name="subshop_ids[]" id="edit_subshops" multiple>
               @foreach($subshops as $s)
                 <option value="{{ $s->id }}">{{ $s->name }}</option>
@@ -304,7 +304,7 @@
                 <p><i class="fas fa-user-tag"></i> <strong>Role:</strong> <span id="view_role"></span></p>
               </div>
             </div>
-            <p><i class="fas fa-store"></i> <strong>Assigned Subshops:</strong> <span id="view_subshops"></span></p>
+            <p><i class="fas fa-store"></i> <strong>Assigned Branches:</strong> <span id="view_subshops"></span></p>
           </div>
         </div>
 
@@ -392,10 +392,10 @@ $(function(){
 
     console.log('User ID:', id);
     console.log('User Name:', name);
-    console.log('Current subshops:', subshops);
+    console.log('Current Branches:', subshops);
 
     $('#assign_user_id').val(id);
-    $('#assignTitle').text('Assign Subshops to ' + name);
+    $('#assignTitle').text('Assign Branches to ' + name);
     $('#assign_subshops').val(subshops).trigger('change');
     $('#assignForm').attr('action', '/admin/users/' + id + '/assign-subshops');
 
@@ -469,7 +469,7 @@ $(function(){
         // Clear previous stats
         $('#performance_stats_container').empty();
 
-        // Generate cards for each subshop's stats
+        // Generate cards for each Branch stats
         if (Array.isArray(response.stats)) {
           let chartIndex = 0;
           const chartIds = [];
@@ -485,7 +485,7 @@ $(function(){
                   </div>
                   <div class="card-body">
                     <div class="mb-3">
-                      <strong>Participation in Shop Revenue</strong>
+                      <strong>Participation in Finance Revenue</strong>
                       <div class="progress mt-2">
                         <div class="progress-bar ${progressClass}" style="width: ${stat.participation_percentage}%">${stat.participation_percentage}%</div>
                       </div>
@@ -571,9 +571,9 @@ $(function(){
             });
           });
         } else if (response.stats) {
-          // Fallback for object format (single subshop or old response)
+          // Fallback for object format (single Branches or old response)
           const stat = response.stats;
-          const subshopName = response.subshops && response.subshops.length > 0 ? response.subshops[0].name : 'Subshop';
+          const subshopName = response.subshops && response.subshops.length > 0 ? response.subshops[0].name : 'Branch';
           const progressClass = stat.participation_percentage >= 50 ? 'bg-success' : stat.participation_percentage >= 25 ? 'bg-warning' : 'bg-danger';
           const cardHtml = `
             <div class="col-md-6 mb-4">
@@ -583,7 +583,7 @@ $(function(){
                 </div>
                 <div class="card-body">
                   <div class="mb-3">
-                    <strong>Participation in Shop Revenue</strong>
+                    <strong>Participation in Finance Revenue</strong>
                     <div class="progress mt-2">
                       <div class="progress-bar ${progressClass}" style="width: ${stat.participation_percentage}%">${stat.participation_percentage}%</div>
                     </div>
@@ -690,7 +690,7 @@ $(function(){
       success: function(response) {
         Swal.fire(
           'Success!',
-          'Subshops assigned successfully.',
+          'Branches assigned successfully.',
           'success'
         ).then(() => {
           $('#assignModal').modal('hide');
@@ -700,7 +700,7 @@ $(function(){
       error: function(xhr) {
         Swal.fire(
           'Error!',
-          'Failed to assign subshops. Please try again.',
+          'Failed to assign Branches. Please try again.',
           'error'
         );
       }

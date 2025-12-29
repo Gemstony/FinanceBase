@@ -7,7 +7,7 @@
      <link rel="icon" type="image/svg+xml" href="{{ asset('img/db-logo.svg') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>Register - DukaBase</title>
+    <title>Register - FinanceBase</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
@@ -19,7 +19,7 @@
 <body class="hold-transition register-page">
 <div class="register-box">
   <div class="register-logo">
-    <a href="{{ url('/') }}"><b>Duka</b>Base</a>
+    <a href="{{ url('/') }}"><b>Finance</b>Base</a>
   </div>
 
   <div class="card">

@@ -143,11 +143,43 @@ class CustomersController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'nullable|string|max:20',
-                'address' => 'nullable|string',
-                'contact_person' => 'nullable|string|max:255',
+                'altenative_phone'  => 'nullable|string|max:20',
+                'gender'  => 'required|string|max:20',
+                'birth_date'  => 'required|date',
+                'region' => 'required|string|max:255',
+                'district' => 'required|string|max:255',
+                'ward' => 'required|string|max:255',
+                'street' => 'required|string|max:255',
+                'house_no' => 'required|string|max:20',
+                'work'  => 'nullable|string|max:20',
+                'work_address'  => 'nullable|string|max:20',
+                'id_type'  => 'required|string|max:20',
+                'id_number'  => 'required|string|max:50',
+                'category'  => 'required|string|max:20',
+            
             ]);
 
-            $data = $request->only(['name', 'email', 'phone', 'address', 'contact_person']);
+            $data = $request->only([
+
+                'name',
+                'email',
+                'phone',
+                'altenative_phone',
+                'gender',
+                'birth_date',
+                'region',
+                'district',
+                'ward',
+                'street',
+                'house_no',
+                'work',
+                'work_address',
+                'id_type',
+                'id_number',
+                'category',
+            
+            
+            ]);
             $data['subshop_id'] = $subshopId;
             $data['is_active'] = $request->has('is_active');
 
@@ -507,11 +539,40 @@ class CustomersController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'nullable|string|max:20',
-                'address' => 'nullable|string',
-                'contact_person' => 'nullable|string|max:255',
+                'altenative_phone'  => 'nullable|string|max:20',
+                'gender'  => 'required|string|max:20',
+                'birth_date'  => 'required|date',
+                'region' => 'required|string|max:255',
+                'district' => 'required|string|max:255',
+                'ward' => 'required|string|max:255',
+                'street' => 'required|string|max:255',
+                'house_no' => 'required|string|max:20',
+                'work'  => 'nullable|string|max:20',
+                'work_address'  => 'nullable|string|max:20',
+                'id_type'  => 'required|string|max:20',
+                'id_number'  => 'required|string|max:50',
+                'category'  => 'required|string|max:20',
             ]);
 
-            $data = $request->only(['name', 'email', 'phone', 'address', 'contact_person']);
+            $data = $request->only([
+                'name',
+                'email',
+                'phone',
+                'altenative_phone',
+                'gender',
+                'birth_date',
+                'region',
+                'district',
+                'ward',
+                'street',
+                'house_no',
+                'work',
+                'work_address',
+                'id_type',
+                'id_number',
+                'category',
+                        
+            ]);
             $data['is_active'] = $request->has('is_active');
 
             // Check if the email is being changed and if it already exists in the same shop
@@ -775,16 +836,27 @@ class CustomersController extends Controller
             // Headers (exact column keys expected by importer)
             fputcsv($handle, [
                 'name',
-                'contact_person',
                 'email',
                 'phone',
-                'address',
+                'altenative_phone',
+                'gender',
+                'birth_date',
+                'region',
+                'district',
+                'ward',
+                'street',
+                'house_no',
+                'work',
+                'work_address',
+                'id_type',
+                'id_number',
+                'category',
                 'is_active' // 1 or 0
             ]);
 
             // Sample rows (avoid commas in address for better CSV compatibility)
-            fputcsv($handle, ['Customer 1', 'Jane', 'john@example.com', '0712345678', 'Dar es Salaam TZ', '1']);
-            fputcsv($handle, ['customer 2', '', '', '', '', '']);
+            fputcsv($handle, ['Customer 1', 'customer1@gmail.com', '0600000001','0700000002', 'M', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', 'Teacher', 'Ubungo, Makuburi primary school', 'NIDA', '20030125-00000-00000-00', 'Borrower', '1' ]);
+            fputcsv($handle, ['customer 2', '', '0600000001','', 'F', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', '', '', 'NIDA', '20030125-00000-00000-00', 'Guarantor', '1' ]);
             fclose($handle);
         };
 
@@ -843,13 +915,38 @@ class CustomersController extends Controller
                 }
 
                 // Normalize to at least 6 columns
-                for ($i = 0; $i < 6; $i++) {
+                for ($i = 0; $i < 17; $i++) {
                     if (!isset($row[$i])) { $row[$i] = null; }
                 }
 
-                [$name, $contactPerson, $email, $phone, $address, $isActive] = $row;
-
-                if (!$name || trim($name) === '') {
+                [
+                     
+                    $name,
+                    $email,
+                    $phone,
+                    $altenative_phone,
+                    $gender,
+                    $birth_date,
+                    $region,
+                    $district,
+                    $ward,
+                    $street,
+                    $house_no,
+                    $work,
+                    $work_address,
+                    $id_type,
+                    $id_number,
+                    $category,
+                    $isActive
+                    
+                    ] = $row;
+                
+                    //Require rows that must be field to continue
+                if (
+                    !$name || trim($name) === ''
+        
+                    
+                    ) {
                     $skipped++;
                     $errors[] = "Row {$rowIndex}: Missing required 'name'";
                     continue;
@@ -863,13 +960,29 @@ class CustomersController extends Controller
                     }
 
                     $data = [
+
+
                         'subshop_id' => $subshopId,
                         'name' => trim($name),
-                        'contact_person' => $contactPerson ? trim($contactPerson) : null,
                         'email' => $email ? trim($email) : null,
                         'phone' => $phone ? trim($phone) : null,
-                        'address' => $address ? trim($address) : null,
+                        'altenative_phone' => $altenative_phone ? trim($altenative_phone) : null,
+                        'gender' => $gender ? trim($gender) : null,
+                        'birth_date' => $birth_date ? trim($birth_date) : null,
+                        'region' => $region ? trim($region) : null,
+                        'district' => $district ? trim($district) : null,
+                        'ward' => $ward ? trim($ward) : null,
+                        'street' => $street ? trim($street) : null,
+                        'house_no' => $house_no ? trim($house_no) : null,
+                        'work' => $work ? trim($work) : null,
+                        'work_address' => $work_address ? trim($work_address) : null,
+                        'id_type' => $id_type ? trim($id_type) : null,
+                        'id_number' => $id_number ? trim($id_number) : null,
+                        'category' => $category ? trim($category) : null,
                         'is_active' => $active,
+
+
+
                     ];
 
                     // Upsert by email within subshop if email provided

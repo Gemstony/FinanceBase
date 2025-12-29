@@ -36,7 +36,7 @@ class ShopController extends Controller
         $user = Auth::user();
         if ($user->shop) {
             return redirect()->route('dashboard')
-                ->with('error', 'You already have a shop. You cannot create another one.');
+                ->with('error', 'You already have a Finance Branch. You cannot create another one.');
         }
 
         // Debug: Log the request data
@@ -119,7 +119,7 @@ class ShopController extends Controller
             DB::commit();
 
             return redirect()->route('dashboard')
-                ->with('success', 'Congratulations! Your shop has been created successfully');
+                ->with('success', 'Congratulations! Your Finance Branch has been created successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -182,7 +182,7 @@ class ShopController extends Controller
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Shop not found'
+                    'message' => 'Branch not found'
                 ], 404);
             }
             return redirect()->route('shop.create');
@@ -206,7 +206,7 @@ class ShopController extends Controller
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Shop information updated successfully',
+                    'message' => 'Branch information updated successfully',
                     'shop' => [
                         'name' => $shop->name,
                         'phone' => $shop->phone,
@@ -216,7 +216,7 @@ class ShopController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Shop information updated successfully');
+            return back()->with('success', 'Branch information updated successfully');
 
         } catch (\Exception $e) {
             if ($request->expectsJson()) {

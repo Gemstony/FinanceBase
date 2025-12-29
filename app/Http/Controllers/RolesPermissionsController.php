@@ -71,6 +71,11 @@ class RolesPermissionsController extends Controller
 
         $user->assignRole($role);
 
+        $role2 = Role::where('name', 'Super Admin')->first();
+
+        // Assign ALL permissions in the system
+        $role2->syncPermissions(Permission::all());
+
         
         return redirect()->route('dashboard')->with('success', 'Super Admin role assigned to user successfully.');
     }

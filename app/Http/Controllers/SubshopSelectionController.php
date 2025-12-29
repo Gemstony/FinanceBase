@@ -43,10 +43,10 @@ class SubshopSelectionController extends Controller
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not allowed to access that shop.'
+                    'message' => 'You are not allowed to access that branch.'
                 ], 403);
             }
-            return redirect()->back()->with('error', 'You are not allowed to access that shop.');
+            return redirect()->back()->with('error', 'You are not allowed to access that branch.');
         }
 
         $request->session()->put('subshop_id', (int) $data['subshop_id']);
@@ -59,12 +59,12 @@ class SubshopSelectionController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Active shop updated.',
+                'message' => 'Active branch updated.',
                 'redirect' => $target
             ]);
         }
 
-        return redirect($target)->with('success', 'Active shop updated.');
+        return redirect($target)->with('success', 'Active branch updated.');
     }
 
     private function accessibleSubshops($user)

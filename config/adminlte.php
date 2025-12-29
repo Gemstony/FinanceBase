@@ -14,9 +14,9 @@ return [
     |
     */
 
-    'title' => 'DukaBase',
+    'title' => 'FinanceBase',
     'title_prefix' => '',
-    'title_postfix' => ' | DukaBase',
+    'title_postfix' => ' | FinanceBase',
 
     /*
     |--------------------------------------------------------------------------
@@ -69,12 +69,12 @@ return [
     |
     */
 
-    'logo' => '<b>DukaBase</b>',
+    'logo' => '<b>FinanceBase</b>',
     'logo_img' => 'img/dukabase-logo.png',
     'logo_img_class' => 'brand-image img-circle elevation-3',
     'logo_img_xl' => null,
     'logo_img_xl_class' => 'brand-image-xs',
-    'logo_img_alt' => 'DukaBase Logo',
+    'logo_img_alt' => 'FinanceBase Logo',
 
     /*
     |--------------------------------------------------------------------------
@@ -333,12 +333,12 @@ return [
             'type' => 'navbar-item',
             'topnav_right' => true,
             'text' => '', // no text
-            'icon' => 'fas fa-store',
+            'icon' => 'fas fa-network-wired',
             'url' => '/subshops/choose',
             'data' => [
                 'toggle' => 'tooltip',
                 'placement' => 'bottom',
-                'title' => 'Switch shop',
+                'title' => 'Switch branch',
             ],
             'classes' => 'px-3', // optional: tweak spacing
         ],
@@ -369,14 +369,14 @@ return [
             'label' => 'unread_messages_count',          // number ya orders pending
             'label_color' => 'success',
         ],
-    // Shop Management (Subshops) - Only for Super Admin
+    // Branch Management (Branches) - Only for Super Admin
     [
-        'text' => 'Shops Management',
+        'text' => 'Finances Management',
         'icon' => 'fas fa-crown',
         'can' => 'Super Admin', // Only show for Super Admin role
         'submenu' => [
             [
-                'text' => 'Main Shops',
+                'text' => 'Main Finance',
                 'url' => '/shopsmanagement',
             ],
             [
@@ -412,15 +412,76 @@ return [
         ],
     ],
         [
-            'text' => 'Shops',
+            'text' => 'Finance Branches',
             'url' => '/shop',
-            'icon' => 'fas fa-store',
+            'icon' => 'fas fa-network-wired',
             'can' => 'view_shop', // Only show for Super Admin role and owner
 
+        ],
+
+
+        //Accounting
+
+         [
+            'text' => 'Accounting',
+            'icon' => 'fas fa-calculator',
+            'submenu' => [
+                [
+                    'text' => 'Charts Of Account ',
+                    'url' => 'accounting/charts_of_account/',
+                ],
+                [
+                    'text' => 'Accounting Settings',
+                    'url' => 'accounting/accounting_settings/',
+                ],
+         
+                // [
+                //     'text' => 'Loans',
+                //     'url' => 'loans/loans',
+                // ], 
+
+                // [
+                //     'text' => 'Loan Groups',
+                //     'url' => '/loans/loans_group',
+                // ], 
+             
+             
+            ],
+        ],
+
+        //Loan management
+
+         [
+            'text' => 'Loan Management',
+            'icon' => 'fas fa-university',
+            'submenu' => [
+                [
+                    'text' => 'Loan Products',
+                    'url' => '/loans/loans_products',
+                ],
+         
+                [
+                    'text' => 'Loans',
+                    'url' => 'loans/loans',
+                ], 
+
+                [
+                    'text' => 'Loan Groups',
+                    'url' => '/loans/loans_group',
+                ], 
+
+                [
+                    'text' => 'Loan Settings',
+                    'url' => '/loans/loans_settings',
+                ], 
+             
+             
+            ],
         ],
     
 
         // Products & Inventory
+        
 
         [
             'text' => 'Inventory',

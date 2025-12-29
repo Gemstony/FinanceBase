@@ -17,16 +17,16 @@ class SubShopController extends Controller
         $shop = $user->shop;
 
         if (!$shop) {
-            return redirect()->route('shop.create')->withErrors(['error' => 'Please create a shop first']);
+            return redirect()->route('shop.create')->withErrors(['error' => 'Please create a Branch first']);
         }
 
-        // Check subshop limit
+        // Check Branches limit
         $currentSubshopsCount = $shop->subShops()->count();
         $maxSubshops = $shop->max_subshops;
 
         if ($maxSubshops > 0 && $currentSubshopsCount >= $maxSubshops) {
             return redirect()->back()->withErrors([
-                'error' => "You have reached the maximum limit of {$maxSubshops} subshops. Please contact an administrator to increase your subshop limit."
+                'error' => "You have reached the maximum limit of {$maxSubshops} Branches. Please contact an administrator to increase your Branches limit."
             ])->withInput();
         }
 
@@ -36,7 +36,7 @@ class SubShopController extends Controller
             'address' => 'required|string|max:500',
             'is_active' => 'boolean',
         ], [
-            'name.required' => 'Shop name is required',
+            'name.required' => 'Branch name is required',
             'phone.required' => 'Phone number is required',
             'address.required' => 'Address is required',
         ]);
@@ -51,7 +51,7 @@ class SubShopController extends Controller
                 'is_active' => $validated['is_active'] ?? true,
             ]);
 
-            return redirect()->route('subshops.choose')->with('success', 'Shop added successfully');
+            return redirect()->route('subshops.choose')->with('success', 'Branch added successfully');
 
         } catch (\Exception $e) {
             return redirect()->back()
@@ -61,7 +61,7 @@ class SubShopController extends Controller
     }
 
     /**
-     * Create a new subshop via AJAX (for modal)
+     * Create a new Branches via AJAX (for modal)
      */
     public function createModal(Request $request)
     {
@@ -70,9 +70,9 @@ class SubShopController extends Controller
         // Check if user has owner or super admin role
         if (!$user->hasRole(['owner', 'Super Admin'])) {
             if ($request->expectsJson()) {
-                return response()->json(['error' => 'You do not have permission to create subshops.'], 403);
+                return response()->json(['error' => 'You do not have permission to create Branches.'], 403);
             }
-            return redirect()->route('subshops.choose')->withErrors(['error' => 'You do not have permission to create subshops.']);
+            return redirect()->route('subshops.choose')->withErrors(['error' => 'You do not have permission to create Branches.']);
         }
 
         $shop = $user->shop;
@@ -81,23 +81,23 @@ class SubShopController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Please create a shop first'], 422);
             }
-            return redirect()->route('subshops.choose')->withErrors(['error' => 'Please create a shop first']);
+            return redirect()->route('subshops.choose')->withErrors(['error' => 'Please create a Branch first']);
         }
 
-        // Check if shop is active
+        // Check if Branch is active
         if ($shop->status !== 'active') {
             if ($request->expectsJson()) {
-                return response()->json(['error' => 'Your shop is not active. Please contact support.'], 422);
+                return response()->json(['error' => 'Your Branch is not active. Please contact support.'], 422);
             }
-            return redirect()->route('subshops.choose')->withErrors(['error' => 'Your shop is not active. Please contact support.']);
+            return redirect()->route('subshops.choose')->withErrors(['error' => 'Your Branch is not active. Please contact support.']);
         }
 
-        // Check subshop limit
+        // Check Branches limit
         $currentSubshopsCount = $shop->subShops()->count();
         $maxSubshops = $shop->max_subshops;
 
         if ($maxSubshops > 0 && $currentSubshopsCount >= $maxSubshops) {
-            $errorMsg = "You have reached the maximum limit of {$maxSubshops} subshops. Please contact an administrator to increase your subshop limit.";
+            $errorMsg = "You have reached the maximum limit of {$maxSubshops} Branches. Please contact an administrator to increase your Branches limit.";
             if ($request->expectsJson()) {
                 return response()->json(['error' => $errorMsg], 422);
             }
@@ -110,7 +110,7 @@ class SubShopController extends Controller
             'address' => 'required|string|max:500',
             'is_active' => 'boolean',
         ], [
-            'name.required' => 'Shop name is required',
+            'name.required' => 'Branch name is required',
             'phone.required' => 'Phone number is required',
             'address.required' => 'Address is required',
         ]);
@@ -126,9 +126,9 @@ class SubShopController extends Controller
             ]);
 
             if ($request->expectsJson()) {
-                return response()->json(['message' => 'Shop added successfully']);
+                return response()->json(['message' => 'Branch added successfully']);
             }
-            return redirect()->route('subshops.choose')->with('success', 'Shop added successfully');
+            return redirect()->route('subshops.choose')->with('success', 'Branch added successfully');
 
         } catch (\Exception $e) {
             if ($request->expectsJson()) {
@@ -156,7 +156,7 @@ class SubShopController extends Controller
             'address' => 'required|string|max:500',
             'is_active' => 'boolean',
         ], [
-            'name.required' => 'Shop name is required',
+            'name.required' => 'Branch name is required',
             'phone.required' => 'Phone number is required',
             'address.required' => 'Address is required',
         ]);
@@ -169,7 +169,7 @@ class SubShopController extends Controller
                 'is_active' => $validated['is_active'] ?? false,
             ]);
 
-            return redirect()->back()->with('success', 'Shop updated successfully');
+            return redirect()->back()->with('success', 'Branch updated successfully');
 
         } catch (\Exception $e) {
             return redirect()->back()
@@ -179,7 +179,7 @@ class SubShopController extends Controller
     }
 
     /**
-     * Delete a subshop
+     * Delete a Branches
      */
     public function destroy(SubShop $subshop)
     {
@@ -193,7 +193,7 @@ class SubShopController extends Controller
         try {
             $subshop->delete();
 
-            return redirect()->back()->with('success', 'Shop deleted successfully');
+            return redirect()->back()->with('success', 'Branch deleted successfully');
 
         } catch (\Exception $e) {
             return redirect()->back()

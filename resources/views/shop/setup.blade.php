@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Tengeneza Duka Lako</title>
+    <title>Tengeneza Microfinance Yako</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -27,12 +27,12 @@
         <div class="bg-white shadow-2xl rounded-2xl p-8">
             <!-- Header -->
             <div class="text-center m-8 dukabase-header">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">DukaBase</h1>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">FinanceBase</h1>
             </div>
             <hr>
             <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-gray-800 mb-2">Tengeneza Duka Lako</h1>
-                <p class="text-gray-600">Kabla ya kuendelea, tengeneza duka lako kubwa na angalau subshop moja</p>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Tengeneza Branch Yako</h1>
+                <p class="text-gray-600">Kabla ya kuendelea, tengeneza Branch lako kubwa na angalau (Branch) moja</p>
             </div>
 
             <!-- Error Messages -->
@@ -71,7 +71,7 @@
             <form action="{{ route('shop.store') }}" method="POST" id="shopForm">
                 @csrf
 
-                <!-- Main Shop Section -->
+                <!-- Main Branch Section -->
                 <div class="mb-8 border-b-2 border-gray-200 pb-6">
                     <h2 class="text-2xl font-semibold mb-6 flex items-center text-gray-800">
                         <svg class="w-7 h-7 mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,17 +79,17 @@
                                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
                             </path>
                         </svg>
-                        Duka Kubwa (Main Shop)
+                        Branch Kubwa (Main Brach)
                     </h2>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Jina la Duka <span class="text-red-500">*</span>
+                                Jina la Branch <span class="text-red-500">*</span>
                             </label>
                             <input type="text" name="shop_name" value="{{ old('shop_name') }}"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                                placeholder="Mfano: Duka la Mama Neema" required>
+                                placeholder="Mfano: Branch ya Manzese" required>
                         </div>
 
                         <div>
@@ -116,7 +116,7 @@
                             </label>
                             <textarea name="shop_description" rows="3"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                                placeholder="Eleza kuhusu duka lako...">{{ old('shop_description') }}</textarea>
+                                placeholder="Eleza kuhusu Branch yako...">{{ old('shop_description') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -131,7 +131,7 @@
                                     d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
                                 </path>
                             </svg>
-                            Maduka Madogo (Sub Shops)
+                            Branch Ndogo ndogo (Branch)
                         </h2>
                         <button type="button" id="addSubShopBtn" onclick="addSubShop()"
                             class="bg-green-500 hover:bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm flex items-center shadow-md hover:shadow-lg transition transform hover:scale-105">
@@ -139,26 +139,26 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 4v16m8-8H4"></path>
                             </svg>
-                            Ongeza Sub Shop
+                            Ongeza (Branch)
                         </button>
                     </div>
 
                     <div id="subShopsContainer">
-                        <!-- First Sub Shop (Required) -->
+                        <!-- First Branch (Required) -->
                         <div
                             class="subshop-item bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-xl mb-5 border-2 border-purple-200 shadow-md">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="font-semibold text-lg text-gray-800 flex items-center">
                                     <span
                                         class="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">1</span>
-                                    Sub Shop 1
+                                    (Branch) 1
                                 </h3>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        Jina la Sub Shop <span class="text-red-500">*</span>
+                                        Jina la (Branch) <span class="text-red-500">*</span>
                                     </label>
                                     <input type="text" name="subshops[0][name]" value="{{ old('subshops.0.name') }}"
                                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white transition"
@@ -196,7 +196,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7">
                             </path>
                         </svg>
-                        Tengeneza Duka
+                        Tengeneza Branch
                     </button>
                 </div>
             </form>
@@ -213,7 +213,7 @@
         
         <!-- Footer -->
         <div class="text-center mt-6">
-            <p class="text-white text-sm">© 2025 DukaBase. All rights reserved.</p>
+            <p class="text-white text-sm">&copy; 2025 FinanceBase. All rights reserved.</p>
         </div>
     </div>
 
@@ -245,7 +245,7 @@
                     const notice = document.createElement('div');
                     notice.id = 'subshopLimitNotice';
                     notice.className = 'mb-4 text-sm text-red-600';
-                    notice.textContent = 'Unaweza kuongeza zaidi ya subshops 2 tu.';
+                    notice.textContent = 'Unaweza kuongeza zaidi ya (Branch) 2 tu.';
                     container.parentElement.insertBefore(notice, container);
                 }
                 updateAddButtonState();
@@ -259,7 +259,7 @@
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-semibold text-lg text-gray-800 flex items-center">
                             <span class="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">${newIndex + 1}</span>
-                            Sub Shop ${newIndex + 1}
+                            (Branch) ${newIndex + 1}
                         </h3>
                         <button type="button" onclick="removeSubShop(this)" 
                                 class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow-md hover:shadow-lg transition transform hover:scale-105 flex items-center">
@@ -273,7 +273,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                Jina la Sub Shop <span class="text-red-500">*</span>
+                                Jina la (Branch) <span class="text-red-500">*</span>
                             </label>
                             <input type="text" name="subshops[${newIndex}][name]" 
                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white transition" 
@@ -333,7 +333,7 @@
                 if (numberBadge) numberBadge.textContent = index + 1;
                 if (heading) {
                     const textNode = heading.childNodes[heading.childNodes.length - 1];
-                    textNode.textContent = ` Sub Shop ${index + 1}`;
+                    textNode.textContent = ` (Branch) ${index + 1}`;
                 }
             });
         }

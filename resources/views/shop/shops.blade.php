@@ -1,20 +1,20 @@
 @extends('adminlte::page')
 
-@section('title', 'Main Shop')
+@section('title', 'Main Finance Branch')
 
 @section('content_header')
     <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
         <div class="card-body text-center">
-            <h1 class="d-none d-md-block text-light"><i class="fas fa-building"></i> Main Shop (Sub Shops)</h1>
-            <h1 class="d-md-none text-light"><i class="fas fa-building"></i> Main Shop</h1>
+            <h1 class="d-none d-md-block text-light"><i class="fas fa-building"></i> Main Finance Branch(Branches)</h1>
+            <h1 class="d-md-none text-light"><i class="fas fa-building"></i> Main Finance Branch</h1>
         </div>
     </div>
     <div class="d-flex flex-wrap justify-content-between align-items-center">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                <li class="breadcrumb-item active text-dark d-none d-md-inline" aria-current="page">Main Shop (Sub Shops)</li>
-                <li class="breadcrumb-item active text-dark d-md-none" aria-current="page">Main Shop</li>
+                <li class="breadcrumb-item active text-dark d-none d-md-inline" aria-current="page">Main Finance Branch (Branches)</li>
+                <li class="breadcrumb-item active text-dark d-md-none" aria-current="page">Main Branch</li>
             </ol>
         </nav>
         @php
@@ -27,7 +27,7 @@
         <button type="button" class="btn btn-primary btn-sm mt-2 mt-md-0" 
                 data-toggle="modal" data-target="#addSubShopModal"
                 {{ !$canAddMore ? 'disabled' : '' }}>
-            <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add New Shop</span><span class="d-md-none">Add Shop</span>
+            <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add New Branch</span><span class="d-md-none">Add Branch</span>
             @if(!$canAddMore)
                 <i class="fas fa-lock ml-1"></i>
             @endif
@@ -92,13 +92,13 @@
         </div>
     @endif
 
-    <!-- Main Shop Info Card -->
+    <!-- Main Branch Info Card -->
     <div class="card main-shop-card mb-4" style="border: 4px solid #FFD700; box-shadow: 0 15px 35px rgba(0,0,0,0.4), 0 0 20px rgba(255,215,0,0.3); position: relative;">
         <div class="card-header" style="background: linear-gradient(135deg, #FFD700, #FFA500, #FF6347); color: white; position: relative; overflow: hidden;">
             <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; color: #FFD700; opacity: 0.8;">
                 <i class="fas fa-crown"></i>
             </div>
-            <h3 class="card-title text-center" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.7); font-weight: bold; font-size: 1.5rem; margin-top: 20px;"><i class="fas fa-crown"></i> Main Shop Headquarters</h3>
+            <h3 class="card-title text-center" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.7); font-weight: bold; font-size: 1.5rem; margin-top: 20px;"><i class="fas fa-crown"></i> Main Branch Headquarters</h3>
             <div style="position: absolute; bottom: 10px; right: 15px;">
 
                 @can('edit_shop')
@@ -140,11 +140,11 @@
     </div>
     @can('view_subshops')
         <div class=" mb-3">
-            <h4 class="h4"><i class="fas fa-store"></i> Subshops</h4>
+            <h4 class="h4"><i class="fas fa-store"></i> Branches</h4>
         </div>
          <hr>
 
-        <!-- Subshop Usage Info -->
+        <!-- Branches Usage Info -->
         @php
             $currentSubshops = $shop->subShops()->count();
             $maxSubshops = $shop->max_subshops;
@@ -157,7 +157,7 @@
                 <div class="info-box {{ $usagePercentage >= 90 ? 'bg-danger' : ($usagePercentage >= 70 ? 'bg-warning' : 'bg-info') }}">
                     <span class="info-box-icon"><i class="fas fa-chart-bar"></i></span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Subshop Usage</span>
+                        <span class="info-box-text">Branches Usage</span>
                         <span class="info-box-number">
                             {{ $currentSubshops }}/{{ $maxSubshops > 0 ? $maxSubshops : '∞' }}
                             @if($maxSubshops > 0)
@@ -169,18 +169,18 @@
                         </div>
                         <div class="progress-description">
                             @if($maxSubshops == 0)
-                                <i class="fas fa-infinity text-success"></i> Unlimited subshops
+                                <i class="fas fa-infinity text-success"></i> Unlimited Branches
                             @elseif($canAddMore)
-                                <i class="fas fa-check-circle text-success"></i> {{ $maxSubshops - $currentSubshops }} subshops remaining
+                                <i class="fas fa-check-circle text-success"></i> {{ $maxSubshops - $currentSubshops }} branches remaining
                             @else
-                                <i class="fas fa-exclamation-triangle text-danger"></i> Subshop limit reached - Contact admin to increase limit
+                                <i class="fas fa-exclamation-triangle text-danger"></i> Branches limit reached - Contact admin to increase limit
                             @endif
                         </div>
                     </div>
                 </div>
             </div>
             </div>
-        <!-- Sub Shops Grid -->
+        <!-- Sub Branches Grid -->
         <div class="row">
             @forelse($shop->subShops ?? [] as $subshop)
                 <div class="col-lg-4 col-md-6 mb-4">
@@ -236,7 +236,7 @@
                         <div class="card-body text-center py-5">
                             <i class="fas fa-store-slash fa-4x mb-3 text-muted"></i>
                             <h4>No Sub Shops</h4>
-                            <p class="text-muted">Click the "Add New Shop" button to get started</p>
+                            <p class="text-muted">Click the "Add New Branch" button to get started</p>
                         </div>
                     </div>
                 </div>
@@ -245,7 +245,7 @@
 
     @endcan
 
-    <!-- Add SubShop Modal -->
+    <!-- Add Branches Modal -->
     <div class="modal fade" id="addSubShopModal" tabindex="-1" role="dialog" aria-labelledby="addSubShopModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -253,7 +253,7 @@
                     @csrf
                     <div class="modal-header">
                         <h5 class="modal-title" id="addSubShopModalLabel">
-                            <i class="fas fa-plus-circle"></i> Add New Shop
+                            <i class="fas fa-plus-circle"></i> Add New Branch
                         </h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
@@ -262,7 +262,7 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="subshop_name">
-                                Shop Name <span class="text-danger">*</span>
+                                Branch Name <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
@@ -304,7 +304,7 @@
                                 <input type="checkbox" class="custom-control-input" id="subshop_is_active" 
                                        name="is_active" value="1" checked>
                                 <label class="custom-control-label" for="subshop_is_active">
-                                    Shop is Active?
+                                    Branch is Active?
                                 </label>
                             </div>
                         </div>
@@ -322,7 +322,7 @@
         </div>
     </div>
 
-    <!-- Edit SubShop Modal -->
+    <!-- Edit Branch Modal -->
     <div class="modal fade" id="editSubShopModal" tabindex="-1" role="dialog" aria-labelledby="editSubShopModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
@@ -331,7 +331,7 @@
                     @method('PUT')
                     <div class="modal-header">
                         <h5 class="modal-title" id="editSubShopModalLabel">
-                            <i class="fas fa-edit"></i> Edit Shop
+                            <i class="fas fa-edit"></i> Edit Branch
                         </h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
@@ -342,7 +342,7 @@
                         
                         <div class="form-group">
                             <label for="edit_subshop_name">
-                                Shop Name <span class="text-danger">*</span>
+                                Branch Name <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
@@ -381,7 +381,7 @@
                                 <input type="checkbox" class="custom-control-input" id="edit_subshop_is_active" 
                                        name="is_active" value="1">
                                 <label class="custom-control-label" for="edit_subshop_is_active">
-                                    Shop is Active?
+                                    Branch is Active?
                                 </label>
                             </div>
                         </div>
@@ -399,14 +399,14 @@
         </div>
     </div>
 
-    <!-- Edit Main Shop Modal -->
+    <!-- Edit Main Branch Modal -->
     <div class="modal fade" id="editMainShopModal" tabindex="-1" role="dialog" aria-labelledby="editMainShopModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <form id="editMainShopForm">
                     <div class="modal-header" style="background: linear-gradient(135deg, #FFD700, #FFA500); color: white;">
                         <h5 class="modal-title" id="editMainShopModalLabel">
-                            <i class="fas fa-edit"></i> Edit Main Shop Information
+                            <i class="fas fa-edit"></i> Edit Main Branch Information
                         </h5>
                         <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
@@ -415,14 +415,14 @@
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="edit_shop_name">
-                                Shop Name <span class="text-danger">*</span>
+                                Branch Name <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fas fa-store"></i></span>
                                 </div>
                                 <input type="text" class="form-control" id="edit_shop_name" name="shop_name"
-                                       placeholder="e.g: My Awesome Shop" required>
+                                       placeholder="e.g: My Awesome Branch" required>
                             </div>
                         </div>
 
@@ -463,7 +463,7 @@
                                 <textarea class="form-control" id="edit_shop_description" name="shop_description"
                                           placeholder="Brief description of your shop..." rows="3"></textarea>
                             </div>
-                            <small class="form-text text-muted">Optional: Add a description for your shop</small>
+                            <small class="form-text text-muted">Optional: Add a description for your Branch</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -471,7 +471,7 @@
                             <i class="fas fa-times"></i> Cancel
                         </button>
                         <button type="submit" class="btn btn-warning">
-                            <i class="fas fa-save"></i> Update Shop
+                            <i class="fas fa-save"></i> Update Branch
                         </button>
                     </div>
                 </form>
@@ -507,7 +507,7 @@
         --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Main Shop Card - Professional Design */
+    /* Main Branches Card - Professional Design */
     .main-shop-card {
         border: none;
         border-radius: var(--border-radius);
@@ -1046,7 +1046,7 @@
         $('#editMainShopModal').modal('show');
     }
 
-    // Edit SubShop Function
+    // Edit Branch Function
     function editSubShop(id, name, phone, address, isActive) {
         $('#edit_subshop_id').val(id);
         $('#edit_subshop_name').val(name);
@@ -1087,7 +1087,7 @@
             $('#editMainShopForm')[0].reset();
         });
         
-        // Add click event listener to the Add New Shop button
+        // Add click event listener to the Add New Branch button
         $('button[data-target="#addSubShopModal"]').on('click', function(e) {
             console.log('Add New Shop button clicked');
             console.log('Button disabled?', $(this).prop('disabled'));
@@ -1103,7 +1103,7 @@
         });
     });
 
-    // Handle Main Shop Edit Form Submission
+    // Handle Main Branch Edit Form Submission
     $('#editMainShopForm').on('submit', function(e) {
         e.preventDefault();
         
@@ -1126,7 +1126,7 @@
             },
             success: function(response) {
                 if (response.success) {
-                    // Update the displayed shop information
+                    // Update the displayed Branch information
                     $('.main-shop-card .card-body p:contains("Name:")').html('<strong style="color: #8B4513;">Name:</strong> ' + response.shop.name);
                     $('.main-shop-card .card-body p:contains("Phone:")').html('<strong style="color: #8B4513;">Phone:</strong> ' + response.shop.phone);
                     $('.main-shop-card .card-body p:contains("Address:")').html('<strong style="color: #8B4513;">Address:</strong> ' + response.shop.address);
@@ -1182,14 +1182,14 @@
         });
     });
 
-    // Delete SubShop with SweetAlert
+    // Delete Branches with SweetAlert
     $(document).on('click', '.delete-subshop-btn', function() {
         const subshopId = $(this).data('subshop-id');
         const subshopName = $(this).data('subshop-name');
 
         Swal.fire({
             title: 'Are you sure?',
-            text: `You are about to delete the subshop "${subshopName}". This action cannot be undone!`,
+            text: `You are about to delete the Branch "${subshopName}". This action cannot be undone!`,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',

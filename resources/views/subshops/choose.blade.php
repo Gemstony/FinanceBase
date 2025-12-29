@@ -1,6 +1,6 @@
 @extends('adminlte::page')
 
-@section('title', 'Choose Shop')
+@section('title', 'Choose Branch')
 
 @section('content_header')
 <!-- <div class="d-flex align-items-center justify-content-between">
@@ -38,15 +38,15 @@
 
     <div class="card shop-selection-card">
       <div class="card-header">
-        <h3 class="card-title mb-0"><i class="fas fa-shopping-bag mr-2"></i>Shop Selection</h3>
+        <h3 class="card-title mb-0"><i class="fas fa-shopping-bag mr-2"></i>Branch Selection</h3>
       </div>
       <div class="card-body" style="padding: 2rem;">
         @if($subshops->isEmpty())
           <div class="text-center text-muted py-5">
             <i class="fas fa-store-slash fa-4x mb-4 empty-state-icon"></i>
-            <h4 class="mb-2" style="color: #2d3748; font-weight: 600;">No shops yet</h4>
-            <p class="mb-4">Create your first shop to get started with inventory and sales.</p>
-            <p class="small text-muted mb-4">Shops help you separate inventory, sales and staff by location.</p>
+            <h4 class="mb-2" style="color: #2d3748; font-weight: 600;">No Braches yet</h4>
+            <p class="mb-4">Create your first Branch to get started.</p>
+            <p class="small text-muted mb-4">Branches help you separate loans, loans products, staff and etc, by location.</p>
             @if($canCreate)
               <button type="button" class="btn btn-primary btn-lg"
                 @if($canAddMore)
@@ -54,13 +54,13 @@
                 @else
                   disabled
                 @endif>
-                <i class="fas fa-plus"></i> Add New Shop
+                <i class="fas fa-plus"></i> Add New Branch
                 @unless($canAddMore)
                   <i class="fas fa-lock ml-1"></i>
                 @endunless
               </button>
               @unless($canAddMore)
-                <p class="small text-danger mt-3 mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Subshop limit reached. Please contact admin to increase your limit.</p>
+                <p class="small text-danger mt-3 mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Branches limit reached. Please contact admin to increase your limit.</p>
               @endunless
             @endif
           </div>
@@ -69,7 +69,7 @@
             @csrf
             <input type="hidden" name="intended" value="{{ $intended }}">
             <div class="form-group">
-              <label class="font-weight-semibold">Select a shop</label>
+              <label class="font-weight-semibold">Select a branch</label>
               <p class="text-muted small mb-2">This sets your active workspace. You can switch anytime.</p>
               <select name="subshop_id" class="custom-select" required>
                 @foreach($subshops as $s)
@@ -88,16 +88,16 @@
                   @else
                     disabled
                   @endif>
-                  <i class="fas fa-plus"></i> Add New Shop
+                  <i class="fas fa-plus"></i> Add New Branch
                   @unless($canAddMore)
                     <i class="fas fa-lock ml-1"></i>
                   @endunless
                 </button>
               @endif
             </div>
-            <p class="small text-muted mt-3 mb-0">Tip: If you don't see your shop, click "Add New Shop" to create it.</p>
+            <p class="small text-muted mt-3 mb-0">Tip: If you don't see your Branch, click "Add New Branch" to create it.</p>
             @if($canCreate && !$canAddMore)
-              <p class="small text-danger mt-2 mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Subshop limit reached. Please contact admin to increase your limit.</p>
+              <p class="small text-danger mt-2 mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Branch limit reached. Please contact admin to increase your limit.</p>
             @endif
           </form>
         @endif
@@ -106,7 +106,7 @@
 
 
 
-    <!-- Subshop Usage Info (if applicable) -->
+    <!-- Branches Usage Info (if applicable) -->
     @if($canCreate && $maxSubshops > 0)
       @php
         $usagePercentage = min(($currentSubshops / $maxSubshops) * 100, 100);
@@ -114,7 +114,7 @@
       <div class="info-box {{ $usagePercentage >= 90 ? 'bg-danger' : ($usagePercentage >= 70 ? 'bg-warning' : 'bg-info') }} mb-3">
         <span class="info-box-icon"><i class="fas fa-chart-bar"></i></span>
         <div class="info-box-content">
-          <span class="info-box-text">Subshop Usage</span>
+          <span class="info-box-text">Branch Usage</span>
           <span class="info-box-number">
             {{ $currentSubshops }}/{{ $maxSubshops }}
             <small>({{ number_format($usagePercentage, 1) }}% used)</small>
@@ -130,9 +130,9 @@
           </div>
           <div class="progress-description">
             @if($canAddMore)
-              <i class="fas fa-check-circle text-success"></i> {{ $maxSubshops - $currentSubshops }} subshops remaining
+              <i class="fas fa-check-circle text-success"></i> {{ $maxSubshops - $currentSubshops }} Branches remaining
             @else
-              <i class="fas fa-exclamation-triangle text-danger"></i> Subshop limit reached - Contact admin to increase limit
+              <i class="fas fa-exclamation-triangle text-danger"></i> Branch limit reached - Contact admin to increase limit
             @endif
           </div>
         </div>
@@ -143,7 +143,7 @@
   </div>
 </div>
 
-<!-- Add SubShop Modal -->
+<!-- Add Branch Modal -->
 <div class="modal fade" id="addSubShopModal" tabindex="-1" role="dialog" aria-labelledby="addSubShopModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
@@ -151,7 +151,7 @@
                 @csrf
                 <div class="modal-header">
                     <h5 class="modal-title" id="addSubShopModalLabel">
-                        <i class="fas fa-plus-circle"></i> Add New Shop
+                        <i class="fas fa-plus-circle"></i> Add New Branch
                     </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
@@ -160,7 +160,7 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="subshop_name">
-                            Shop Name <span class="text-danger">*</span>
+                            Branch Name <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
                             <div class="input-group-prepend">
@@ -205,10 +205,10 @@
                             <input type="checkbox" class="custom-control-input" id="subshop_is_active" 
                                    name="is_active" value="1" checked>
                             <label class="custom-control-label" for="subshop_is_active">
-                                Shop is Active?
+                                Branch is Active?
                             </label>
                         </div>
-                        <small class="form-text text-muted">Inactive shops are hidden from selection until reactivated.</small>
+                        <small class="form-text text-muted">Inactive Branches are hidden from selection until reactivated.</small>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -647,7 +647,7 @@ $(document).ready(function() {
                 swalCustom.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: 'Shop added successfully!',
+                    text: 'Branch added successfully!',
                     timer: 2000,
                     timerProgressBar: true,
                     showConfirmButton: false

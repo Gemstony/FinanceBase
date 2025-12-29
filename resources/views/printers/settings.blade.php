@@ -8,7 +8,7 @@
     <div>
       <h1 class="d-none d-md-block text-light"><i class="fas fa-cog"></i> Printer Settings</h1>
       <h1 class="d-md-none text-light"><i class="fas fa-cog"></i> Printers</h1>
-      <div class="small text-light-50">Shop: {{ isset($subshop) && $subshop ? $subshop->name : '-' }}</div>
+      <div class="small text-light-50">Branch: {{ isset($subshop) && $subshop ? $subshop->name : '-' }}</div>
     </div>
     @can('view_print_jobs')
     <a href="{{ route('printers.jobs.index') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-print"></i> Print Jobs</a>

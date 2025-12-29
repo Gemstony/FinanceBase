@@ -9,7 +9,7 @@
                 <div>
                     <h1 class="d-none d-md-block text-light"><i class="fas fa-palette"></i> UI Settings</h1>
                     <h1 class="d-md-none text-light"><i class="fas fa-palette"></i> UI Settings</h1>
-                    <p class="mb-0 text-light">Customize sidebar and navbar theme for your shop.</p>
+                    <p class="mb-0 text-light">Customize sidebar and navbar theme for your Finance .</p>
                 </div>
                 <a href="{{ route('settings.profile.show') }}" class="btn btn-light">
                     <i class="fas fa-user-cog mr-1"></i> Profile Settings

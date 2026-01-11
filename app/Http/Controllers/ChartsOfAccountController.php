@@ -8,6 +8,8 @@ use App\Models\ChartsOfAccount;
 use App\Models\SubShop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PDF;
 
 class ChartsOfAccountController extends Controller
@@ -115,32 +117,33 @@ class ChartsOfAccountController extends Controller
         }
 
        
-
+        // Aggregate across all subshops under the same shop
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
         // Get dropdown options
-        $accountClasses = AccountClass::where('subshop_id', $subshopId)
+        $accountClasses = AccountClass::whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
         
-        $accountGroups = AccountGroups::where('subshop_id', $subshopId)
+        $accountGroups = AccountGroups::whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         // Get all charts of account for display
         $charts_of_accounts = ChartsOfAccount::with(['accountClass', 'accountGroup'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->when(request('search'), function ($query) {
             $query->where('account_name', 'like', '%' . request('search') . '%');
         })->paginate(10)->appends(request()->query());
 
         // Summary counts
-        $total_accounts = ChartsOfAccount::count();
-        $active_accounts = ChartsOfAccount::where('is_active', 1)->count();
-        $inactive_accounts = ChartsOfAccount::where('is_active', 0)->count();
-        $system_accounts = ChartsOfAccount::where('is_system_account', 1)->count();
-        $user_accounts = ChartsOfAccount::where('is_system_account', 0)->count();
+        $total_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->count();
+        $active_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->where('is_active', 1)->count();
+        $inactive_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->where('is_active', 0)->count();
+        $system_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->where('is_system_account', 1)->count();
+        $user_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->where('is_system_account', 0)->count();
 
 
         return view('accounting.charts_of_account.charts_of_accounts', compact(
@@ -173,7 +176,8 @@ class ChartsOfAccountController extends Controller
             'account_name'        => 'required|string|max:255',
             'description'         => 'nullable|string',
 
-            'account_class_id'    => 'required|exists:account_classes,id',
+            // We'll trust the group and derive the class server-side to avoid mismatch
+            'account_class_id'    => 'nullable|exists:account_classes,id',
             'account_group_id'    => 'required|exists:account_groups,id',
 
             'cash_flow_impact'    => 'required|in:IN,OUT,NONE',
@@ -188,66 +192,84 @@ class ChartsOfAccountController extends Controller
         ]);
 
         // ===========================
-        // AUTO ACCOUNT CODE GENERATION
+        // VALIDATE AND DERIVE CLASS FROM GROUP
         // ===========================
 
-        // 1. Get class prefix code (e.g 1, 2, 3, 4, 5)
-        $prefix = AccountClass::where([
-            'id' => $validated['account_class_id'],
-            'subshop_id' => session('subshop_id')
-        ])->value('code');
-
-        if (!$prefix) {
-            return response()->json(['error' => 'Invalid Account Class'], 422);
-        }
-
-        // 2. Get last account code within same group & class
-        $lastAccount = ChartsOfAccount::where('account_group_id', $validated['account_group_id'])
-            ->where('account_class_id', $validated['account_class_id'])
-            ->where('subshop_id', session('subshop_id'))
-            ->orderBy('account_code', 'DESC')
+        $subshopId = session('subshop_id');
+        $group = AccountGroups::where('id', $validated['account_group_id'])
+            ->where('subshop_id', $subshopId)
             ->first();
-
-        if ($lastAccount) {
-            $number = intval(substr($lastAccount->account_code, strlen($prefix))) + 1;
-        } else {
-            $number = 1;
+        if (!$group) {
+            return back()->withInput()->with('error', 'Invalid Account Group for selected branch.');
         }
 
-        // Example: 1 + 01 → 101
-        $accountCode = $prefix . str_pad($number, 3, '0', STR_PAD_LEFT);
+        $class = AccountClass::where('id', $group->class_id)
+            ->where('subshop_id', $subshopId)
+            ->first();
+        if (!$class) {
+            return back()->withInput()->with('error', 'Invalid Account Class.');
+        }
+        $validated['account_class_id'] = $class->id; // enforce authoritative mapping
 
         // ===========================
-        // CREATE ACCOUNT
+        // AUTO ACCOUNT CODE GENERATION + CREATE (TRANSACTION)
         // ===========================
-
 
         try {
-            $account = ChartsOfAccount::create([
-            'account_code'        => $accountCode,
-            'account_name'        => $validated['account_name'],
-            'description'         => $validated['description'] ?? null,
+            $account = DB::transaction(function () use ($validated, $subshopId, $class) {
+                $prefix = $class->code; // e.g., 1,2,3,4,5
+                if (!$prefix) {
+                    throw new \RuntimeException('Missing class code for account code generation.');
+                }
 
-            'account_class_id'    => $validated['account_class_id'],
-            'account_group_id'    => $validated['account_group_id'],
+                // Find the latest code by class prefix across all accounts to honor unique(account_code)
+                $lastAccount = ChartsOfAccount::where('account_code', 'like', $prefix . '%')
+                    ->lockForUpdate()
+                    ->orderBy('account_code', 'DESC')
+                    ->first();
 
-            'cash_flow_impact'    => $validated['cash_flow_impact'],
-            'cash_flow_category'  => $validated['cash_flow_category'] ?? null,
+                if ($lastAccount) {
+                    $number = intval(substr($lastAccount->account_code, strlen($prefix))) + 1;
+                } else {
+                    $number = 1;
+                }
+                $accountCode = $prefix . str_pad($number, 3, '0', STR_PAD_LEFT);
 
-            'equity_impact'       => $validated['equity_impact'],
-            'equity_category'     => $validated['equity_category'] ?? null,
+                return ChartsOfAccount::create([
+                    'account_code'        => $accountCode,
+                    'account_name'        => $validated['account_name'],
+                    'description'         => $validated['description'] ?? null,
 
-            'is_customer_account' => $validated['is_customer_account'] ?? false,
-            'is_system_account'   => $validated['is_system_account'] ?? false,
-            'is_active'           => $validated['is_active'] ?? true,
+                    'account_class_id'    => $validated['account_class_id'],
+                    'account_group_id'    => $validated['account_group_id'],
 
-            'subshop_id'          => session('subshop_id'),
-            'created_by'          => Auth::id(),
-        ]);
+                    'cash_flow_impact'    => $validated['cash_flow_impact'],
+                    'cash_flow_category'  => $validated['cash_flow_category'] ?? null,
+
+                    'equity_impact'       => $validated['equity_impact'],
+                    'equity_category'     => $validated['equity_category'] ?? null,
+
+                    'is_customer_account' => $validated['is_customer_account'] ?? false,
+                    'is_system_account'   => $validated['is_system_account'] ?? false,
+                    'is_active'           => $validated['is_active'] ?? true,
+
+                    'subshop_id'          => $subshopId,
+                    'created_by'          => Auth::id(),
+                ]);
+            });
 
             return redirect()->route('accounting.charts_of_account.index')->with('success', 'Chart of Account created successfully.');
         } catch (\Throwable $e) {
-            return back()->withInput()->with('error', 'Failed to create Chart of account.');
+            Log::error('Failed to create Chart of Account', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'payload' => $validated,
+                'subshop_id' => session('subshop_id'),
+                'user_id' => Auth::id(),
+            ]);
+            $detailed = sprintf('%s in %s:%d', $e->getMessage(), $e->getFile(), $e->getLine());
+            $userMsg = config('app.debug') ? $detailed : 'Failed to create Chart of account.';
+            return back()->withInput()->with('error', $userMsg);
         }
     }
 

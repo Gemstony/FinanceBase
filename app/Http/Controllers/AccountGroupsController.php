@@ -22,8 +22,15 @@ class AccountGroupsController extends Controller
         }
         
         $subshop = SubShop::findOrFail($subshopId);
-        $accountGroups = AccountGroups::with('class')->where('subshop_id', $subshopId)->latest()->get();
-        $account_classes = AccountClass::where('subshop_id', $subshopId)->latest()->get();
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+        $accountGroups = AccountGroups::with('class')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->latest()
+            ->get();
+        $account_classes = AccountClass::whereIn('subshop_id', $shopSubshopIds)
+            ->latest()
+            ->get();
 
         return view('accounting.accounting_settings.account_groups', compact('subshop', 'accountGroups', 'account_classes'));
     }

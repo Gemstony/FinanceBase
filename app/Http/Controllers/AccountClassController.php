@@ -22,7 +22,11 @@ class AccountClassController extends Controller
         }
         
         $subshop = SubShop::findOrFail($subshopId);
-        $accountClasses = AccountClass::where('subshop_id', $subshopId)->latest()->get();
+        // Collect all subshops under the same parent shop
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+        // Fetch account classes across all subshops for this shop
+        $accountClasses = AccountClass::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
         return view('accounting.accounting_settings.account_class', compact('subshop', 'accountClasses'));
     }

@@ -5,11 +5,17 @@ use App\Http\Controllers\AccountGroupsController;
 use App\Http\Controllers\AccountingSettingsController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ChartsOfAccountController;
+use App\Http\Controllers\CollateralTypesController;
+use App\Http\Controllers\CustomerCollateralsController;
 use App\Http\Controllers\CustomersController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InterestCycleController;
+use App\Http\Controllers\InterestMethodsController;
 use App\Http\Controllers\InvoicesController;
+use App\Http\Controllers\LoanFeesController;
+use App\Http\Controllers\LoanPenaltiesController;
 use App\Http\Controllers\LoanProductTypesController;
 use App\Http\Controllers\LoansSettingsController;
 use App\Http\Controllers\ProfileController;
@@ -227,6 +233,71 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{frequency}', [RepaymentFrequenciesController::class, 'update'])->name('update');
             Route::delete('/{frequency}', [RepaymentFrequenciesController::class, 'destroy'])->name('destroy');
         });
+
+        // Interest cycles Routes
+        Route::prefix('loans/loans_settings/interest_cycles')->name('loans.interest_cycles.')->group(function () {
+            Route::get('/', [InterestCycleController::class, 'index'])->name('index');
+            Route::post('/', [InterestCycleController::class, 'store'])->name('store');
+            Route::put('/{interestCycle}', [InterestCycleController::class, 'update'])->name('update');
+            Route::delete('/{interestCycle}', [InterestCycleController::class, 'destroy'])->name('destroy');
+        });
+
+        // Interest methods Routes
+        Route::prefix('loans/loans_settings/interest_methods')->name('loans.interest_methods.')->group(function () {
+            Route::get('/', [InterestMethodsController::class, 'index'])->name('index');
+            Route::post('/', [InterestMethodsController::class, 'store'])->name('store');
+            Route::put('/{interestMethod}', [InterestMethodsController::class, 'update'])->name('update');
+            Route::delete('/{interestMethod}', [InterestMethodsController::class, 'destroy'])->name('destroy');
+        });
+
+        // Loan fees Routes
+        Route::prefix('loans/loans_settings/loan_fees')->name('loans.loan_fees.')->group(function () {
+            Route::get('/', [LoanFeesController::class, 'index'])->name('index');
+            Route::post('/', [LoanFeesController::class, 'store'])->name('store');
+            Route::put('/{loanFee}', [LoanFeesController::class, 'update'])->name('update');
+            Route::delete('/{loanFee}', [LoanFeesController::class, 'destroy'])->name('destroy');
+        });
+
+
+        // Loan Penalties Routes
+        Route::prefix('loans/loans_settings/loan_penalties')->name('loans.loan_penalties.')->group(function () {
+            Route::get('/', [LoanPenaltiesController::class, 'index'])->name('index');
+            Route::post('/', [LoanPenaltiesController::class, 'store'])->name('store');
+            Route::put('/{loanPenalty}', [LoanPenaltiesController::class, 'update'])->name('update');
+            Route::delete('/{loanPenalty}', [LoanPenaltiesController::class, 'destroy'])->name('destroy');
+        });
+
+
+
+
+
+
+        // Collateral Types (the system adminstrator specify which collateral the system accept)
+        Route::prefix('loans/loans_settings/collateral_types')->name('loans.collateral_types.')->group(function () {
+            Route::get('/', [CollateralTypesController::class, 'index'])->name('index');
+            Route::post('/', [CollateralTypesController::class, 'store'])->name('store');
+            Route::put('/{collateralType}', [CollateralTypesController::class, 'update'])->name('update');
+            Route::delete('/{collateralType}', [CollateralTypesController::class, 'destroy'])->name('destroy');
+        });
+
+
+        // Customer Collaterals registry 
+        Route::prefix('loans/loans_settings/customer_collaterals')->name('loans.customer_collaterals.')->group(function () {
+            Route::get('/', [CustomerCollateralsController::class, 'index'])->name('index');
+            Route::post('/', [CustomerCollateralsController::class, 'store'])->name('store');
+            Route::put('/{customerCollateral}', [CustomerCollateralsController::class, 'update'])->name('update');
+            Route::delete('/{customerCollateral}', [CustomerCollateralsController::class, 'destroy'])->name('destroy');
+            
+            // Collateral Documents routes
+            Route::get('/{customerCollateral}/documents', [CustomerCollateralsController::class, 'getDocuments'])->name('documents');
+            Route::post('/{customerCollateral}/documents', [CustomerCollateralsController::class, 'storeDocument'])->name('documents.store');
+            Route::get('/documents/{document}/download', [CustomerCollateralsController::class, 'downloadDocument'])->name('documents.download');
+            Route::post('/documents/{document}/verify', [CustomerCollateralsController::class, 'verifyDocument'])->name('documents.verify');
+            Route::delete('/documents/{document}', [CustomerCollateralsController::class, 'deleteDocument'])->name('documents.delete');
+        });
+
+
+
 
         
         Route::get('/dashboard/analytics/payments-daily', [DashboardController::class, 'paymentsDaily'])->name('dashboard.analytics.payments');

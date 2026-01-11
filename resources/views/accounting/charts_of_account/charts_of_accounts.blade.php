@@ -10,7 +10,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-exchange-alt"></i> Charts of Account</h1>
                 <div class="small text-light-50">Branch: {{ $subshop->name }}</div>
             </div>
-            <a href="{{ route('invoices.index') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-file-invoice"></i> Invoices</a>
+            <a href="{{ route('accounting.accounting_settings.index') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-cog"></i> Settings</a>
         </div>
     </div>
 @stop
@@ -104,7 +104,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($charts_of_accounts as $charts_of_account)
+                        @foreach($charts_of_accounts as $charts_of_account)
                         <tr>
                             <td>{{ $charts_of_account->account_code ?? '-' }}</td>
                             <td>{{ $charts_of_account->account_name ?? '-' }}</td>
@@ -192,11 +192,7 @@
                                 @endif
                             </td>
                         </tr>
-                        @empty
-                        <tr>
-                            <td colspan="10" class="text-center text-muted py-5"><i class="fas fa-inbox"></i> No accounts found.</td>
-                        </tr>
-                        @endforelse
+                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -217,7 +213,7 @@
   <div class="modal-dialog modal-lg" role="document"> 
     <div class="modal-content">
       <div class="modal-header bg-primary">
-        <h5 class="modal-title" id="addAccountModalLabel">Add Chart of Account</h5>
+        <h5 class="modal-title text-light" id="addAccountModalLabel">Add Chart of Account</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -235,28 +231,27 @@
                 <textarea name="description" id="description" class="form-control" rows="2">{{ old('description') }}</textarea>
             </div>
 
-            <div class="form-group">
-                <label for="account_class_id">Account Class *</label>
-                <select name="account_class_id" id="account_class_id" class="form-control" required>
-                    <option value="">-- Select Account Class --</option>
-                    @foreach($accountClasses as $class)
-                        <option value="{{ $class->id }}" {{ old('account_class_id') == $class->id ? 'selected' : '' }}>
-                            {{ $class->name }} ({{ $class->code }})
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+
 
             <div class="form-group">
                 <label for="account_group_id">Account Group *</label>
                 <select name="account_group_id" id="account_group_id" class="form-control" required>
                     <option value="">-- Select Account Group --</option>
                     @foreach($accountGroups as $group)
-                        <option value="{{ $group->id }}" {{ old('account_group_id') == $group->id ? 'selected' : '' }}>
-                            {{ $group->name }}
+                        <option value="{{ $group->id }}"
+                                data-class-id="{{ $group->class_id }}"
+                                data-class-name="{{ optional($group->class)->name }}{{ optional($group->class) && optional($group->class)->code ? ' ('.optional($group->class)->code.')' : '' }}"
+                                {{ old('account_group_id') == $group->id ? 'selected' : '' }}>
+                            {{ $group->code }}: {{ $group->name }} ({{ $group->class->name }})
                         </option>
                     @endforeach
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="account_class_name">Account Class *</label>
+                <input type="text" id="account_class_name" class="form-control" value="" readonly>
+                <input type="hidden" name="account_class_id" id="account_class_id" value="{{ old('account_class_id') }}" required>
             </div>
 
             <div class="row">
@@ -337,8 +332,8 @@
 <div class="modal fade" id="editAccountModal" tabindex="-1" role="dialog" aria-labelledby="editAccountModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
-      <div class="modal-header bg-warning">
-        <h5 class="modal-title" id="editAccountModalLabel">Edit Chart of Account</h5>
+      <div class="modal-header bg-primary">
+        <h5 class="modal-title text-light" id="editAccountModalLabel">Edit Chart of Account</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -358,15 +353,9 @@
             </div>
 
             <div class="form-group">
-                <label for="edit_account_class_id">Account Class *</label>
-                <select name="account_class_id" id="edit_account_class_id" class="form-control" required>
-                    <option value="">-- Select Account Class --</option>
-                    @foreach($accountClasses as $class)
-                        <option value="{{ $class->id }}">
-                            {{ $class->name }} ({{ $class->code }})
-                        </option>
-                    @endforeach
-                </select>
+                <label for="edit_account_class_name">Account Class *</label>
+                <input type="text" id="edit_account_class_name" class="form-control" value="" readonly>
+                <input type="hidden" name="account_class_id" id="edit_account_class_id" value="" required>
             </div>
 
             <div class="form-group">
@@ -374,7 +363,9 @@
                 <select name="account_group_id" id="edit_account_group_id" class="form-control" required>
                     <option value="">-- Select Account Group --</option>
                     @foreach($accountGroups as $group)
-                        <option value="{{ $group->id }}">
+                        <option value="{{ $group->id }}"
+                                data-class-id="{{ $group->class_id }}"
+                                data-class-name="{{ optional($group->class)->name }}{{ optional($group->class) && optional($group->class)->code ? ' ('.optional($group->class)->code.')' : '' }}">
                             {{ $group->name }}
                         </option>
                     @endforeach
@@ -678,8 +669,8 @@ document.addEventListener('DOMContentLoaded', function(){
         $('#editAccountForm').attr('action', `{{ url('/accounting/charts_of_account') }}/${id}`);
         $('#edit_account_name').val($(this).data('account_name'));
         $('#edit_description').val($(this).data('description'));
-        $('#edit_account_class_id').val($(this).data('account_class_id'));
-        $('#edit_account_group_id').val($(this).data('account_group_id'));
+        // Set group then sync class from option data
+        $('#edit_account_group_id').val($(this).data('account_group_id')).trigger('change');
         $('#edit_cash_flow_impact').val($(this).data('cash_flow_impact'));
         $('#edit_cash_flow_category').val($(this).data('cash_flow_category'));
         $('#edit_equity_impact').val($(this).data('equity_impact'));
@@ -760,18 +751,44 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 
 $(function () {
-    // Initialize DataTable
-    $('#TransactionsTable').DataTable({
+    // Initialize DataTable with guard against double init
+    var $txTable = $('#TransactionsTable');
+    if ($.fn.DataTable.isDataTable($txTable)) {
+        $txTable.DataTable().clear().destroy();
+    }
+    $txTable.DataTable({
         "order": [],
         "pageLength": 15,
         "language": {
             "search": "Search accounts:",
             "lengthMenu": "Show _MENU_ accounts per page",
             "zeroRecords": "No accounts found",
+            "emptyTable": "No accounts available",
             "info": "Showing _START_ to _END_ of _TOTAL_ accounts",
             "infoEmpty": "No accounts available",
             "infoFiltered": "(filtered from _MAX_ total accounts)"
         }
+    });
+
+    function syncClassFromGroup(groupSelector, classIdSelector, classNameSelector){
+        const $sel = $(groupSelector);
+        const $opt = $sel.find('option:selected');
+        const clsId = $opt.data('class-id') || '';
+        const clsName = $opt.data('class-name') || '';
+        $(classIdSelector).val(clsId);
+        $(classNameSelector).val(clsName);
+    }
+
+    // Add modal: when group changes, set class hidden + display
+    $('#account_group_id').on('change', function(){
+        syncClassFromGroup('#account_group_id', '#account_class_id', '#account_class_name');
+    });
+    // On load, if there's a selected group (old input), sync once
+    syncClassFromGroup('#account_group_id', '#account_class_id', '#account_class_name');
+
+    // Edit modal: sync when the group changes
+    $('#edit_account_group_id').on('change', function(){
+        syncClassFromGroup('#edit_account_group_id', '#edit_account_class_id', '#edit_account_class_name');
     });
 });
 </script>

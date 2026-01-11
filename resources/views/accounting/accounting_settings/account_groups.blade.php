@@ -324,8 +324,8 @@ $(document).ready(function() {
         icon: 'success',
         title: 'Success!',
         text: '{{ session('success') }}',
-        showConfirmButton: false,
-        timer: 3000
+        showConfirmButton: true
+
     });
     @endif
 
@@ -334,7 +334,9 @@ $(document).ready(function() {
         icon: 'error',
         title: 'Error!',
         text: '{{ session('error') }}',
-        showConfirmButton: true
+        showConfirmButton: true,
+        timerProgressBar: true, 
+        timer: 3000
     });
     @endif
 });

@@ -7,8 +7,8 @@
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="d-none d-md-block text-light"><i class="fas fa-tags"></i> Loans Settings</h1>
-                <h1 class="d-md-none text-light"><i class="fas fa-tags"></i> Loans Settings</h1>
+                <h1 class="d-none d-md-block text-light"><i class="fas fa-cogs"></i> Loans Settings</h1>
+                <h1 class="d-md-none text-light"><i class="fas fa-cogs"></i> Loans Settings</h1>
                 <p class="mb-0 text-light">Managing Loans Settings for: <strong>{{ $subshop->name }}</strong></p>
             </div>
             <a href="{{ route('categories.subshops') }}" class="btn btn-light">
@@ -67,45 +67,152 @@
                 </div>
             </div>
 
-            <!-- loan products Card -->
-            <!-- <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-success elevation-1">
-                        <i class="fas fa-code-branch"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Laon Product type</span>
-                        <span class="info-box-number">
-                            Manage Loan product types that used before creating new loan product
-                        </span>
-                        <div class="mt-2">
-                            <a href="{{ Route('loans.loan_product_types.index') }}" class="btn btn-sm btn-outline-success">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
-
-            <!-- Repayment Frequencies Card -->
+            <!-- Interest Cycles Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-info elevation-1">
-                        <i class="fas fa-users-cog"></i>
+                    <span class="info-box-icon bg-primary elevation-1">
+                        <i class="fas fa-sync-alt"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Repayment Frequencies</span>
+                        <span class="info-box-text">Interest Cycles</span>
                         <span class="info-box-number">
-                            Manage repayment frequencies
+                            Manage interest cycles for loan calculations
                         </span>
                         <div class="mt-2">
-                            <a href="{{ Route('loans.repayment_frequencies.index') }}" class="btn btn-sm btn-outline-info">
+                            <a href="{{ Route('loans.interest_cycles.index') }}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Repayment Frequencies Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-warning elevation-1">
+                        <i class="fas fa-calendar-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Repayment Frequencies</span>
+                        <span class="info-box-number">
+                            Manage repayment schedules and frequencies
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.repayment_frequencies.index') }}" class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Interest Methods Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-percentage"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Interest Methods</span>
+                        <span class="info-box-number">
+                            Manage interest calculation methods
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.interest_methods.index') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Loan Fees Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Fees</span>
+                        <span class="info-box-number">
+                            Manage loan fees used before creating new loan product
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.loan_fees.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loan Penalties Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Penalties</span>
+                        <span class="info-box-number">
+                            Manage loan penalties used before creating new loan product
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.loan_penalties.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collateral Types -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-warning elevation-1">
+                        <i class="fas fa-home"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Collateral Types</span>
+                        <span class="info-box-number">
+                            Manage collateral types used before creating new loan product
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.collateral_types.index') }}" class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+           <!-- Customer Collateral card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-home"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Customer Collaterals</span>
+                        <span class="info-box-number">
+                            Manage customer collaterals used before creating new loan product
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.customer_collaterals.index') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+
+
         </div>
     </div>
 </div>
@@ -189,7 +296,8 @@
             icon: 'success',
             title: 'Success!',
             text: "{{ session('success') }}",
-            showConfirmButton: false,
+            showConfirmButton: true,
+            timerProgressBar: true, 
             timer: 2500
         });
     });
@@ -202,6 +310,19 @@
             title: 'Error!',
             text: "{{ session('error') }}",
             showConfirmButton: true
+
+        });
+    });
+    @endif
+
+    @if(session('info'))
+    document.addEventListener('DOMContentLoaded', function() {
+        Swal.fire({
+            icon: 'info',
+            title: 'Info!',
+            text: "{{ session('info') }}",
+            showConfirmButton: true
+
         });
     });
     @endif

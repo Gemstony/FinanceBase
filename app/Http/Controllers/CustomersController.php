@@ -24,6 +24,7 @@ class CustomersController extends Controller
         }
         
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
         if($subshop->is_active != 1) {
             session()->forget('subshop_id');
@@ -33,7 +34,7 @@ class CustomersController extends Controller
 
         // Aggregate subquery: orders count and total spent per customer in current subshop (with optional date range)
         $statsSub = SalesOrders::selectRaw('customer_id, COUNT(*) as orders_count, COALESCE(SUM(grand_total),0) as total_spent')
-            ->where('subshop_id', $subshopId);
+            ->whereIn('subshop_id', $shopSubshopIds);
 
         // Apply date range to orders for stats (so filters affect counts/totals)
         if ($request->filled('date_from')) {
@@ -46,7 +47,7 @@ class CustomersController extends Controller
         $statsSub->groupBy('customer_id');
 
         // Base query with stats
-        $customers = Customers::where('customers.subshop_id', $subshopId)
+        $customers = Customers::whereIn('customers.subshop_id', $shopSubshopIds)
             ->leftJoinSub($statsSub, 'stats', function($join){
                 $join->on('stats.customer_id', '=', 'customers.id');
             })

@@ -14,17 +14,22 @@ class RepaymentFrequenciesController extends Controller
      */
     public function index(Request $request)
     {
-        $subshopId = session('subshop_id');
-        
-        if (!$subshopId) {
-            return redirect()->route('subshops.choose', ['intended' => route('loans.repayment_frequencies.index')]);
+        try {
+            $subshopId = session('subshop_id');
+            
+            if (!$subshopId) {
+                return redirect()->route('subshops.choose', ['intended' => route('loans.repayment_frequencies.index')]);
+            }
+            
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+            $repaymentFrequencies = RepaymentFrequencies::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
+
+            return view('loans.loans_settings.repayment_frequencies', compact('subshop', 'repaymentFrequencies'));
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to load repayment frequencies: ' . $e->getMessage());
         }
-        
-        $subshop = SubShop::findOrFail($subshopId);
-        $repaymentFrequencies = RepaymentFrequencies::where('subshop_id', $subshopId)->latest()->get();
-
-        return view('loans.loans_settings.repayment_frequencies', compact('subshop', 'repaymentFrequencies'));
-
     }
 
 
@@ -33,28 +38,32 @@ class RepaymentFrequenciesController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:repayment_frequencies,code',
-            'interval_days' => 'required|integer|min:1',
-            'max_installments' => 'nullable|integer|min:1|max:255',
-            'min_installments' => 'nullable|integer|min:1|max:255',
-            'subshop_id' => 'nullable|exists:subshops,id'
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'code' => 'required|string|max:10|unique:repayment_frequencies,code',
+                'interval_days' => 'required|integer|min:1',
+                'max_installments' => 'nullable|integer|min:1|max:255',
+                'min_installments' => 'nullable|integer|min:1|max:255',
+                'subshop_id' => 'nullable|exists:subshops,id'
+            ]);
 
-        $repaymentFrequency = RepaymentFrequencies::create([
-            'subshop_id' => session('subshop_id'),
-            'name' => $validated['name'],
-            'code' => $validated['code'],
-            'interval_days' => $validated['interval_days'],
-            'is_month_based' => $request->has('is_month_based'),
-            'max_installments' => $validated['max_installments'],
-            'min_installments' => $validated['min_installments'],
-            'is_active' => $request->has('is_active'),
-        ]);
+            $repaymentFrequency = RepaymentFrequencies::create([
+                'subshop_id' => session('subshop_id'),
+                'name' => $validated['name'],
+                'code' => $validated['code'],
+                'interval_days' => $validated['interval_days'],
+                'is_month_based' => $request->has('is_month_based'),
+                'max_installments' => $validated['max_installments'],
+                'min_installments' => $validated['min_installments'],
+                'is_active' => $request->has('is_active'),
+            ]);
 
-        return redirect()->back()->with('success', 'Repayment frequency created successfully!');
-
+            return redirect()->back()->with('success', 'Repayment frequency created successfully!');
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to create repayment frequency: ' . $e->getMessage())->withInput();
+        }
     }
 
 
@@ -63,34 +72,38 @@ class RepaymentFrequenciesController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $repaymentFrequency = RepaymentFrequencies::findOrFail($id);
+        try {
+            $repaymentFrequency = RepaymentFrequencies::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => [
-                'required',
-                'string',
-                'max:10',
-                Rule::unique('repayment_frequencies', 'code')->ignore($repaymentFrequency->id)
-            ],
-            'interval_days' => 'required|integer|min:1',
-            'max_installments' => 'nullable|integer|min:1|max:255',
-            'min_installments' => 'nullable|integer|min:1|max:255',
-            'subshop_id' => 'nullable|exists:subshops,id'
-        ]);
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'code' => [
+                    'required',
+                    'string',
+                    'max:10',
+                    Rule::unique('repayment_frequencies', 'code')->ignore($repaymentFrequency->id)
+                ],
+                'interval_days' => 'required|integer|min:1',
+                'max_installments' => 'nullable|integer|min:1|max:255',
+                'min_installments' => 'nullable|integer|min:1|max:255',
+                'subshop_id' => 'nullable|exists:subshops,id'
+            ]);
 
-        $repaymentFrequency->update([
-            'name' => $validated['name'],
-            'code' => $validated['code'],
-            'interval_days' => $validated['interval_days'],
-            'is_month_based' => $request->has('is_month_based'),
-            'max_installments' => $validated['max_installments'],
-            'min_installments' => $validated['min_installments'],
-            'is_active' => $request->has('is_active'),
-        ]);
+            $repaymentFrequency->update([
+                'name' => $validated['name'],
+                'code' => $validated['code'],
+                'interval_days' => $validated['interval_days'],
+                'is_month_based' => $request->has('is_month_based'),
+                'max_installments' => $validated['max_installments'],
+                'min_installments' => $validated['min_installments'],
+                'is_active' => $request->has('is_active'),
+            ]);
 
             return redirect()->back()->with('success', 'Repayment frequency updated successfully!');
-
+            
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to update repayment frequency: ' . $e->getMessage())->withInput();
+        }
     }
 
     /**

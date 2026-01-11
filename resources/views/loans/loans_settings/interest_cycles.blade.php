@@ -1,15 +1,15 @@
 @extends('adminlte::page')
 
-@section('title', 'Repayment Frequencies - ' . $subshop->name)
+@section('title', 'Interest Cycles - ' . $subshop->name)
 
 @section('content_header')
 <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="d-none d-md-block text-light"><i class="fas fa-clock"></i> Repayment Frequencies</h1>
-                <h1 class="d-md-none text-light"><i class="fas fa-clock"></i> Frequencies</h1>
-                <p class="mb-0 text-light">Managing repayment frequencies for: <strong>{{ $subshop->name }}</strong></p>
+                <h1 class="d-none d-md-block text-light"><i class="fas fa-clock"></i> Interest Cycles</h1>
+                <h1 class="d-md-none text-light"><i class="fas fa-clock"></i> Cycles</h1>
+                <p class="mb-0 text-light">Managing interest cycles for: <strong>{{ $subshop->name }}</strong></p>
             </div>
             <a href="{{ route('categories.subshops') }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Change Branch
@@ -22,11 +22,11 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
             <li class="breadcrumb-item"><a href="{{ route('loans.loans_settings.index') }}">Loans settings</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Repayment Frequencies</li>
+            <li class="breadcrumb-item active" aria-current="page">Interest Cycles</li>
         </ol>
     </nav>
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addRepaymentFrequencyModal">
-        <i class="fas fa-plus"></i> New Frequency
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addInterestCycleModal">
+        <i class="fas fa-plus"></i> New Cycle
     </button>
 </div>
 @stop
@@ -45,62 +45,53 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered table-striped table-hover" id="repaymentFrequencyTable">
+                <table class="table table-bordered table-striped table-hover" id="interestCycleTable">
                     <thead class="thead-light">
                         <tr>
                             <th>#</th>
                             <th>Code</th>
                             <th>Name</th>
                             <th>Interval Days</th>
-                            <th>Month Based</th>
-                            <th>Installments</th>
+                            <th>Installment Based</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($repaymentFrequencies as $index => $frequency)
+                        @forelse($interestCycles as $index => $cycle)
                         <tr>
                             <td>{{ $index + 1 }}</td>
-                            <td><span class="badge badge-info">{{ $frequency->code }}</span></td>
-                            <td>{{ $frequency->name }}</td>
-                            <td>{{ $frequency->interval_days }} days</td>
+                            <td><span class="badge badge-info">{{ $cycle->code }}</span></td>
+                            <td>{{ $cycle->name }}</td>
+                            <td>{{ $cycle->interval_days ?? 'N/A' }} days</td>
                             <td>
-                                <span class="badge {{ $frequency->is_month_based ? 'badge-primary' : 'badge-secondary' }}">
-                                    {{ $frequency->is_month_based ? 'Yes' : 'No' }}
+                                <span class="badge {{ $cycle->is_installment_based ? 'badge-primary' : 'badge-secondary' }}">
+                                    {{ $cycle->is_installment_based ? 'Yes' : 'No' }}
                                 </span>
                             </td>
                             <td>
-                                <small class="text-muted">
-                                    Min: {{ $frequency->min_installments ?? 'N/A' }} / 
-                                    Max: {{ $frequency->max_installments ?? 'N/A' }}
-                                </small>
-                            </td>
-                            <td>
-                                <span class="badge {{ $frequency->is_active ? 'badge-success' : 'badge-secondary' }}">
-                                    {{ $frequency->is_active ? 'Active' : 'Inactive' }}
+                                <span class="badge {{ $cycle->is_active ? 'badge-success' : 'badge-secondary' }}">
+                                    {{ $cycle->is_active ? 'Active' : 'Inactive' }}
                                 </span>
                             </td>
                             <td>
                                 <button class="btn btn-sm btn-primary edit-btn" 
-                                        data-id="{{ $frequency->id }}"
-                                        data-name="{{ $frequency->name }}"
-                                        data-code="{{ $frequency->code }}"
-                                        data-interval-days="{{ $frequency->interval_days }}"
-                                        data-is-month-based="{{ $frequency->is_month_based }}"
-                                        data-max-installments="{{ $frequency->max_installments ?? '' }}"
-                                        data-min-installments="{{ $frequency->min_installments ?? '' }}"
-                                        data-is-active="{{ $frequency->is_active }}">
+                                        data-id="{{ $cycle->id }}"
+                                        data-name="{{ $cycle->name }}"
+                                        data-code="{{ $cycle->code }}"
+                                        data-interval-days="{{ $cycle->interval_days ?? '' }}"
+                                        data-is-installment-based="{{ $cycle->is_installment_based }}"
+                                        data-is-active="{{ $cycle->is_active }}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger delete-btn" data-id="{{ $frequency->id }}">
+                                <button class="btn btn-sm btn-danger delete-btn" data-id="{{ $cycle->id }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center">No repayment frequencies found. Click 'New Frequency' to add one.</td>
+                            <td colspan="7" class="text-center">No interest cycles found. Click 'New Cycle' to add one.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -110,14 +101,14 @@
     </div>
 </div>
 
-<!-- Add Repayment Frequency Modal -->
-<div class="modal fade" id="addRepaymentFrequencyModal" tabindex="-1" role="dialog" aria-labelledby="addRepaymentFrequencyModalLabel" aria-hidden="true">
+<!-- Add Interest Cycle Modal -->
+<div class="modal fade" id="addInterestCycleModal" tabindex="-1" role="dialog" aria-labelledby="addInterestCycleModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form id="addRepaymentFrequencyForm" action="{{ route('loans.repayment_frequencies.store') }}" method="POST">
+            <form id="addInterestCycleForm" action="{{ route('loans.interest_cycles.store') }}" method="POST">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addRepaymentFrequencyModalLabel">Add New Repayment Frequency</h5>
+                    <h5 class="modal-title" id="addInterestCycleModalLabel">Add New Interest Cycle</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -126,31 +117,21 @@
                     <div class="form-group">
                         <label for="code">Code <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="code" name="code" required 
-                               placeholder="e.g. DLY, WKY, MTH, QTR">
+                               placeholder="e.g. DLY, MTH, INST">
                     </div>
                     <div class="form-group">
                         <label for="name">Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="name" name="name" required 
-                               placeholder="e.g. Daily, Weekly, Monthly, Quarterly">
+                               placeholder="e.g. Daily, Monthly, Per Installment">
                     </div>
                     <div class="form-group">
-                        <label for="interval_days">Interval Days <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="interval_days" name="interval_days" required 
-                               min="1" placeholder="e.g. 1, 7, 14, 30">
-                    </div>
-                    <div class="form-group">
-                        <label for="min_installments">Min Installments</label>
-                        <input type="number" class="form-control" id="min_installments" name="min_installments" 
-                               min="1" placeholder="Minimum installments (optional)">
-                    </div>
-                    <div class="form-group">
-                        <label for="max_installments">Max Installments</label>
-                        <input type="number" class="form-control" id="max_installments" name="max_installments" 
-                               min="1" placeholder="Maximum installments (optional)">
+                        <label for="interval_days">Interval Days</label>
+                        <input type="number" class="form-control" id="interval_days" name="interval_days" 
+                               min="1" placeholder="e.g. 1, 30 (null if installment based)">
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="is_month_based" name="is_month_based" value="1">
-                        <label class="form-check-label" for="is_month_based">Month Based</label>
+                        <input type="checkbox" class="form-check-input" id="is_installment_based" name="is_installment_based" value="1">
+                        <label class="form-check-label" for="is_installment_based">Installment Based</label>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="is_active" name="is_active" value="1" checked>
@@ -166,15 +147,15 @@
     </div>
 </div>
 
-<!-- Edit Repayment Frequency Modal -->
-<div class="modal fade" id="editRepaymentFrequencyModal" tabindex="-1" role="dialog" aria-labelledby="editRepaymentFrequencyModalLabel" aria-hidden="true">
+<!-- Edit Interest Cycle Modal -->
+<div class="modal fade" id="editInterestCycleModal" tabindex="-1" role="dialog" aria-labelledby="editInterestCycleModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form id="editRepaymentFrequencyForm" method="POST">
+            <form id="editInterestCycleForm" method="POST">
                 @csrf
                 @method('PUT')
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editRepaymentFrequencyModalLabel">Edit Repayment Frequency</h5>
+                    <h5 class="modal-title" id="editInterestCycleModalLabel">Edit Interest Cycle</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -189,20 +170,12 @@
                         <input type="text" class="form-control" id="edit_name" name="name" required>
                     </div>
                     <div class="form-group">
-                        <label for="edit_interval_days">Interval Days <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="edit_interval_days" name="interval_days" required min="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_min_installments">Min Installments</label>
-                        <input type="number" class="form-control" id="edit_min_installments" name="min_installments" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_max_installments">Max Installments</label>
-                        <input type="number" class="form-control" id="edit_max_installments" name="max_installments" min="1">
+                        <label for="edit_interval_days">Interval Days</label>
+                        <input type="number" class="form-control" id="edit_interval_days" name="interval_days" min="1">
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_is_month_based" name="is_month_based" value="1">
-                        <label class="form-check-label" for="edit_is_month_based">Month Based</label>
+                        <input type="checkbox" class="form-check-input" id="edit_is_installment_based" name="is_installment_based" value="1">
+                        <label class="form-check-label" for="edit_is_installment_based">Installment Based</label>
                     </div>
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="edit_is_active" name="is_active" value="1">
@@ -240,11 +213,11 @@
 <script>
 $(document).ready(function() {
     // Initialize DataTable
-    $('#repaymentFrequencyTable').DataTable({
+    $('#interestCycleTable').DataTable({
         responsive: true,
         columnDefs: [
-            { orderable: false, targets: [0, 7] }, // Disable sorting on action column
-            { searchable: false, targets: [0, 5, 6, 7] } // Disable search on action and status columns
+            { orderable: false, targets: [0, 6] }, // Disable sorting on action column
+            { searchable: false, targets: [0, 5, 6] } // Disable search on action and status columns
         ],
         order: [[1, 'asc']] // Sort by code by default
     });
@@ -255,21 +228,17 @@ $(document).ready(function() {
         var name = $(this).data('name');
         var code = $(this).data('code');
         var intervalDays = $(this).data('interval-days');
-        var isMonthBased = $(this).data('is-month-based');
-        var maxInstallments = $(this).data('max-installments');
-        var minInstallments = $(this).data('min-installments');
+        var isInstallmentBased = $(this).data('is-installment-based');
         var isActive = $(this).data('is-active');
         
-        $('#editRepaymentFrequencyForm').attr('action', '/loans/loans_settings/repayment_frequencies/' + id);
+        $('#editInterestCycleForm').attr('action', '/loans/loans_settings/interest_cycles/' + id);
         $('#edit_code').val(code);
         $('#edit_name').val(name);
         $('#edit_interval_days').val(intervalDays);
-        $('#edit_max_installments').val(maxInstallments);
-        $('#edit_min_installments').val(minInstallments);
-        $('#edit_is_month_based').prop('checked', isMonthBased);
+        $('#edit_is_installment_based').prop('checked', isInstallmentBased);
         $('#edit_is_active').prop('checked', isActive);
         
-        $('#editRepaymentFrequencyModal').modal('show');
+        $('#editInterestCycleModal').modal('show');
     });
 
     // Handle delete button click
@@ -287,7 +256,7 @@ $(document).ready(function() {
         }).then((result) => {
             if (result.isConfirmed) {
                 $.ajax({
-                    url: '/loans/loans_settings/repayment_frequencies/' + id,
+                    url: '/loans/loans_settings/interest_cycles/' + id,
                     type: 'DELETE',
                     data: {
                         _token: '{{ csrf_token() }}'
@@ -312,7 +281,7 @@ $(document).ready(function() {
                     error: function(xhr) {
                         Swal.fire(
                             'Error!',
-                            'An error occurred while deleting the repayment frequency.',
+                            'An error occurred while deleting the interest cycle.',
                             'error'
                         );
                     }
@@ -338,7 +307,7 @@ $(document).ready(function() {
         icon: 'error',
         title: 'Error!',
         text: '{{ session('error') }}',
-        showConfirmButton: true,
+        showConfirmButton: true
 
     });
     @endif

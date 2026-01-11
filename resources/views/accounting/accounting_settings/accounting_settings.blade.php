@@ -190,7 +190,8 @@
             icon: 'success',
             title: 'Success!',
             text: "{{ session('success') }}",
-            showConfirmButton: false,
+            showConfirmButton: true,
+            timerProgressBar: true,
             timer: 2500
         });
     });
@@ -203,6 +204,7 @@
             title: 'Error!',
             text: "{{ session('error') }}",
             showConfirmButton: true
+
         });
     });
     @endif

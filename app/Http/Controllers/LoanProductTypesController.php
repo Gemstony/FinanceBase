@@ -23,7 +23,8 @@ class LoanProductTypesController extends Controller
         }
         
         $subshop = SubShop::findOrFail($subshopId);
-        $loanProductTypes = LoanProductTypes::where('subshop_id', $subshopId)->latest()->get();
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+        $loanProductTypes = LoanProductTypes::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
         return view('loans.loans_settings.loan_product_types', compact('subshop', 'loanProductTypes'));
     }

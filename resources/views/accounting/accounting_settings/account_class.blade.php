@@ -291,7 +291,8 @@ $(document).ready(function() {
         icon: 'success',
         title: 'Success!',
         text: '{{ session('success') }}',
-        showConfirmButton: false,
+        showConfirmButton: true,
+        timerProgressBar: true, 
         timer: 3000
     });
     @endif
@@ -302,6 +303,7 @@ $(document).ready(function() {
         title: 'Error!',
         text: '{{ session('error') }}',
         showConfirmButton: true
+
     });
     @endif
 });

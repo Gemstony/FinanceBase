@@ -15,6 +15,7 @@ use App\Http\Controllers\InterestCycleController;
 use App\Http\Controllers\InterestMethodsController;
 use App\Http\Controllers\InvoicesController;
 use App\Http\Controllers\LoanFeesController;
+use App\Http\Controllers\LoanGroupController;
 use App\Http\Controllers\LoanPenaltiesController;
 use App\Http\Controllers\LoanProductTypesController;
 use App\Http\Controllers\LoansSettingsController;
@@ -290,6 +291,17 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [CollateralTypesController::class, 'store'])->name('store');
             Route::put('/{collateralType}', [CollateralTypesController::class, 'update'])->name('update');
             Route::delete('/{collateralType}', [CollateralTypesController::class, 'destroy'])->name('destroy');
+        });
+
+        // Loan Groups
+        Route::prefix('loans/loan_groups')->name('loans.loan_groups.')->group(function () {
+            Route::get('/', [LoanGroupController::class, 'index'])->name('index');
+            Route::post('/', [LoanGroupController::class, 'store'])->name('store');
+            Route::put('/{group}', [LoanGroupController::class, 'update'])->name('update');
+            Route::delete('/{group}', [LoanGroupController::class, 'destroy'])->name('destroy');
+
+            Route::post('/{group}/members', [LoanGroupController::class, 'addMember'])->name('members.store');
+            Route::post('/members/{member}/leave', [LoanGroupController::class, 'removeMember'])->name('members.leave');
         });
 
 

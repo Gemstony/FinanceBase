@@ -467,7 +467,7 @@ return [
 
                 [
                     'text' => 'Loan Groups',
-                    'url' => '/loans/loans_group',
+                    'url' => 'loans/loan_groups',
                 ], 
 
                 [

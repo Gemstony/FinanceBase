@@ -26,6 +26,11 @@ use Illuminate\Validation\Rule;
 
 class LoanProductsController extends Controller
 {
+    private function getShopSubshopIds(SubShop $subshop)
+    {
+        return SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+    }
+
     private function applyCrossFieldValidation($validator, Request $request): void
     {
         $validator->after(function ($v) use ($request) {
@@ -157,6 +162,7 @@ class LoanProductsController extends Controller
         }
 
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $q = request('q');
         $isActive = request('is_active');
@@ -165,12 +171,12 @@ class LoanProductsController extends Controller
         $typeId = request('loan_product_type_id');
 
         $loanProductTypes = LoanProductTypes::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->orderBy('name')
             ->get();
 
         $loanProductsQuery = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->with([
                 'rules',
                 'interestMethod',
@@ -233,53 +239,54 @@ class LoanProductsController extends Controller
     {
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
-        // Load lookups scoped to current subshop
+        // Load lookups scoped to current shop (all subshops)
         $interestMethods = InterestMethods::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
-            $roles = Role::where(function($q) use ($subshopId) {
-                $q->whereNull('shop_id')->orWhere('shop_id', $subshopId);
-            })->get();
+        $roles = Role::where(function($q) use ($subshop) {
+            $q->whereNull('shop_id')->orWhere('shop_id', $subshop->shop_id);
+        })->get();
 
 
         $loanProductTypes = LoanProductTypes::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
 
         $interestCycles = InterestCycles::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $repaymentFrequencies = RepaymentFrequencies::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanFees = LoanFees::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanPenalties = LoanPenalties::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         // Chart of accounts for mapping principal, interest, penalties, fees, write-offs
         $accounts = ChartsOfAccount::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
@@ -614,9 +621,10 @@ class LoanProductsController extends Controller
         }
 
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $loanProduct = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->with([
                 'rules',
                 'cashConfigs',
@@ -667,9 +675,10 @@ class LoanProductsController extends Controller
         }
 
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $loanProduct = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->with([
                 'rules',
                 'cashConfigs',
@@ -677,51 +686,55 @@ class LoanProductsController extends Controller
                 'fees',
                 'penalties',
                 'approvalLevels',
+                'interestMethod',
+                'interestCycle',
+                'repaymentFrequency',
+                'type',
             ])
             ->findOrFail($id);
 
         $interestMethods = InterestMethods::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
-        $roles = Role::where(function ($q) use ($subshopId) {
-            $q->whereNull('shop_id')->orWhere('shop_id', $subshopId);
+        $roles = Role::where(function($q) use ($subshop) {
+            $q->whereNull('shop_id')->orWhere('shop_id', $subshop->shop_id);
         })->get();
 
         $loanProductTypes = LoanProductTypes::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $interestCycles = InterestCycles::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $repaymentFrequencies = RepaymentFrequencies::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanFees = LoanFees::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanPenalties = LoanPenalties::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $accounts = ChartsOfAccount::query()
-            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
@@ -763,9 +776,14 @@ class LoanProductsController extends Controller
             return back()->withInput()->with('error', 'Subshop session not found. Please login again.');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
+
         $loanProduct = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->findOrFail($id);
+
+        $ownerSubshopId = $loanProduct->subshop_id;
 
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
@@ -868,7 +886,7 @@ class LoanProductsController extends Controller
         $validated = $validator->validate();
 
         try {
-            DB::transaction(function () use ($request, $subshopId, $validated, $loanProduct) {
+            DB::transaction(function () use ($request, $ownerSubshopId, $validated, $loanProduct) {
                 $loanProduct->update([
                     'name' => $validated['name'],
                     'code' => $validated['code'],
@@ -888,7 +906,7 @@ class LoanProductsController extends Controller
                 ]);
 
                 LoanProductRules::updateOrCreate(
-                    ['subshop_id' => $subshopId, 'loan_product_id' => $loanProduct->id],
+                    ['subshop_id' => $ownerSubshopId, 'loan_product_id' => $loanProduct->id],
                     [
                         'min_age' => $validated['min_age'] ?? null,
                         'max_age' => $validated['max_age'] ?? null,
@@ -920,7 +938,7 @@ class LoanProductsController extends Controller
                 );
 
                 LoanProductCashConfigs::updateOrCreate(
-                    ['subshop_id' => $subshopId, 'loan_product_id' => $loanProduct->id],
+                    ['subshop_id' => $ownerSubshopId, 'loan_product_id' => $loanProduct->id],
                     [
                         'deposit_requirement' => $validated['deposit_requirement'],
                         'deposit_value' => $validated['deposit_value'] ?? null,
@@ -935,7 +953,7 @@ class LoanProductsController extends Controller
                 );
 
                 LoanProductAccounts::updateOrCreate(
-                    ['subshop_id' => $subshopId, 'loan_product_id' => $loanProduct->id],
+                    ['subshop_id' => $ownerSubshopId, 'loan_product_id' => $loanProduct->id],
                     [
                         'principal_account_id' => $validated['principal_account_id'],
                         'customer_savings_control_account_id' => $validated['customer_savings_control_account_id'] ?? null,
@@ -953,7 +971,7 @@ class LoanProductsController extends Controller
                 );
 
                 LoanProductFees::query()
-                    ->where('subshop_id', $subshopId)
+                    ->where('subshop_id', $ownerSubshopId)
                     ->where('loan_product_id', $loanProduct->id)
                     ->delete();
 
@@ -966,7 +984,7 @@ class LoanProductsController extends Controller
                         }
 
                         LoanProductFees::create([
-                            'subshop_id' => $subshopId,
+                            'subshop_id' => $ownerSubshopId,
                             'loan_product_id' => $loanProduct->id,
                             'loan_fee_id' => $loanFeeId,
                             'charge_event' => $feeRow['charge_event'] ?? 'disbursement',
@@ -983,7 +1001,7 @@ class LoanProductsController extends Controller
                 }
 
                 LoanProductPenalties::query()
-                    ->where('subshop_id', $subshopId)
+                    ->where('subshop_id', $ownerSubshopId)
                     ->where('loan_product_id', $loanProduct->id)
                     ->delete();
 
@@ -996,7 +1014,7 @@ class LoanProductsController extends Controller
                         }
 
                         LoanProductPenalties::create([
-                            'subshop_id' => $subshopId,
+                            'subshop_id' => $ownerSubshopId,
                             'loan_product_id' => $loanProduct->id,
                             'loan_penalty_id' => $loanPenaltyId,
                             'grace_days_override' => isset($penRow['grace_days_override']) && $penRow['grace_days_override'] !== ''
@@ -1012,7 +1030,7 @@ class LoanProductsController extends Controller
                 }
 
                 LoanProductApprovalLevels::query()
-                    ->where('subshop_id', $subshopId)
+                    ->where('subshop_id', $ownerSubshopId)
                     ->where('loan_product_id', $loanProduct->id)
                     ->delete();
 
@@ -1027,7 +1045,7 @@ class LoanProductsController extends Controller
                             }
 
                             LoanProductApprovalLevels::create([
-                                'subshop_id' => $subshopId,
+                                'subshop_id' => $ownerSubshopId,
                                 'loan_product_id' => $loanProduct->id,
                                 'level_order' => (int) $order,
                                 'role_id' => (string) $roleId,
@@ -1064,8 +1082,11 @@ class LoanProductsController extends Controller
             return redirect()->route('dashboard')->with('error', 'Subshop session not found. Please login again.');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
+
         $loanProduct = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->findOrFail($id);
 
         try {

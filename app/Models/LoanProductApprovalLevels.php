@@ -10,7 +10,7 @@ class LoanProductApprovalLevels extends Model
         'subshop_id',
         'loan_product_id',
         'level_order',
-        'role_code',
+        'role_id',
         'min_loan_amount',
         'max_loan_amount',
         'mandatory',
@@ -43,5 +43,10 @@ class LoanProductApprovalLevels extends Model
     public function loanProduct()
     {
         return $this->belongsTo(LoanProducts::class, 'loan_product_id');
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
     }
 }

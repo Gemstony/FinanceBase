@@ -26,6 +26,14 @@ return new class extends Migration
             // Trigger
             $table->unsignedInteger('grace_period_days')->default(0);
 
+            $table->enum('frequency', [
+                'once',
+                'daily',
+                'weekly',
+                'monthly',
+                'per_installment'
+            ])->default('once');
+
             // Accounting
             $table->foreignId('income_account_id')->constrained('charts_of_accounts');
             $table->foreignId('receivable_account_id')->constrained('charts_of_accounts');

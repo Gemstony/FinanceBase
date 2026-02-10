@@ -28,8 +28,8 @@ return new class extends Migration
             // ================================
             // WHO CAN APPROVE
             // ================================
-            $table->string('role_code');
-            // e.g. LOAN_OFFICER, SUPERVISOR, BRANCH_MANAGER, CREDIT_COMMITTEE
+            $table->string('role_id');
+            // e.g. role id
 
             // ================================
             // LIMITS

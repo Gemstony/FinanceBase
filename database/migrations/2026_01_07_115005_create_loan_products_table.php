@@ -24,22 +24,14 @@ return new class extends Migration
             $table->string('name');
             // e.g. "Salary Loan", "SME Working Capital"
 
+            $table->foreignId('loan_product_type_id')
+                  ->constrained('loan_product_types');
+
             $table->string('code')->unique();
             // short unique code (SL01, SME03)
 
             $table->text('description')->nullable();
 
-            // ================================
-            // PRODUCT TYPE & BEHAVIOR
-            // ================================
-            $table->enum('loan_type', [
-                'individual',
-                'group',
-                'corporate'
-            ])->default('individual');
-
-            $table->boolean('is_revolving')->default(false);
-            // true = credit line / overdraft behavior
 
             // ================================
             // INTEREST & REPAYMENT LINKS

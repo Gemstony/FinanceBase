@@ -64,6 +64,7 @@
                             <th>Penalty Type</th>
                             <th>Amount/Percentage</th>
                             <th>Grace Period</th>
+                            <th>Frequency</th>
                             <th>Income Account</th>
                             <th>Receivable Account</th>
                             <th>Status</th>
@@ -92,6 +93,9 @@
                                 <span class="badge badge-secondary">{{ $penalty->grace_period_days }} days</span>
                             </td>
                             <td>
+                                <span class="badge badge-light">{{ $penalty->frequency ?? 'once' }}</span>
+                            </td>
+                            <td>
                                 <small class="text-muted">{{ $penalty->incomeAccount->account_name ?? 'N/A' }}</small>
                             </td>
                             <td>
@@ -111,6 +115,7 @@
                                         data-amount="{{ $penalty->amount ?? '' }}"
                                         data-percentage="{{ $penalty->percentage ?? '' }}"
                                         data-grace-period-days="{{ $penalty->grace_period_days }}"
+                                        data-frequency="{{ $penalty->frequency ?? 'once' }}"
                                         data-income-account-id="{{ $penalty->income_account_id }}"
                                         data-receivable-account-id="{{ $penalty->receivable_account_id }}"
                                         data-is-active="{{ $penalty->is_active }}">
@@ -123,7 +128,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="10" class="text-center">No loan penalties found. Click 'New Penalty' to add one.</td>
+                            <td colspan="11" class="text-center">No loan penalties found. Click 'New Penalty' to add one.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -179,6 +184,16 @@
                         <input type="number" class="form-control" id="grace_period_days" name="grace_period_days" 
                                min="0" value="0" placeholder="Number of days before penalty applies">
                         <small class="form-text text-muted">Number of days before penalty starts being applied</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="frequency">Frequency <span class="text-danger">*</span></label>
+                        <select class="form-control" id="frequency" name="frequency" required>
+                            <option value="once" selected>Once</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="per_installment">Per Installment</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="income_account_id">Income Account <span class="text-danger">*</span></label>
@@ -259,6 +274,16 @@
                         <small class="form-text text-muted">Number of days before penalty starts being applied</small>
                     </div>
                     <div class="form-group">
+                        <label for="edit_frequency">Frequency <span class="text-danger">*</span></label>
+                        <select class="form-control" id="edit_frequency" name="frequency" required>
+                            <option value="once">Once</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="per_installment">Per Installment</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="edit_income_account_id">Income Account <span class="text-danger">*</span></label>
                         <select class="form-control" id="edit_income_account_id" name="income_account_id" required>
                             <option value="">Select Income Account</option>
@@ -315,8 +340,8 @@ $(document).ready(function() {
     $('#loanPenaltyTable').DataTable({
         responsive: true,
         columnDefs: [
-            { orderable: false, targets: [0, 9] }, // Disable sorting on action column
-            { searchable: false, targets: [0, 8, 9] } // Disable search on action and status columns
+            { orderable: false, targets: [0, 10] }, // Disable sorting on action column
+            { searchable: false, targets: [0, 9, 10] } // Disable search on action and status columns
         ],
         order: [[1, 'asc']] // Sort by code by default
     });
@@ -417,6 +442,7 @@ $(document).ready(function() {
         var amount = $(this).data('amount');
         var percentage = $(this).data('percentage');
         var gracePeriodDays = $(this).data('grace-period-days');
+        var frequency = $(this).data('frequency');
         var incomeAccountId = $(this).data('income-account-id');
         var receivableAccountId = $(this).data('receivable-account-id');
         var isActive = $(this).data('is-active');
@@ -428,6 +454,7 @@ $(document).ready(function() {
         $('#edit_amount').val(amount);
         $('#edit_percentage').val(percentage);
         $('#edit_grace_period_days').val(gracePeriodDays);
+        $('#edit_frequency').val(frequency || 'once');
         $('#edit_income_account_id').val(incomeAccountId);
         $('#edit_receivable_account_id').val(receivableAccountId);
         $('#edit_is_active').prop('checked', isActive);

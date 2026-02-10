@@ -13,7 +13,6 @@ class LoanProductPenalties extends Model
         'loan_penalty_id',
         'grace_days_override',
         'auto_apply',
-        'is_recurring',
         'max_applications',
         'is_active',
     ];
@@ -21,7 +20,6 @@ class LoanProductPenalties extends Model
     protected $casts = [
         'grace_days_override' => 'integer',
         'auto_apply' => 'boolean',
-        'is_recurring' => 'boolean',
         'max_applications' => 'integer',
         'is_active' => 'boolean',
     ];

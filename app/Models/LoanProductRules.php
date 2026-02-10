@@ -14,12 +14,13 @@ class LoanProductRules extends Model
         'min_age',
         'max_age',
         'min_membership_days',
+        
         'requires_active_savings',
         'min_savings_balance',
+        'loan_to_savings_ratio',
 
         'min_loan_amount',
         'max_loan_amount',
-        'loan_to_savings_ratio',
         'max_active_loans',
 
         'min_installments',
@@ -27,6 +28,9 @@ class LoanProductRules extends Model
         'grace_period_days',
 
         'requires_security_deposit',
+
+        'requires_collateral',
+        'min_collateral_coverage_ratio',
 
 
         'min_interest_rate',
@@ -64,6 +68,9 @@ class LoanProductRules extends Model
         'grace_period_days' => 'integer',
 
         'requires_security_deposit' => 'boolean',
+
+        'requires_collateral' => 'boolean',
+        'min_collateral_coverage_ratio' => 'decimal:2',
 
         'min_interest_rate' => 'decimal:2',
         'max_interest_rate' => 'decimal:2',

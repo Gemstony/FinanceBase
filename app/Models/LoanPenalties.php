@@ -14,6 +14,7 @@ class LoanPenalties extends Model
         'amount',
         'percentage',
         'grace_period_days',
+        'frequency',
         'income_account_id',
         'receivable_account_id',
         'is_active',
@@ -23,7 +24,12 @@ class LoanPenalties extends Model
         'amount' => 'decimal:2',
         'percentage' => 'decimal:2',
         'grace_period_days' => 'integer',
+        'frequency' => 'string',
         'is_active' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'frequency' => 'once',
     ];
 
     /**

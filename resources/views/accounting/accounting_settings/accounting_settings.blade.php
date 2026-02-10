@@ -88,25 +88,7 @@
                 </div>
             </div>
 
-            <!-- User Settings Card -->
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-info elevation-1">
-                        <i class="fas fa-users-cog"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">User Settings</span>
-                        <span class="info-box-number">
-                            Manage users & permissions
-                        </span>
-                        <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-info">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
 </div>

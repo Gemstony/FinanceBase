@@ -11,8 +11,9 @@ class LoanProducts extends Model
         'name',
         'code',
         'description',
-        'loan_type',
-        'is_revolving',
+        'loan_product_type_id',
+
+
         'interest_method_id',
         'interest_cycle_id',
         'repayment_frequency_id',
@@ -27,7 +28,7 @@ class LoanProducts extends Model
     ];
 
     protected $casts = [
-        'is_revolving' => 'boolean',
+      
         'default_installments' => 'integer',
         'max_installments' => 'integer',
         'min_installments' => 'integer',
@@ -57,6 +58,11 @@ class LoanProducts extends Model
     public function repaymentFrequency()
     {
         return $this->belongsTo(RepaymentFrequencies::class, 'repayment_frequency_id');
+    }
+
+    public function type()
+    {
+        return $this->belongsTo(LoanProductTypes::class, 'loan_product_type_id');
     }
 
     public function rules()

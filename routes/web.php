@@ -226,6 +226,7 @@ Route::middleware(['auth'])->group(function () {
         });
 
 
+
         // Repayment frequencies Routes
         Route::prefix('loans/loans_settings/repayment_frequencies')->name('loans.repayment_frequencies.')->group(function () {
             Route::get('/', [RepaymentFrequenciesController::class, 'index'])->name('index');
@@ -248,6 +249,17 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [InterestMethodsController::class, 'store'])->name('store');
             Route::put('/{interestMethod}', [InterestMethodsController::class, 'update'])->name('update');
             Route::delete('/{interestMethod}', [InterestMethodsController::class, 'destroy'])->name('destroy');
+        });
+
+        // Loan products Routes
+        Route::prefix('loans/loan_products')->name('loans.loan_products.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\LoanProductsController::class, 'index'])->name('index');
+            Route::get('/create', [\App\Http\Controllers\LoanProductsController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\LoanProductsController::class, 'store'])->name('store');
+            Route::get('/{loanProduct}', [\App\Http\Controllers\LoanProductsController::class, 'show'])->name('show');
+            Route::get('/{loanProduct}/edit', [\App\Http\Controllers\LoanProductsController::class, 'edit'])->name('edit');
+            Route::put('/{loanProduct}', [\App\Http\Controllers\LoanProductsController::class, 'update'])->name('update');
+            Route::delete('/{loanProduct}', [\App\Http\Controllers\LoanProductsController::class, 'destroy'])->name('destroy');
         });
 
         // Loan fees Routes
@@ -295,7 +307,6 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/documents/{document}/verify', [CustomerCollateralsController::class, 'verifyDocument'])->name('documents.verify');
             Route::delete('/documents/{document}', [CustomerCollateralsController::class, 'deleteDocument'])->name('documents.delete');
         });
-
 
 
 

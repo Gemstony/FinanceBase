@@ -38,9 +38,6 @@ return new class extends Migration
             // true  = auto apply after grace days
             $table->boolean('auto_apply')->default(true);
 
-            // Apply penalty repeatedly (e.g daily, per installment)
-            $table->boolean('is_recurring')->default(false);
-
             // Maximum times penalty can be applied (null = unlimited)
             $table->unsignedSmallInteger('max_applications')->nullable();
 

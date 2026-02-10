@@ -457,7 +457,7 @@ return [
             'submenu' => [
                 [
                     'text' => 'Loan Products',
-                    'url' => '/loans/loans_products',
+                    'url' => '/loans/loan_products',
                 ],
          
                 [

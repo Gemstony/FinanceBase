@@ -26,8 +26,10 @@ return new class extends Migration
             // PRINCIPAL ACCOUNTS
             // ================================
             // Loan principal outstanding (Asset)
-            $table->foreignId('principal_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('principal_account_id');
+            // FK: principal ledger (asset) where outstanding loan principal is tracked
+            $table->foreign('principal_account_id', 'lp_acc_principal_fk')
+                ->references('id')->on('charts_of_accounts');
 
                 
             // ================================
@@ -35,53 +37,86 @@ return new class extends Migration
             // ================================
 
             // Control account holding customer savings used as collateral
-            $table->foreignId('customer_savings_control_account_id')
-                ->nullable()
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('customer_savings_control_account_id')->nullable();
+            // FK: control account for customer savings used as collateral (optional)
+            $table->foreign('customer_savings_control_account_id', 'lp_acc_cust_sav_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // Control account holding fixed security deposits (if any)
-            $table->foreignId('security_deposit_control_account_id')
-                ->nullable()
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('security_deposit_control_account_id')->nullable();
+            // FK: control account for fixed security deposits held (optional)
+            $table->foreign('security_deposit_control_account_id', 'lp_acc_sec_dep_fk')
+                ->references('id')->on('charts_of_accounts');
 
 
             // ================================
             // INTEREST ACCOUNTS
             // ================================
             // Accrued but not yet paid interest (Asset)
-            $table->foreignId('interest_receivable_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('interest_receivable_account_id');
+            // FK: asset account for accrued (unpaid) interest
+            $table->foreign('interest_receivable_account_id', 'lp_acc_int_recv_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // Earned interest income (Income)
-            $table->foreignId('interest_income_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('interest_income_account_id');
+            // FK: income account where earned interest is recognized
+            $table->foreign('interest_income_account_id', 'lp_acc_int_inc_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // ================================
             // PENALTY ACCOUNTS
             // ================================
             // Accrued penalties (Asset)
-            $table->foreignId('penalty_receivable_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('penalty_receivable_account_id');
+            // FK: asset account for accrued (unpaid) penalties
+            $table->foreign('penalty_receivable_account_id', 'lp_acc_pen_recv_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // Earned penalty income (Income)
-            $table->foreignId('penalty_income_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('penalty_income_account_id');
+            // FK: income account where penalty income is recognized
+            $table->foreign('penalty_income_account_id', 'lp_acc_pen_inc_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // ================================
             // FEE ACCOUNTS (OPTIONAL)
             // ================================
             // Some systems prefer fees per fee-definition,
             // but this allows product-level default fee income
-            $table->foreignId('fee_income_account_id')
-                ->nullable()
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('fee_income_account_id')->nullable();
+            // FK: default income account for fees at product level (optional)
+            $table->foreign('fee_income_account_id', 'lp_acc_fee_inc_fk')
+                ->references('id')->on('charts_of_accounts');
+
+            // ================================
+            // CUSTIMER SAVINGS CONTROL (OPTIONAL)
+            // ================================
+
+            $table->unsignedBigInteger('customer_savings_account_id')->nullable();
+            // FK: default income account for fees at product level (optional)
+            $table->foreign('customer_savings_account_id', 'lp_acc_cus_sav_fk')
+                ->references('id')->on('charts_of_accounts');
+
+            // ================================
+            // CUSTIMER SECURITY DEPOSIT CONTROL (OPTIONAL)
+            // ================================
+
+            $table->unsignedBigInteger('customer_security_deposit_account_id')->nullable();
+            // FK: default income account for fees at product level (optional)
+            $table->foreign('customer_security_deposit_account_id', 'lp_acc_cus_sec_dep_fk')
+                ->references('id')->on('charts_of_accounts');
 
             // ================================
             // WRITE-OFF & LOSS
             // ================================
             // Expense account when loan is written off
-            $table->foreignId('write_off_expense_account_id')
-                ->constrained('charts_of_accounts');
+            $table->unsignedBigInteger('write_off_expense_account_id');
+            // FK: expense account used when loans are written off
+            $table->foreign('write_off_expense_account_id', 'lp_acc_wroff_exp_fk')
+                ->references('id')->on('charts_of_accounts');
+
+            
 
             // ================================
             // STATUS & AUDIT

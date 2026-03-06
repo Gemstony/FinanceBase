@@ -374,7 +374,7 @@
 
         <div class="row">
             <div class="col-lg-12">
-                <!-- <div class="card mb-3"> -->
+                <div class="card mb-3">
 
                     <div class="card-header bg-danger" style="">
                         <i class="fas fa-balance-scale mr-1"></i> Eligibility & Behavioral Rules

@@ -32,7 +32,7 @@ return new class extends Migration
 
             $table->foreignId('customer_id')
                   ->nullable()
-                  ->constrained('users')
+                  ->constrained('customers')
                   ->cascadeOnDelete();
 
             $table->foreignId('loan_group_id')

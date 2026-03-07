@@ -69,6 +69,20 @@ class LoanScheduleEngine
     public function storeSchedule(Loans $loan, array $schedule): void
     {
         DB::transaction(function () use ($loan, $schedule) {
+            $principalAccountId = (int) ($loan->principal_account_id ?? 0);
+            $interestIncomeAccountId = (int) ($loan->interest_income_account_id ?? 0);
+            $penaltyIncomeAccountId = (int) ($loan->penalty_income_account_id ?? 0);
+
+            if ($principalAccountId <= 0) {
+                throw new InvalidArgumentException('Unable to store schedule: loan principal_account_id is missing.');
+            }
+            if ($interestIncomeAccountId <= 0) {
+                throw new InvalidArgumentException('Unable to store schedule: loan interest_income_account_id is missing.');
+            }
+            if ($penaltyIncomeAccountId <= 0) {
+                throw new InvalidArgumentException('Unable to store schedule: loan penalty_income_account_id is missing.');
+            }
+
             foreach ($schedule as $row) {
                 LoanInstallments::updateOrCreate(
                     [
@@ -88,10 +102,10 @@ class LoanScheduleEngine
                         'paid_date' => null,
                         'status' => 'pending',
                         'is_active' => true,
-                        'principal_account_id' => null,
-                        'interest_income_account_id' => null,
-                        'penalty_income_account_id' => null,
-                        'fee_income_account_id' => null,
+                        'principal_account_id' => $principalAccountId,
+                        'interest_income_account_id' => $interestIncomeAccountId,
+                        'penalty_income_account_id' => $penaltyIncomeAccountId,
+                        'fee_income_account_id' => $loan->fee_income_account_id,
                     ]
                 );
             }

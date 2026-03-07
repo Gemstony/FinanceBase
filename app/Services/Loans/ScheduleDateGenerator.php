@@ -33,9 +33,11 @@ class ScheduleDateGenerator
     {
         return match ($frequency) {
             'DAILY', 'DLY' => $from->copy()->addDay(),
-            'WEEKLY', 'WKY' => $from->copy()->addDays(7),
+            'WEEKLY', 'WKY', 'WKL' => $from->copy()->addDays(7),
+            'BI-WEEKLY', 'BIWEEKLY', 'BI-WKL' => $from->copy()->addDays(14),
             // Month-based schedules should avoid overflow (e.g. Jan 31st -> Feb 28/29)
             'MONTHLY', 'MTH' => $from->copy()->addMonthNoOverflow(),
+            'QUARTERLY', 'QTR' => $from->copy()->addMonthsNoOverflow(3),
             default => throw new InvalidArgumentException("Unsupported repayment frequency: {$frequency}"),
         };
     }

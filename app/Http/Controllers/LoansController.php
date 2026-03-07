@@ -2,40 +2,514 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerCollaterals;
+use App\Models\Customers;
+use App\Models\LoanApprovals;
+use App\Models\LoanCollaterals;
+use App\Models\LoanGroups;
+use App\Models\LoanInstallments;
+use App\Models\LoanProductApprovalLevels;
+use App\Models\LoanProducts;
+use App\Models\Loans;
+use App\Models\SubShop;
+use App\Models\loanGuarantors;
+use App\Services\Loans\Fees\FeeEngine;
+use App\Services\Loans\LoanScheduleEngine;
+use App\Services\Loans\Penalties\PenaltyEngine;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 
 class LoansController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(): View
     {
-        //
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $loans = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->with(['loanProduct', 'customer', 'loanGroup'])
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return view('loans.loans.index', compact('subshop', 'loans'));
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(): View
     {
-        //
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $loanProducts = LoanProducts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->where('is_visible', true)
+            ->with(['rules', 'cashConfigs', 'accounts', 'repaymentFrequency', 'interestMethod'])
+            ->orderBy('name')
+            ->get();
+
+        $customers = Customers::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $loanGroups = LoanGroups::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->with(['members' => function ($q) {
+                $q->where('is_active', true)->with('customer');
+            }])
+            ->orderBy('name')
+            ->get();
+
+        $customerCollaterals = CustomerCollaterals::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderByDesc('id')
+            ->get();
+
+        return view('loans.loans.create_loan', compact(
+            'subshop',
+            'loanProducts',
+            'customers',
+            'loanGroups',
+            'customerCollaterals'
+        ));
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(
+        Request $request,
+        LoanScheduleEngine $scheduleEngine,
+        FeeEngine $feeEngine,
+        PenaltyEngine $penaltyEngine,
+    ): RedirectResponse {
+        $subshopId = (int) session('subshop_id');
+        if (!$subshopId) {
+            return back()->withInput()->with('error', 'Branch session not found. Please login again.');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'loan_product_id' => ['required', 'integer', 'exists:loan_products,id'],
+
+            'loan_type' => ['required', Rule::in(['individual', 'group'])],
+            'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
+            'loan_group_id' => ['nullable', 'integer', 'exists:loan_groups,id'],
+
+            'principal_amount' => ['required', 'numeric', 'min:0.01'],
+            'disbursement_date' => ['nullable', 'date'],
+            'repayment_start_date' => ['nullable', 'date'],
+
+            'interest_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'installments' => ['required', 'integer', 'min:1'],
+
+            'collateral_ids' => ['nullable', 'array'],
+            'collateral_ids.*' => ['integer', 'exists:customer_collaterals,id'],
+
+            'guarantor_ids' => ['nullable', 'array'],
+            'guarantor_ids.*' => ['integer', 'exists:customers,id'],
+            'is_joint_liability' => ['nullable', 'boolean'],
+
+            'security_deposit_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+
+        // dd($validator);
+        // exit;
+
+        $validator->after(function ($v) use ($request, $subshopId) {
+            $loanType = $request->input('loan_type');
+            if ($loanType === 'individual' && !$request->filled('customer_id')) {
+                $v->errors()->add('customer_id', 'Customer is required for individual loans.');
+            }
+            if ($loanType === 'group' && !$request->filled('loan_group_id')) {
+                $v->errors()->add('loan_group_id', 'Loan group is required for group loans.');
+            }
+            if ($loanType === 'individual' && $request->filled('loan_group_id')) {
+                $v->errors()->add('loan_group_id', 'You cannot select a group for an individual loan.');
+            }
+            if ($loanType === 'group' && $request->filled('customer_id')) {
+                $v->errors()->add('customer_id', 'You cannot select an individual customer for a group loan.');
+            }
+
+            $product = LoanProducts::query()
+                ->where('subshop_id', $subshopId)
+                ->with(['rules'])
+                ->find((int) $request->input('loan_product_id'));
+
+            if (!$product) {
+                $v->errors()->add('loan_product_id', 'Invalid loan product.');
+                return;
+            }
+
+            $rules = $product->rules;
+            if (!$rules) {
+                return;
+            }
+
+            $principal = (float) $request->input('principal_amount');
+            $installments = (int) $request->input('installments');
+            $interestRate = (float) $request->input('interest_rate');
+
+            // Business rule enforcement (policy guardrails).
+            if (!is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
+                $v->errors()->add('principal_amount', 'Principal amount is below the product minimum.');
+            }
+            if (!is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
+                $v->errors()->add('principal_amount', 'Principal amount is above the product maximum.');
+            }
+            if (!is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
+                $v->errors()->add('installments', 'Installments are below the product minimum.');
+            }
+            if (!is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
+                $v->errors()->add('installments', 'Installments are above the product maximum.');
+            }
+            if (!is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
+                $v->errors()->add('interest_rate', 'Interest rate is below the product minimum.');
+            }
+            if (!is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
+                $v->errors()->add('interest_rate', 'Interest rate is above the product maximum.');
+            }
+
+            if ($rules->requires_collateral && empty($request->input('collateral_ids', []))) {
+                $v->errors()->add('collateral_ids', 'Collateral is required for this product.');
+            }
+            if ($rules->requires_guarantor && empty($request->input('guarantor_ids', []))) {
+                $v->errors()->add('guarantor_ids', 'Guarantors are required for this product.');
+            }
+            if ($rules->requires_security_deposit && !$request->filled('security_deposit_amount')) {
+                $v->errors()->add('security_deposit_amount', 'Security deposit amount is required for this product.');
+            }
+        });
+
+        $validated = $validator->validate();
+        $loanId = null;
+
+        try {
+            $loanId = DB::transaction(fn () => $this->storeLoanWithinTransaction(
+                $validated,
+                $request,
+                $subshopId,
+                $scheduleEngine,
+                $feeEngine,
+                $penaltyEngine
+            ));
+        } catch (\Throwable $e) {
+            Log::error('Failed to create loan', [
+                'subshop_id' => $subshopId,
+                'message' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+
+            $message = 'Failed to create loan. Please review the form and try again.';
+            if (config('app.debug')) {
+                $message .= ' (' . $e->getMessage() . ')';
+            }
+
+            return back()->withInput()->with('error', $message);
+        }
+
+        return redirect()->route('loans.loans.show', ['loan' => $loanId])
+            ->with('success', 'Loan created successfully.');
+    }
+
+    private function storeLoanWithinTransaction(
+        array $validated,
+        Request $request,
+        int $subshopId,
+        LoanScheduleEngine $scheduleEngine,
+        FeeEngine $feeEngine,
+        PenaltyEngine $penaltyEngine
+    ): int {
+        $loanProduct = $this->getLoanProductForSubshop($validated, $subshopId);
+
+        $disbursementDate = $this->getDisbursementDate($request);
+        $repaymentStartDate = $this->getRepaymentStartDate($request);
+
+        // Schedule anchor: if repayment_start_date is specified, use it.
+        $scheduleAnchorDate = $repaymentStartDate ?? $disbursementDate;
+
+        //creating laon to the laon table
+        $loan = $this->createLoan($validated, $request, $subshopId, $loanProduct, $disbursementDate);
+
+        // Guarantors
+        $this->storeGuarantors($request, $loan);
+
+        // Collaterals
+        $this->storeCollaterals($request, $subshopId, $loan);
+
+        // Installment schedule
+        $this->generateAndStoreSchedule($scheduleEngine, $loan, $scheduleAnchorDate);
+
+        // Fees (application)
+        $feeEngine->applyFees($loan, 'loan_submitted', now());
+
+        // Penalties (safe no-op at creation; keeps behavior consistent)
+        $penaltyEngine->applyPenalties($loan, now(), 'overdue_installment');
+
+        // Approvals
+        $this->storeApprovalLevelsIfRequired($subshopId, $loanProduct, $loan);
+
+        return (int) $loan->id;
+    }
+
+    private function getLoanProductForSubshop(array $validated, int $subshopId): LoanProducts
     {
-        //
+        return LoanProducts::query()
+            ->where('subshop_id', $subshopId)
+            ->with(['rules', 'cashConfigs', 'accounts', 'repaymentFrequency', 'interestMethod', 'approvalLevels'])
+            ->findOrFail((int) $validated['loan_product_id']);
+    }
+
+    private function getDisbursementDate(Request $request): string
+    {
+        return $request->filled('disbursement_date')
+            ? Carbon::parse($request->input('disbursement_date'))->toDateString()
+            : now()->toDateString();
+    }
+
+    private function getRepaymentStartDate(Request $request): ?string
+    {
+        return $request->filled('repayment_start_date')
+            ? Carbon::parse($request->input('repayment_start_date'))->toDateString()
+            : null;
+    }
+
+    private function createLoan(
+        array $validated,
+        Request $request,
+        int $subshopId,
+        LoanProducts $loanProduct,
+        string $disbursementDate
+    ): Loans {
+        $rules = $loanProduct->rules;
+        $accounts = $loanProduct->accounts;
+        $repaymentFrequency = $loanProduct->repaymentFrequency;
+
+        if (!$repaymentFrequency || empty($repaymentFrequency->code)) {
+            throw new \RuntimeException('Loan product is missing repayment frequency configuration.');
+        }
+
+        if (!$accounts) {
+            throw new \RuntimeException('Loan product is missing account configuration.');
+        }
+
+        $requiredAccountIds = [
+            'principal_account_id' => $accounts->principal_account_id,
+            'interest_receivable_account_id' => $accounts->interest_receivable_account_id,
+            'interest_income_account_id' => $accounts->interest_income_account_id,
+            'penalty_receivable_account_id' => $accounts->penalty_receivable_account_id,
+            'penalty_income_account_id' => $accounts->penalty_income_account_id,
+            'write_off_expense_account_id' => $accounts->write_off_expense_account_id,
+        ];
+
+        foreach ($requiredAccountIds as $key => $val) {
+            if (is_null($val) || (int) $val <= 0) {
+                throw new \RuntimeException('Loan product has invalid account configuration: ' . $key);
+            }
+        }
+
+        return Loans::create([
+            'subshop_id' => $subshopId,
+            'loan_product_id' => $loanProduct->id,
+            'borrower_type' => $validated['loan_type'],
+            'customer_id' => $validated['loan_type'] === 'individual' ? (int) $validated['customer_id'] : null,
+            'loan_group_id' => $validated['loan_type'] === 'group' ? (int) $validated['loan_group_id'] : null,
+            'principal_amount' => (float) $validated['principal_amount'],
+            'interest_rate' => (float) $validated['interest_rate'],
+            'installments' => (int) $validated['installments'],
+            'installments_paid' => 0,
+            'outstanding_balance' => (float) $validated['principal_amount'],
+            'next_installment_amount' => null,
+            'disbursement_date' => $disbursementDate,
+            'maturity_date' => null,
+            'repayment_frequency_code' => (string) $repaymentFrequency->code,
+            'supports_collateral' => (bool) $loanProduct->supports_collateral,
+            'requires_approval' => (bool) $loanProduct->requires_approval,
+            'status' => 'pending',
+            'is_active' => true,
+            'allow_top_up' => (bool) ($rules?->allow_top_up ?? false),
+            'requires_collateral' => (bool) ($rules?->requires_collateral ?? false),
+            'collateral_value' => null,
+            'collateral_coverage_ratio' => null,
+            'requires_security_deposit' => (bool) ($rules?->requires_security_deposit ?? false),
+            'security_deposit_amount' => $request->filled('security_deposit_amount')
+                ? (float) $validated['security_deposit_amount']
+                : null,
+            'approval_completed' => false,
+            'approval_history' => null,
+            'principal_account_id' => (int) $accounts->principal_account_id,
+            'interest_receivable_account_id' => (int) $accounts->interest_receivable_account_id,
+            'interest_income_account_id' => (int) $accounts->interest_income_account_id,
+            'penalty_receivable_account_id' => (int) $accounts->penalty_receivable_account_id,
+            'penalty_income_account_id' => (int) $accounts->penalty_income_account_id,
+            'write_off_expense_account_id' => (int) $accounts->write_off_expense_account_id,
+            'fee_income_account_id' => $accounts?->fee_income_account_id,
+            'customer_savings_account_id' => $accounts?->customer_savings_account_id,
+            'customer_security_deposit_account_id' => $accounts?->customer_security_deposit_account_id,
+        ]);
+    }
+
+    private function storeGuarantors(Request $request, Loans $loan): void
+    {
+        $guarantorIds = $request->input('guarantor_ids', []);
+        if (!is_array($guarantorIds) || empty($guarantorIds)) {
+            return;
+        }
+
+        $isJoint = (bool) $request->boolean('is_joint_liability');
+        foreach (array_unique($guarantorIds) as $gid) {
+            loanGuarantors::updateOrCreate(
+                ['loan_id' => $loan->id, 'guarantor_id' => (int) $gid],
+                ['is_joint_liability' => $isJoint]
+            );
+        }
+    }
+
+    private function storeCollaterals(Request $request, int $subshopId, Loans $loan): void
+    {
+        $collateralIds = $request->input('collateral_ids', []);
+        if (!is_array($collateralIds) || empty($collateralIds)) {
+            return;
+        }
+
+        $totalCollateralValue = 0.0;
+        $collaterals = CustomerCollaterals::query()
+            ->where('subshop_id', $subshopId)
+            ->whereIn('id', $collateralIds)
+            ->get();
+
+        foreach ($collaterals as $c) {
+            $value = (float) $c->estimated_value;
+            $totalCollateralValue += $value;
+
+            LoanCollaterals::create([
+                'subshop_id' => $subshopId,
+                'loan_id' => $loan->id,
+                'customer_collateral_id' => $c->id,
+                'collateral_value' => $value,
+                'accepted_value' => null,
+                'coverage_ratio' => null,
+                'status' => 'pending_verification',
+                'verification_date' => null,
+                'release_date' => null,
+                'notes' => null,
+                'is_active' => true,
+            ]);
+        }
+
+        if ($totalCollateralValue <= 0) {
+            return;
+        }
+
+        $loan->collateral_value = $totalCollateralValue;
+        $loan->collateral_coverage_ratio = $loan->principal_amount > 0
+            ? round(($totalCollateralValue / (float) $loan->principal_amount) * 100, 2)
+            : null;
+        $loan->save();
+    }
+
+    private function generateAndStoreSchedule(LoanScheduleEngine $scheduleEngine, Loans $loan, string $scheduleAnchorDate): void
+    {
+        $loan->disbursement_date = $scheduleAnchorDate;
+        $schedule = $scheduleEngine->generate($loan);
+        $scheduleEngine->storeSchedule($loan, $schedule);
+
+        // Maturity date = last due date
+        $last = collect($schedule)->last();
+        if (is_array($last) && !empty($last['due_date'])) {
+            $loan->maturity_date = Carbon::parse($last['due_date'])->toDateString();
+            $loan->save();
+        }
+    }
+
+    private function storeApprovalLevelsIfRequired(int $subshopId, LoanProducts $loanProduct, Loans $loan): void
+    {
+        if (!$loanProduct->requires_approval) {
+            return;
+        }
+
+        $levels = LoanProductApprovalLevels::query()
+            ->where('loan_product_id', $loanProduct->id)
+            ->where('is_active', true)
+            ->orderBy('level_order')
+            ->get();
+
+        foreach ($levels as $lvl) {
+            LoanApprovals::create([
+                'subshop_id' => $subshopId,
+                'loan_id' => $loan->id,
+                'loan_product_approval_level_id' => $lvl->id,
+                'approved_by' => null,
+                'level_order' => (int) $lvl->level_order,
+                'status' => 'pending',
+                'approved_at' => null,
+                'comments' => null,
+                'is_active' => true,
+            ]);
+        }
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): View
     {
-        //
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $loan = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->with(['loanProduct', 'customer', 'loanGroup'])
+            ->findOrFail($id);
+
+        $installments = LoanInstallments::query()
+            ->where('loan_id', $loan->id)
+            ->where('is_active', true)
+            ->orderBy('installment_number')
+            ->get();
+
+        $collaterals = LoanCollaterals::query()
+            ->where('loan_id', $loan->id)
+            ->where('is_active', true)
+            ->with('customerCollateral')
+            ->get();
+
+        $guarantors = loanGuarantors::query()
+            ->where('loan_id', $loan->id)
+            ->with('guarantor')
+            ->get();
+
+        $approvals = LoanApprovals::query()
+            ->where('loan_id', $loan->id)
+            ->where('is_active', true)
+            ->with('loanProductApprovalLevel')
+            ->orderBy('level_order')
+            ->get();
+
+        return view('loans.loans.show', compact(
+            'subshop',
+            'loan',
+            'installments',
+            'collaterals',
+            'guarantors',
+            'approvals'
+        ));
     }
 
     /**

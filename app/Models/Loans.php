@@ -150,4 +150,14 @@ class Loans extends Model
     {
         return $this->belongsTo(ChartsOfAccount::class, 'customer_security_deposit_account_id');
     }
+
+    public function installments()
+    {
+        return $this->hasMany(LoanInstallments::class, 'loan_id');
+    }
+
+    public function restructures()
+    {
+        return $this->hasMany(LoanRestructures::class, 'loan_id');
+    }
 }

@@ -16,10 +16,6 @@ class LoanInstallmentPayments extends Model
         'loan_id',
         'subshop_id',
         'customer_id',
-        'principal_paid',
-        'interest_paid',
-        'fees_paid',
-        'penalty_paid',
         'total_paid',
         'payment_method',
         'payment_date',
@@ -29,10 +25,6 @@ class LoanInstallmentPayments extends Model
     ];
 
     protected $casts = [
-        'principal_paid' => 'decimal:2',
-        'interest_paid' => 'decimal:2',
-        'fees_paid' => 'decimal:2',
-        'penalty_paid' => 'decimal:2',
         'total_paid' => 'decimal:2',
         'payment_date' => 'date',
         'is_successful' => 'boolean',

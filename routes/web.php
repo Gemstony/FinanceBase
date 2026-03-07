@@ -304,7 +304,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/members/{member}/leave', [LoanGroupController::class, 'removeMember'])->name('members.leave');
         });
 
-        // Loans
+        // Loans for creating loan, viewing and all about loan management
         Route::prefix('loans/loans')->name('loans.loans.')->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansController::class, 'index'])->name('index');
             Route::get('/create', [\App\Http\Controllers\LoansController::class, 'create'])->name('create');

@@ -143,11 +143,15 @@
                     <tr>
                         <th>#</th>
                         <th>Due Date</th>
-                        <th>Principal</th>
-                        <th>Interest</th>
-                        <th>Fees</th>
-                        <th>Penalty</th>
-                        <th>Total</th>
+                        <th>Principal Due</th>
+                        <th>Interest Due</th>
+                        <th>Fees Due</th>
+                        <th>Penalty Due</th>
+                        <th>Total Due</th>
+                        <th>Principal Paid</th>
+                        <th>Interest Paid</th>
+                        <th>Fees Paid</th>
+                        <th>Penalty Paid</th>
                         <th>Outstanding</th>
                         <th>Status</th>
                     </tr>
@@ -162,11 +166,15 @@
                             <td>{{ number_format((float)$i->fees_due, 2) }}</td>
                             <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
                             <td>{{ number_format((float)$i->total_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->outstanding_amount, 2) }}</td>
+                            <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
+                            <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
+                            <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
+                            <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
+                            <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
                             <td>{{ $i->status }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="text-center text-muted">No installments found.</td></tr>
+                        <tr><td colspan="13" class="text-center text-muted">No installments found.</td></tr>
                     @endforelse
                 </tbody>
             </table>

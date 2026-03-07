@@ -10,7 +10,7 @@ class InstallmentGenerator
     /**
      * @param array<int, Carbon> $dates
      * @param array<int, array{principal: float, interest: float}> $breakdown
-     * @return array<int, array{installment_number:int,due_date:string,principal_amount:float,interest_amount:float,total_due:float,remaining_balance:float}>
+     * @return array<int, array{installment_number:int,due_date:string,principal_amount:float,interest_amount:float,total_due:float,remaining_balance:float,principal_paid:float,interest_paid:float,fees_paid:float,penalty_paid:float}>
      */
     public function generate(float $principal, array $dates, array $breakdown): array
     {
@@ -35,6 +35,11 @@ class InstallmentGenerator
                 'interest_amount' => $interestDue,
                 'total_due' => $totalDue,
                 'remaining_balance' => $balance,
+                // Initialize paid columns to zero as per banking-style structure
+                'principal_paid' => 0.0,
+                'interest_paid' => 0.0,
+                'fees_paid' => 0.0,
+                'penalty_paid' => 0.0,
             ];
         }
 

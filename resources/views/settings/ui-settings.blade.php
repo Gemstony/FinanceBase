@@ -49,6 +49,43 @@
                             <button class="btn btn-sm btn-secondary btn-apply-theme" data-theme="default">Apply</button>
                         </div>
 
+                          <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Corporate</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#00b4db,#0083b0);"></div>
+                            <button class="btn btn-sm btn-primary btn-apply-theme" data-theme="corporate">Apply</button>
+                        </div>
+
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Teal</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#14b8a6,#0d9488);"></div>
+                            <button class="btn btn-sm btn-info btn-apply-theme" data-theme="teal">Apply</button>
+                        </div>
+
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Indigo</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#6366f1,#4338ca);"></div>
+                            <button class="btn btn-sm btn-primary btn-apply-theme" data-theme="indigo">Apply</button>
+                        </div>
+
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Slate</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#475569,#334155);"></div>
+                            <button class="btn btn-sm btn-dark btn-apply-theme" data-theme="slate">Apply</button>
+                        </div>
+
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Masculine</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#141e30,#243b55);"></div>
+                            <button class="btn btn-sm btn-primary btn-apply-theme" data-theme="masculine">Apply</button>
+                        </div>
+
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Neutral</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#bdc3c7,#2c3e50);"></div>
+                            <button class="btn btn-sm btn-secondary btn-apply-theme" data-theme="neutral">Apply</button>
+                        </div>
+
+
                         <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
                             <h5>Green</h5>
                             <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#10b981,#047857);"></div>
@@ -73,11 +110,6 @@
                             <button class="btn btn-sm btn-info btn-apply-theme" data-theme="pink">Apply</button>
                         </div>
                         
-                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
-                            <h5>Masculine</h5>
-                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#141e30,#243b55);"></div>
-                            <button class="btn btn-sm btn-primary btn-apply-theme" data-theme="masculine">Apply</button>
-                        </div>
 
                         <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
                             <h5>Feminine</h5>
@@ -85,17 +117,8 @@
                             <button class="btn btn-sm btn-pink btn-apply-theme" data-theme="feminine">Apply</button>
                         </div>
 
-                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
-                            <h5>Neutral</h5>
-                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#bdc3c7,#2c3e50);"></div>
-                            <button class="btn btn-sm btn-secondary btn-apply-theme" data-theme="neutral">Apply</button>
-                        </div>
-
-                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
-                            <h5>Corporate</h5>
-                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#00b4db,#0083b0);"></div>
-                            <button class="btn btn-sm btn-primary btn-apply-theme" data-theme="corporate">Apply</button>
-                        </div>
+    
+                      
                     </div>
                 </div>
             </div>
@@ -151,6 +174,18 @@
         pink: {
             sidebar_bg: 'linear-gradient(180deg,#be185d,#9d174d)',
             navbar_bg: 'linear-gradient(135deg,#db2777,#a21caf)'
+        },
+        teal: {
+            sidebar_bg: 'linear-gradient(180deg,#134e4a,#0f766e)',
+            navbar_bg: 'linear-gradient(135deg,#14b8a6,#0d9488)'
+        },
+        indigo: {
+            sidebar_bg: 'linear-gradient(180deg,#312e81,#1e1b4b)',
+            navbar_bg: 'linear-gradient(135deg,#6366f1,#4338ca)'
+        },
+        slate: {
+            sidebar_bg: 'linear-gradient(180deg,#1e293b,#0f172a)',
+            navbar_bg: 'linear-gradient(135deg,#475569,#334155)'
         },
         masculine: {
             sidebar_bg: 'linear-gradient(180deg,#0f2027,#203a43,#2c5364)',

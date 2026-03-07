@@ -1,17 +1,34 @@
 @extends('adminlte::page')
 
-@section('title', 'Loan #' . $loan->id . ' - ' . $subshop->name)
+@section('title', 'Loan - ' . $subshop->name)
 
 @section('content_header')
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="mb-0">Loan #{{ $loan->id }}</h1>
-            <div class="text-muted">Branch: <strong>{{ $subshop->name }}</strong></div>
-        </div>
-        <a href="{{ route('loans.loans.index') }}" class="btn btn-light border">
-            <i class="fas fa-arrow-left"></i> Back
-        </a>
-    </div>
+ <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
+     <div class="card-body">
+         <div class="d-flex justify-content-between align-items-center">
+             <div>
+                 <h1 class="d-none d-md-block text-light"><i class="fas fa-file-invoice-dollar"></i> View Loan </h1>
+                 <h1 class="d-md-none text-light"><i class="fas fa-file-invoice-dollar"></i> View Loan</h1>
+                 <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
+             </div>
+             <a href="{{ route('categories.subshops') }}" class="btn btn-light">
+                 <i class="fas fa-arrow-left"></i> Change Branch
+             </a>
+         </div>
+     </div>
+ </div>
+ <div class="d-flex justify-content-between align-items-center">
+     <nav aria-label="breadcrumb">
+         <ol class="breadcrumb">
+             <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+             <li class="breadcrumb-item"><a href="{{ route('loans.loans.index') }}">Loans</a></li>
+             <li class="breadcrumb-item active" aria-current="page">Loan</li>
+         </ol>
+     </nav>
+     <a href="{{ route('loans.loans.index') }}" class="btn btn-light border">
+         <i class="fas fa-arrow-left"></i> Back
+     </a>
+ </div>
 @stop
 
 @section('content')
@@ -22,6 +39,56 @@
     @if(session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div class="mb-2">
+                    <h4 class="mb-1">
+                        @if($loan->borrower_type === 'group')
+                            {{ $loan->loanGroup?->name }} Loan
+                        @else
+                            {{ $loan->customer?->name }} Loan
+                        @endif
+                    </h4>
+                    <div class="text-muted">
+                        {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        @if($loan->borrower_type)
+                            &middot; {{ ucfirst($loan->borrower_type) }}
+                        @endif
+                        &middot; Loan ID: <strong>#{{ $loan->id }}</strong>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="mb-1">
+                        <span class="badge badge-secondary">{{ $loan->status }}</span>
+                    </div>
+                    <div class="text-muted">
+                        Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Interest Rate</div>
+                    <div><strong>{{ number_format((float)$loan->interest_rate, 2) }}%</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Installments</div>
+                    <div><strong>{{ (int)$loan->installments }}</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Disbursement</div>
+                    <div><strong>{{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Maturity</div>
+                    <div><strong>{{ $loan->maturity_date ? \Carbon\Carbon::parse($loan->maturity_date)->format('Y-m-d') : '-' }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-md-6">

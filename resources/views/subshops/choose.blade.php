@@ -722,7 +722,7 @@ $(document).ready(function() {
                         icon: 'success',
                         title: 'Success!',
                         text: response.message,
-                        timer: 2000,
+                        timer: 1000,
                         timerProgressBar: true,
                         showConfirmButton: false
                     }).then(() => {

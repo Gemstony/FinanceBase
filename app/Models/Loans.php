@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Loans extends Model
 {
@@ -12,6 +13,7 @@ class Loans extends Model
     protected $table = 'loans';
 
     protected $fillable = [
+        'loan_code',
         'subshop_id',
         'loan_product_id',
         'borrower_type',
@@ -48,6 +50,19 @@ class Loans extends Model
         'customer_savings_account_id',
         'customer_security_deposit_account_id',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $loan) {
+            if (!empty($loan->loan_code)) {
+                return;
+            }
+
+            do {
+                $loan->loan_code = 'LN-' . (string) Str::ulid();
+            } while (self::query()->where('loan_code', $loan->loan_code)->exists());
+        });
+    }
 
     protected $casts = [
         'principal_amount' => 'decimal:2',

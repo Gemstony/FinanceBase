@@ -1,14 +1,14 @@
 @extends('adminlte::page')
 
-@section('title', 'Create Loan - ' . $subshop->name)
+@section('title', 'Edit Loan - ' . $subshop->name)
 
 @section('content_header')
  <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
      <div class="card-body">
          <div class="d-flex justify-content-between align-items-center">
              <div>
-                 <h1 class="d-none d-md-block text-light"><i class="fas fa-hand-holding-usd"></i> Create Loan</h1>
-                 <h1 class="d-md-none text-light"><i class="fas fa-hand-holding-usd"></i> Create</h1>
+                 <h1 class="d-none d-md-block text-light"><i class="fas fa-edit"></i> Edit Loan </h1>
+                 <h1 class="d-md-none text-light"><i class="fas fa-edit"></i> Edit Loan</h1>
                  <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
              </div>
              <a href="{{ route('categories.subshops') }}" class="btn btn-light">
@@ -22,10 +22,11 @@
          <ol class="breadcrumb">
              <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
              <li class="breadcrumb-item"><a href="{{ route('loans.loans.index') }}">Loans</a></li>
-             <li class="breadcrumb-item active" aria-current="page">Create Loan</li>
+             <li class="breadcrumb-item"><a href="{{ route('loans.loans.show', $loan->loan_code) }}">Loan</a></li>
+             <li class="breadcrumb-item active" aria-current="page">Edit</li>
          </ol>
      </nav>
-     <a href="{{ route('loans.loans.index') }}" class="btn btn-light border">
+     <a href="{{ route('loans.loans.show', $loan->loan_code) }}" class="btn btn-light border">
          <i class="fas fa-arrow-left"></i> Back
      </a>
  </div>
@@ -47,8 +48,9 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    <form method="POST" action="{{ route('loans.loans.store') }}">
+    <form method="POST" action="{{ route('loans.loans.update', $loan->loan_code) }}">
         @csrf
+        @method('PUT')
 
         <div class="card">
             <div class="card-header"><strong>Loan Setup</strong></div>
@@ -71,7 +73,7 @@
                                     data-min-rate="{{ $p->rules?->min_interest_rate ?? '' }}"
                                     data-max-rate="{{ $p->rules?->max_interest_rate ?? '' }}"
                                     data-default-installments="{{ $p->default_installments ?? '' }}"
-                                    {{ (string)old('loan_product_id') === (string)$p->id ? 'selected' : '' }}
+                                    {{ (string)old('loan_product_id', $loan->loan_product_id) === (string)$p->id ? 'selected' : '' }}
                                 >
                                     {{ $p->name }} ({{ $p->code }})
                                 </option>
@@ -82,8 +84,8 @@
                     <div class="form-group col-md-6">
                         <label for="loan_type">Loan Type</label>
                         <select id="loan_type" name="loan_type" class="form-control" required>
-                            <option value="individual" {{ old('loan_type','individual')==='individual' ? 'selected' : '' }}>Individual</option>
-                            <option value="group" {{ old('loan_type')==='group' ? 'selected' : '' }}>Group</option>
+                            <option value="individual" {{ old('loan_type', $loan->borrower_type)==='individual' ? 'selected' : '' }}>Individual</option>
+                            <option value="group" {{ old('loan_type', $loan->borrower_type)==='group' ? 'selected' : '' }}>Group</option>
                         </select>
                     </div>
                 </div>
@@ -94,7 +96,7 @@
                         <select id="customer_id" name="customer_id" class="form-control">
                             <option value="">-- Select --</option>
                             @foreach($customers as $c)
-                                <option value="{{ $c->id }}" {{ (string)old('customer_id')===(string)$c->id ? 'selected' : '' }}>
+                                <option value="{{ $c->id }}" {{ (string)old('customer_id', $loan->customer_id)===(string)$c->id ? 'selected' : '' }}>
                                     {{ $c->name }}
                                 </option>
                             @endforeach
@@ -108,7 +110,7 @@
                         <select id="loan_group_id" name="loan_group_id" class="form-control">
                             <option value="">-- Select --</option>
                             @foreach($loanGroups as $g)
-                                <option value="{{ $g->id }}" {{ (string)old('loan_group_id')===(string)$g->id ? 'selected' : '' }}>
+                                <option value="{{ $g->id }}" {{ (string)old('loan_group_id', $loan->loan_group_id)===(string)$g->id ? 'selected' : '' }}>
                                     {{ $g->name }}
                                 </option>
                             @endforeach
@@ -119,17 +121,17 @@
                 <div class="form-row">
                     <div class="form-group col-md-4">
                         <label for="principal_amount">Principal Amount</label>
-                        <input id="principal_amount" name="principal_amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('principal_amount') }}" required>
+                        <input id="principal_amount" name="principal_amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('principal_amount', $loan->principal_amount) }}" required>
                         <small class="text-muted" id="principalHint"></small>
                     </div>
                     <div class="form-group col-md-4">
                         <label for="interest_rate">Interest Rate (%)</label>
-                        <input id="interest_rate" name="interest_rate" type="number" step="0.01" min="0" max="100" class="form-control" value="{{ old('interest_rate') }}" required>
+                        <input id="interest_rate" name="interest_rate" type="number" step="0.01" min="0" max="100" class="form-control" value="{{ old('interest_rate', $loan->interest_rate) }}" required>
                         <small class="text-muted" id="rateHint"></small>
                     </div>
                     <div class="form-group col-md-4">
                         <label for="installments">Installments</label>
-                        <input id="installments" name="installments" type="number" min="1" class="form-control" value="{{ old('installments') }}" required>
+                        <input id="installments" name="installments" type="number" min="1" class="form-control" value="{{ old('installments', $loan->installments) }}" required>
                         <small class="text-muted" id="installmentsHint"></small>
                     </div>
                 </div>
@@ -137,7 +139,7 @@
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="disbursement_date">Disbursement Date</label>
-                        <input id="disbursement_date" name="disbursement_date" type="date" class="form-control" value="{{ old('disbursement_date') }}">
+                        <input id="disbursement_date" name="disbursement_date" type="date" class="form-control" value="{{ old('disbursement_date', optional($loan->disbursement_date)->format('Y-m-d')) }}">
                     </div>
                     <div class="form-group col-md-6">
                         <label for="repayment_start_date">Repayment Start Date (optional)</label>
@@ -154,7 +156,7 @@
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="security_deposit_amount">Security Deposit Amount</label>
-                        <input id="security_deposit_amount" name="security_deposit_amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('security_deposit_amount') }}">
+                        <input id="security_deposit_amount" name="security_deposit_amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('security_deposit_amount', $loan->security_deposit_amount) }}">
                     </div>
                 </div>
             </div>
@@ -168,13 +170,13 @@
                         <label for="guarantor_ids">Select Guarantors</label>
                         <select id="guarantor_ids" name="guarantor_ids[]" class="form-control" multiple>
                             @foreach($customers as $c)
-                                <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                <option value="{{ $c->id }}" {{ in_array((int)$c->id, old('guarantor_ids', $selectedGuarantorIds ?? []), true) ? 'selected' : '' }}>{{ $c->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="form-group col-md-4 d-flex align-items-end">
                         <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="is_joint_liability" name="is_joint_liability" value="1" {{ old('is_joint_liability') ? 'checked' : '' }}>
+                            <input class="form-check-input" type="checkbox" id="is_joint_liability" name="is_joint_liability" value="1" {{ old('is_joint_liability', ($isJointLiability ?? false) ? 1 : 0) ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_joint_liability">Joint Liability</label>
                         </div>
                     </div>
@@ -190,7 +192,7 @@
                         <label for="collateral_ids">Select Collaterals</label>
                         <select id="collateral_ids" name="collateral_ids[]" class="form-control" multiple>
                             @foreach($customerCollaterals as $cc)
-                                <option value="{{ $cc->id }}" data-customer-id="{{ $cc->customer_id }}">
+                                <option value="{{ $cc->id }}" data-customer-id="{{ $cc->customer_id }}" {{ in_array((int)$cc->id, old('collateral_ids', $selectedCollateralIds ?? []), true) ? 'selected' : '' }}>
                                     {{ $cc->description }} (Value: {{ number_format((float)$cc->estimated_value, 2) }})
                                 </option>
                             @endforeach
@@ -203,7 +205,7 @@
 
         <div class="text-right mb-3">
             <button type="submit" class="btn btn-success">
-                <i class="fas fa-save"></i> Create Loan
+                <i class="fas fa-save"></i> Update Loan
             </button>
         </div>
     </form>

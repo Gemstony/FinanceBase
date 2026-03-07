@@ -309,7 +309,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansController::class, 'index'])->name('index');
             Route::get('/create', [\App\Http\Controllers\LoansController::class, 'create'])->name('create');
             Route::post('/', [\App\Http\Controllers\LoansController::class, 'store'])->name('store');
-            Route::get('/{loan}', [\App\Http\Controllers\LoansController::class, 'show'])->name('show');
+            Route::get('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'show'])->name('show');
+            Route::get('/{loan:loan_code}/edit', [\App\Http\Controllers\LoansController::class, 'edit'])->name('edit');
+            Route::put('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'update'])->name('update');
+            Route::delete('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'destroy'])->name('destroy');
         });
 
 

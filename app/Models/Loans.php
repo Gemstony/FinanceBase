@@ -160,4 +160,14 @@ class Loans extends Model
     {
         return $this->hasMany(LoanRestructures::class, 'loan_id');
     }
+
+    public function writeoffs()
+    {
+        return $this->hasMany(LoanWriteoffs::class, 'loan_id');
+    }
+
+    public function writeoffRecoveries()
+    {
+        return $this->hasMany(LoanWriteoffRecoveries::class, 'loan_id');
+    }
 }

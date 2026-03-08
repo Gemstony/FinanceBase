@@ -149,6 +149,26 @@
                 </div>
             </div>
 
+            <!-- Disbursement Methods Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-exchange-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Disbursement Methods</span>
+                        <span class="info-box-number">
+                            Manage channels used to disburse approved loans
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('loans.disbursement_methods.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Loan Penalties Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

@@ -156,6 +156,26 @@ class Loans extends Model
         return $this->hasMany(LoanInstallments::class, 'loan_id');
     }
 
+    public function collaterals()
+    {
+        return $this->hasMany(LoanCollaterals::class, 'loan_id');
+    }
+
+    public function guarantors()
+    {
+        return $this->hasMany(loanGuarantors::class, 'loan_id');
+    }
+
+    public function disbursements()
+    {
+        return $this->hasMany(LoanDisbursements::class, 'loan_id');
+    }
+
+    public function approvals()
+    {
+        return $this->hasMany(LoanApprovals::class, 'loan_id');
+    }
+
     public function restructures()
     {
         return $this->hasMany(LoanRestructures::class, 'loan_id');

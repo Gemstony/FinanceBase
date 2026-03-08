@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('loan_interest_accruals')) {
+            return;
+        }
+
         Schema::create('loan_interest_accruals', function (Blueprint $table) {
 
             $table->id();
@@ -59,10 +63,7 @@ return new class extends Migration
             $table->boolean('is_posted')->default(false);
 
             // Posting reference if interest has been posted
-            $table->foreignId('posting_id')
-                ->nullable()
-                ->constrained('loan_interest_postings')
-                ->nullOnDelete();
+            $table->unsignedBigInteger('posting_id')->nullable();
 
             /*
             |--------------------------------------------------------------------------
@@ -85,6 +86,7 @@ return new class extends Migration
             $table->unique(['loan_id', 'accrual_date'], 'unique_loan_daily_interest_accrual');
             $table->index(['installment_id']);
             $table->index(['is_posted']);
+            $table->index(['posting_id']);
         });
     }
 

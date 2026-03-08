@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Loans;
 use App\Models\SubShop;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class LoanManagementController extends Controller
@@ -23,6 +24,20 @@ class LoanManagementController extends Controller
             ->where('subshop_id', $subshopId)
             ->where('status', 'pending')
             ->count();
+
+        $approvedLoansQuery = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->where('status', 'approved');
+
+        if (Schema::hasTable('loan_disbursements')) {
+            $approvedLoansQuery->whereNotExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('loan_disbursements as ld')
+                    ->whereColumn('ld.loan_id', 'loans.id');
+            });
+        }
+
+        $approvedLoansCount = $approvedLoansQuery->count();
 
         $userRoleIds = $user->roles->pluck('id')->map(fn ($v) => (string) $v)->all();
         $userRoleNames = $user->roles->pluck('name')->map(fn ($v) => (string) $v)->all();
@@ -48,6 +63,6 @@ class LoanManagementController extends Controller
             })
             ->count();
 
-        return view('loans.loan_management', compact('subshop', 'pendingLoansCount', 'pendingApprovalsCount'));
+        return view('loans.loan_management', compact('subshop', 'pendingLoansCount', 'approvedLoansCount', 'pendingApprovalsCount'));
     }
 }

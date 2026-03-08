@@ -31,7 +31,7 @@ class LoanDisbursementEngine
     public function disburseLoan(
         Loans $loan,
         float $amount,
-        string $method,
+        int $disbursementMethodId,
         ?string $transactionReference,
         int $processedBy,
         ?string $notes
@@ -41,7 +41,7 @@ class LoanDisbursementEngine
         return DB::transaction(function () use (
             $loan,
             $amount,
-            $method,
+            $disbursementMethodId,
             $transactionReference,
             $processedBy,
             $notes
@@ -52,7 +52,7 @@ class LoanDisbursementEngine
                 'loan_id' => $loan->id,
                 'disbursement_date' => Carbon::now()->toDateString(),
                 'amount' => $amount,
-                'disbursement_method' => $method,
+                'disbursement_method_id' => $disbursementMethodId,
                 'transaction_reference' => $transactionReference,
                 'processed_by' => $processedBy,
                 'notes' => $notes,

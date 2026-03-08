@@ -36,4 +36,12 @@ class LoanAccountEngine
             ]
         );
     }
+
+    public function getLoanBalance(int $loanId): float
+    {
+        $loan = Loans::query()->findOrFail($loanId);
+        $balances = $this->balanceCalculator->calculateBalances($loan);
+
+        return (float) ($balances['principal_outstanding'] ?? 0.0);
+    }
 }

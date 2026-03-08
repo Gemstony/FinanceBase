@@ -10,9 +10,9 @@ class LoanDisbursements extends Model
 
     protected $fillable = [
         'loan_id',
+        'disbursement_method_id',
         'disbursement_date',
         'amount',
-        'disbursement_method',
         'transaction_reference',
         'processed_by',
         'notes',
@@ -20,6 +20,7 @@ class LoanDisbursements extends Model
 
     protected $casts = [
         'loan_id' => 'integer',
+        'disbursement_method_id' => 'integer',
         'processed_by' => 'integer',
         'amount' => 'decimal:2',
         'disbursement_date' => 'date',
@@ -33,5 +34,10 @@ class LoanDisbursements extends Model
     public function processor()
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function disbursementMethod()
+    {
+        return $this->belongsTo(DisbursementMethods::class, 'disbursement_method_id');
     }
 }

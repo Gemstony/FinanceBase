@@ -10,6 +10,7 @@ use App\Http\Controllers\CustomerCollateralsController;
 use App\Http\Controllers\CustomersController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
+use App\Http\Controllers\DisbursementMethodController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InterestCycleController;
 use App\Http\Controllers\InterestMethodsController;
@@ -271,6 +272,14 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{loanFee}', [LoanFeesController::class, 'destroy'])->name('destroy');
         });
 
+        // Disbursement methods Routes
+        Route::prefix('loans/loans_settings/disbursement_methods')->name('loans.disbursement_methods.')->group(function () {
+            Route::get('/', [DisbursementMethodController::class, 'index'])->name('index');
+            Route::post('/', [DisbursementMethodController::class, 'store'])->name('store');
+            Route::put('/{method}', [DisbursementMethodController::class, 'update'])->name('update');
+            Route::delete('/{method}', [DisbursementMethodController::class, 'destroy'])->name('destroy');
+        });
+
 
         // Loan Penalties Routes
         Route::prefix('loans/loans_settings/loan_penalties')->name('loans.loan_penalties.')->group(function () {
@@ -313,6 +322,13 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{loan:loan_code}', [\App\Http\Controllers\LoanApprovalsController::class, 'show'])->name('show');
             Route::post('/{loan:loan_code}/approve', [\App\Http\Controllers\LoanApprovalsController::class, 'approve'])->name('approve');
             Route::post('/{loan:loan_code}/reject', [\App\Http\Controllers\LoanApprovalsController::class, 'reject'])->name('reject');
+        });
+
+        // Loan disbursement management
+        Route::prefix('loans/disbursement')->name('loans.disbursement.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\LoansDisbursementController::class, 'index'])->name('index');
+            Route::get('/{loan}', [\App\Http\Controllers\LoansDisbursementController::class, 'show'])->name('show');
+            Route::post('/{loan}/disburse', [\App\Http\Controllers\LoansDisbursementController::class, 'disburse'])->name('disburse');
         });
 
         // Loans for creating loan, viewing and all about loan management

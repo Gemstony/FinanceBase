@@ -15,6 +15,7 @@ class LoanInstallments extends Model
         'loan_id',
         'subshop_id',
         'installment_number',
+        'schedule_version',
         'principal_due',
         'interest_due',
         'fees_due',
@@ -38,6 +39,7 @@ class LoanInstallments extends Model
 
     protected $casts = [
         'installment_number' => 'integer',
+        'schedule_version' => 'integer',
         'principal_due' => 'decimal:2',
         'interest_due' => 'decimal:2',
         'fees_due' => 'decimal:2',

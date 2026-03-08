@@ -117,6 +117,42 @@ class JournalPostingEngine
         );
     }
 
+    public function postLoanJournalEntryReversalForPayment(int $paymentId): JournalEntries
+    {
+        $original = JournalEntries::query()
+            ->with('lines')
+            ->where('reference_type', 'loan_payment')
+            ->where('reference_id', $paymentId)
+            ->latest('id')
+            ->first();
+
+        if (!$original) {
+            return $this->postJournalEntry(
+                [],
+                'loan_payment_reversal',
+                $paymentId,
+                'Loan repayment reversal – no original journal entry found'
+            );
+        }
+
+        $reversalLines = [];
+        foreach ($original->lines as $line) {
+            $reversalLines[] = [
+                'account_id' => (int) $line->account_id,
+                'debit' => (float) $line->credit,
+                'credit' => (float) $line->debit,
+                'description' => $line->description,
+            ];
+        }
+
+        return $this->postJournalEntry(
+            $reversalLines,
+            'loan_payment_reversal',
+            $paymentId,
+            'Loan repayment reversal'
+        );
+    }
+
     /**
      * Convenience method: post a loan write-off journal entry.
      *

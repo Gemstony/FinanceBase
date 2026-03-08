@@ -178,4 +178,32 @@ class LoanTransactionLedger
 
         return $this->recorder->record($transaction);
     }
+
+    /**
+     * Record a loan restructure event.
+     *
+     * We store the balances as amounts in the ledger event for audit/reconciliation.
+     */
+    public function recordRestructure(
+        Loans $loan,
+        float $principalBalance,
+        float $interestBalance,
+        float $penaltyBalance,
+        int $referenceId
+    ) {
+        $transaction = $this->builder
+            ->reset()
+            ->setLoan((int) $loan->id)
+            ->setTransactionType('restructure')
+            ->setAmount(0.0)
+            ->setPrincipalAmount($principalBalance)
+            ->setInterestAmount($interestBalance)
+            ->setPenaltyAmount($penaltyBalance)
+            ->setReference('loan_restructure', $referenceId)
+            ->setDescription("Loan restructure – {$loan->loan_code}")
+            ->setTransactionDate(Carbon::now())
+            ->build();
+
+        return $this->recorder->record($transaction);
+    }
 }

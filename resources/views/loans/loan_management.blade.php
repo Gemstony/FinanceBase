@@ -49,6 +49,28 @@
         <div class="row">
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-cash-register"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Active Loans </span>
+                        <span class="info-box-number">
+                            Process loan repayments
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-success">Repayments: {{ (int) ($repaymentsCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('loan.repayments.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-primary elevation-1">
                         <i class="fas fa-list"></i>
                     </span>

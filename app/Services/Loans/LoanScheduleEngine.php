@@ -64,11 +64,11 @@ class LoanScheduleEngine
     /**
      * Persist schedule into loan_installments.
      *
-     * NOTE: This method will upsert by (loan_id, installment_number).
+     * NOTE: This method will upsert by (loan_id, schedule_version, installment_number).
      */
-    public function storeSchedule(Loans $loan, array $schedule): void
+    public function storeSchedule(Loans $loan, array $schedule, int $scheduleVersion = 1): void
     {
-        DB::transaction(function () use ($loan, $schedule) {
+        DB::transaction(function () use ($loan, $schedule, $scheduleVersion) {
             $principalAccountId = (int) ($loan->principal_account_id ?? 0);
             $interestIncomeAccountId = (int) ($loan->interest_income_account_id ?? 0);
             $penaltyIncomeAccountId = (int) ($loan->penalty_income_account_id ?? 0);
@@ -87,10 +87,12 @@ class LoanScheduleEngine
                 LoanInstallments::updateOrCreate(
                     [
                         'loan_id' => $loan->id,
+                        'schedule_version' => $scheduleVersion,
                         'installment_number' => (int) $row['installment_number'],
                     ],
                     [
                         'subshop_id' => $loan->subshop_id,
+                        'schedule_version' => $scheduleVersion,
                         'principal_due' => (float) $row['principal_amount'],
                         'interest_due' => (float) $row['interest_amount'],
                         'fees_due' => 0,

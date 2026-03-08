@@ -20,8 +20,13 @@ class LoanNextInstallmentResolver
     {
         $loanId = (int) $loan->id;
 
+        $latestVersion = (int) (LoanInstallments::query()
+            ->where('loan_id', $loanId)
+            ->max('schedule_version') ?: 1);
+
         $next = LoanInstallments::query()
             ->where('loan_id', $loanId)
+            ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
             ->where('status', '!=', 'paid')
             ->orderBy('due_date')

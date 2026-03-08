@@ -29,10 +29,15 @@ class LoanBalanceCalculator
     {
         $loanId = (int) $loan->id;
 
+        $latestVersion = (int) (LoanInstallments::query()
+            ->where('loan_id', $loanId)
+            ->max('schedule_version') ?: 1);
+
         // Principal outstanding:
         // SUM(principal_due from loan_installments) - SUM(principal_amount from loan_payment_allocations)
         $scheduledPrincipal = (float) LoanInstallments::query()
             ->where('loan_id', $loanId)
+            ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
             ->sum('principal_due');
 
@@ -74,6 +79,7 @@ class LoanBalanceCalculator
         // SUM(fees_due from loan_installments) - SUM(fee_amount from loan_payment_allocations)
         $scheduledFees = (float) LoanInstallments::query()
             ->where('loan_id', $loanId)
+            ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
             ->sum('fees_due');
 

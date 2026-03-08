@@ -26,9 +26,14 @@ class LoanOverdueCalculator
         $loanId = (int) $loan->id;
         $today = Carbon::today();
 
+        $latestVersion = (int) (LoanInstallments::query()
+            ->where('loan_id', $loanId)
+            ->max('schedule_version') ?: 1);
+
         // Find installments where due_date < today AND status != paid
         $overdueInstallments = LoanInstallments::query()
             ->where('loan_id', $loanId)
+            ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
             ->whereDate('due_date', '<', $today->toDateString())
             ->where('status', '!=', 'paid')

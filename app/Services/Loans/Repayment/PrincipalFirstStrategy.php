@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services\Loans\Payments\AllocationStrategies;
+declare(strict_types=1);
+
+namespace App\Services\Loans\Repayment;
 
 class PrincipalFirstStrategy
 {
     /**
-     * Allocation order within an installment.
-     *
      * @return array<int, string>
      */
     public function getPriorityOrder(): array

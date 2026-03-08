@@ -9,9 +9,15 @@ class LoanRestructureInstallments extends Model
     protected $table = 'loan_restructure_installments';
 
     protected $fillable = [
+        'loan_id',
         'restructure_id',
         'installment_id',
         'installment_number',
+        'due_date',
+        'principal_due',
+        'interest_due',
+        'penalty_due',
+        'status',
         'old_due_date',
         'old_principal_due',
         'old_interest_due',
@@ -24,9 +30,14 @@ class LoanRestructureInstallments extends Model
     ];
 
     protected $casts = [
+        'loan_id' => 'integer',
         'restructure_id' => 'integer',
         'installment_id' => 'integer',
         'installment_number' => 'integer',
+        'due_date' => 'date',
+        'principal_due' => 'decimal:2',
+        'interest_due' => 'decimal:2',
+        'penalty_due' => 'decimal:2',
         'old_due_date' => 'date',
         'old_principal_due' => 'decimal:2',
         'old_interest_due' => 'decimal:2',

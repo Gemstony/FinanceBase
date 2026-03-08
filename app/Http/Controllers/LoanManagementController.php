@@ -63,6 +63,11 @@ class LoanManagementController extends Controller
             })
             ->count();
 
-        return view('loans.loan_management', compact('subshop', 'pendingLoansCount', 'approvedLoansCount', 'pendingApprovalsCount'));
+        $repaymentsCount = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->whereIn('status', ['disbursed', 'partially_paid'])
+            ->count();
+
+        return view('loans.loan_management', compact('subshop', 'pendingLoansCount', 'approvedLoansCount', 'pendingApprovalsCount', 'repaymentsCount'));
     }
 }

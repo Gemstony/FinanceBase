@@ -51,6 +51,7 @@ use App\Http\Controllers\ProfitAndLossReportController;
 use App\Http\Controllers\PrinterSettingsController;
 use App\Http\Controllers\PrintJobsController;
 use App\Http\Controllers\SmsManagementController;
+use App\Http\Controllers\LoanRepaymentController;
 
 use Illuminate\Http\Request;
 
@@ -329,6 +330,47 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansDisbursementController::class, 'index'])->name('index');
             Route::get('/{loan}', [\App\Http\Controllers\LoansDisbursementController::class, 'show'])->name('show');
             Route::post('/{loan}/disburse', [\App\Http\Controllers\LoansDisbursementController::class, 'disburse'])->name('disburse');
+        });
+
+        Route::prefix('loan-repayments')->group(function () {
+            Route::get('/', [LoanRepaymentController::class, 'index'])
+                ->name('loan.repayments.index');
+
+            Route::get('/{loan}/create', [LoanRepaymentController::class, 'create'])
+                ->name('loan.repayments.create');
+
+            Route::post('/store', [LoanRepaymentController::class, 'store'])
+                ->name('loan.repayments.store');
+
+            Route::get('/{loan}/history', [LoanRepaymentController::class, 'show'])
+                ->name('loan.repayments.history');
+
+            Route::get('/receipt/{payment}', [LoanRepaymentController::class, 'receipt'])
+                ->name('loan.repayments.receipt');
+
+            Route::post('/reverse/{payment}', [LoanRepaymentController::class, 'reverse'])
+                ->name('loan.repayments.reverse');
+        });
+
+        // Loan restructuring
+        Route::prefix('loan-restructures')->group(function () {
+            Route::get('/', [\App\Http\Controllers\LoanRestructureController::class, 'index'])
+                ->name('loan.restructures.index');
+
+            Route::get('/{loan}/create', [\App\Http\Controllers\LoanRestructureController::class, 'create'])
+                ->name('loan.restructures.create');
+
+            Route::post('/{loan}/store', [\App\Http\Controllers\LoanRestructureController::class, 'store'])
+                ->name('loan.restructures.store');
+
+            Route::post('/{restructure}/approve', [\App\Http\Controllers\LoanRestructureController::class, 'approve'])
+                ->name('loan.restructures.approve');
+
+            Route::post('/{restructure}/execute', [\App\Http\Controllers\LoanRestructureController::class, 'execute'])
+                ->name('loan.restructures.execute');
+
+            Route::get('/{loan}/history', [\App\Http\Controllers\LoanRestructureController::class, 'history'])
+                ->name('loan.restructures.history');
         });
 
         // Loans for creating loan, viewing and all about loan management

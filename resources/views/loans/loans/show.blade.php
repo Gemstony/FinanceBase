@@ -21,6 +21,7 @@
      <nav aria-label="breadcrumb">
          <ol class="breadcrumb">
              <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('loans.management') }}"><i class="fas fa-university"></i> Loan Management</a></li>
              <li class="breadcrumb-item"><a href="{{ route('loans.loans.index') }}">Loans</a></li>
              <li class="breadcrumb-item active" aria-current="page">Loan</li>
          </ol>
@@ -78,6 +79,14 @@
                     </div>
                     <div class="text-muted">
                         Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
+                            <i class="fas fa-random"></i> Restructure Loan
+                        </a>
+                        <a href="{{ route('loan.restructures.history', $loan) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-history"></i> History
+                        </a>
                     </div>
                 </div>
             </div>
@@ -227,55 +236,77 @@
     <div class="card">
         <div class="card-header"><strong>Installment Schedule</strong></div>
         <div class="card-body table-responsive">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Due Date</th>
-                        <th>Principal Due</th>
-                        <th>Interest Due</th>
-                        <th>Fees Due</th>
-                        <th>Penalty Due</th>
-                        <th>Total Due</th>
-                        <th>Principal Paid</th>
-                        <th>Interest Paid</th>
-                        <th>Fees Paid</th>
-                        <th>Penalty Paid</th>
-                        <th>Outstanding</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($installments as $i)
-                        <tr>
-                            <td>{{ $i->installment_number }}</td>
-                            <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
-                            <td>{{ number_format((float)$i->principal_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->interest_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->fees_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->total_due, 2) }}</td>
-                            <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
-                            <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
-                            <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
-                            <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
-                            <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
-                            @php
-                                $installmentBadgeClass = match ((string) $i->status) {
-                                    'paid' => 'badge-success',
-                                    'partial' => 'badge-info',
-                                    'pending' => 'badge-warning',
-                                    'overdue' => 'badge-danger',
-                                    default => 'badge-secondary',
-                                };
-                            @endphp
-                            <td><span class="badge {{ $installmentBadgeClass }}">{{ $i->status }}</span></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="13" class="text-center text-muted">No installments found.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+            @php
+                $versions = isset($installmentsByVersion) ? $installmentsByVersion->keys()->sortDesc()->values() : collect();
+            @endphp
+
+            @forelse($versions as $ver)
+                @php
+                    $rows = $installmentsByVersion->get($ver, collect());
+                    $title = ((int) $ver === (int) $latestScheduleVersion) ? 'Current Schedule' : 'Previous Schedule (Restructured)';
+                    $badgeClass = ((int) $ver === (int) $latestScheduleVersion) ? 'badge-success' : 'badge-secondary';
+                @endphp
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>{{ $title }}</strong>
+                        <span class="badge {{ $badgeClass }}">Version {{ (int) $ver }}</span>
+                    </div>
+
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Due Date</th>
+                                <th>Principal Due</th>
+                                <th>Interest Due</th>
+                                <th>Fees Due</th>
+                                <th>Penalty Due</th>
+                                <th>Total Due</th>
+                                <th>Principal Paid</th>
+                                <th>Interest Paid</th>
+                                <th>Fees Paid</th>
+                                <th>Penalty Paid</th>
+                                <th>Outstanding</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($rows as $i)
+                                <tr>
+                                    <td>{{ $i->installment_number }}</td>
+                                    <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
+                                    <td>{{ number_format((float)$i->principal_due, 2) }}</td>
+                                    <td>{{ number_format((float)$i->interest_due, 2) }}</td>
+                                    <td>{{ number_format((float)$i->fees_due, 2) }}</td>
+                                    <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
+                                    <td>{{ number_format((float)$i->total_due, 2) }}</td>
+                                    <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
+                                    <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
+                                    <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
+                                    <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
+                                    <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
+                                    @php
+                                        $installmentBadgeClass = match ((string) $i->status) {
+                                            'paid' => 'badge-success',
+                                            'partial' => 'badge-info',
+                                            'pending' => 'badge-warning',
+                                            'overdue' => 'badge-danger',
+                                            'restructured' => 'badge-secondary',
+                                            default => 'badge-secondary',
+                                        };
+                                    @endphp
+                                    <td><span class="badge {{ $installmentBadgeClass }}">{{ $i->status }}</span></td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="13" class="text-center text-muted">No installments found.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            @empty
+                <div class="text-muted">No installments found.</div>
+            @endforelse
         </div>
     </div>
 </div>

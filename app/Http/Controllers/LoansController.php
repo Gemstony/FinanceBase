@@ -574,11 +574,20 @@ class LoansController extends Controller
             abort(404);
         }
 
-        $installments = LoanInstallments::query()
+        $latestScheduleVersion = (int) (LoanInstallments::query()
             ->where('loan_id', $loan->id)
-            ->where('is_active', true)
+            ->max('schedule_version') ?: 1);
+
+        $allInstallments = LoanInstallments::query()
+            ->where('loan_id', $loan->id)
+            ->orderByDesc('schedule_version')
             ->orderBy('installment_number')
             ->get();
+
+        $installmentsByVersion = $allInstallments->groupBy('schedule_version');
+
+        // Keep $installments for existing UI sections: show the latest schedule first.
+        $installments = $installmentsByVersion->get($latestScheduleVersion, collect());
 
         $collaterals = LoanCollaterals::query()
             ->where('loan_id', $loan->id)
@@ -602,6 +611,9 @@ class LoansController extends Controller
             'subshop',
             'loan',
             'installments',
+            'allInstallments',
+            'installmentsByVersion',
+            'latestScheduleVersion',
             'collaterals',
             'guarantors',
             'approvals'

@@ -304,6 +304,17 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/members/{member}/leave', [LoanGroupController::class, 'removeMember'])->name('members.leave');
         });
 
+        // Loan management center
+        Route::get('loans', [\App\Http\Controllers\LoanManagementController::class, 'index'])->name('loans.management');
+
+        // Loan approvals (multi-level sequential approval)
+        Route::prefix('loans/approvals')->name('loans.approvals.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\LoanApprovalsController::class, 'index'])->name('index');
+            Route::get('/{loan:loan_code}', [\App\Http\Controllers\LoanApprovalsController::class, 'show'])->name('show');
+            Route::post('/{loan:loan_code}/approve', [\App\Http\Controllers\LoanApprovalsController::class, 'approve'])->name('approve');
+            Route::post('/{loan:loan_code}/reject', [\App\Http\Controllers\LoanApprovalsController::class, 'reject'])->name('reject');
+        });
+
         // Loans for creating loan, viewing and all about loan management
         Route::prefix('loans/loans')->name('loans.loans.')->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansController::class, 'index'])->name('index');
@@ -313,6 +324,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{loan:loan_code}/edit', [\App\Http\Controllers\LoansController::class, 'edit'])->name('edit');
             Route::put('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'update'])->name('update');
             Route::delete('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'destroy'])->name('destroy');
+
+            Route::post('/{loan:loan_code}/recoveries', [\App\Http\Controllers\LoanRecoveryPaymentsController::class, 'store'])->name('recoveries.store');
         });
 
 

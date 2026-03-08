@@ -21,6 +21,8 @@
      <nav aria-label="breadcrumb">
          <ol class="breadcrumb">
              <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('loans.management') }}"><i class="fas fa-university"></i> Loan Management</a></li>
+
              <li class="breadcrumb-item active" aria-current="page">Loans</li>
          </ol>
      </nav>
@@ -192,7 +194,20 @@
                                 @endif
                             </td>
                             <td>{{ number_format((float)$loan->principal_amount, 2) }}</td>
-                            <td><span class="badge badge-secondary">{{ $loan->status }}</span></td>
+                            @php
+                                $statusBadgeClass = match ((string) $loan->status) {
+                                    'pending' => 'badge-warning',
+                                    'approved' => 'badge-success',
+                                    'rejected' => 'badge-danger',
+                                    'disbursed' => 'badge-primary',
+                                    'partially_paid' => 'badge-info',
+                                    'paid_off' => 'badge-success',
+                                    'defaulted' => 'badge-dark',
+                                    'written_off' => 'badge-secondary',
+                                    default => 'badge-secondary',
+                                };
+                            @endphp
+                            <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
                             <td>{{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</td>
                             <td>{{ $loan->maturity_date ? \Carbon\Carbon::parse($loan->maturity_date)->format('Y-m-d') : '-' }}</td>
                             <td class="text-right">

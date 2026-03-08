@@ -462,7 +462,7 @@ return [
          
                 [
                     'text' => 'Loans',
-                    'url' => 'loans/loans',
+                    'url' => 'loans',
                 ], 
 
                 [

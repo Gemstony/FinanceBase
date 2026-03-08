@@ -50,7 +50,16 @@ class PaymentProcessor
             throw new InvalidArgumentException('Invalid allocation strategy provided.');
         }
 
-        if (in_array((string) $loan->status, ['paid_off', 'written_off'], true)) {
+        // Payment eligibility rule:
+        // - Payments must NOT be accepted for loans that are not yet approved.
+        // - Payments must also never be accepted for closed loans (paid_off / written_off).
+        $status = (string) $loan->status;
+        $paymentAllowedStatuses = ['approved', 'disbursed', 'partially_paid'];
+        if (!in_array($status, $paymentAllowedStatuses, true)) {
+            throw new InvalidArgumentException('This loan is not eligible for payments until it is approved/disbursed.');
+        }
+
+        if (in_array($status, ['paid_off', 'written_off'], true)) {
             throw new InvalidArgumentException('This loan is closed and cannot accept payments.');
         }
 

@@ -294,6 +294,7 @@ class LoansController extends Controller
 
         $validated = $validator->validate();
         $loanId = null;
+      
 
         try {
             $loanId = DB::transaction(fn () => $this->storeLoanWithinTransaction(

@@ -61,7 +61,20 @@
                 </div>
                 <div class="text-right">
                     <div class="mb-1">
-                        <span class="badge badge-secondary">{{ $loan->status }}</span>
+                        @php
+                            $statusBadgeClass = match ((string) $loan->status) {
+                                'pending' => 'badge-warning',
+                                'approved' => 'badge-success',
+                                'rejected' => 'badge-danger',
+                                'disbursed' => 'badge-primary',
+                                'partially_paid' => 'badge-info',
+                                'paid_off' => 'badge-success',
+                                'defaulted' => 'badge-dark',
+                                'written_off' => 'badge-secondary',
+                                default => 'badge-secondary',
+                            };
+                        @endphp
+                        <span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span>
                     </div>
                     <div class="text-muted">
                         Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
@@ -132,7 +145,16 @@
                             @forelse($approvals as $a)
                                 <tr>
                                     <td>{{ $a->level_order }}</td>
-                                    <td>{{ $a->status }}</td>
+                                    @php
+                                        $approvalBadgeClass = match ((string) $a->status) {
+                                            'pending' => 'badge-warning',
+                                            'approved' => 'badge-success',
+                                            'rejected' => 'badge-danger',
+                                            'skipped' => 'badge-secondary',
+                                            default => 'badge-secondary',
+                                        };
+                                    @endphp
+                                    <td><span class="badge {{ $approvalBadgeClass }}">{{ $a->status }}</span></td>
                                     <td>{{ $a->approver?->name ?? '-' }}</td>
                                     <td>{{ $a->approved_at ? \Carbon\Carbon::parse($a->approved_at)->format('Y-m-d H:i') : '-' }}</td>
                                 </tr>
@@ -238,7 +260,16 @@
                             <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
                             <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
                             <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
-                            <td>{{ $i->status }}</td>
+                            @php
+                                $installmentBadgeClass = match ((string) $i->status) {
+                                    'paid' => 'badge-success',
+                                    'partial' => 'badge-info',
+                                    'pending' => 'badge-warning',
+                                    'overdue' => 'badge-danger',
+                                    default => 'badge-secondary',
+                                };
+                            @endphp
+                            <td><span class="badge {{ $installmentBadgeClass }}">{{ $i->status }}</span></td>
                         </tr>
                     @empty
                         <tr><td colspan="13" class="text-center text-muted">No installments found.</td></tr>

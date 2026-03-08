@@ -1,0 +1,195 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Accounting;
+
+use App\Models\Loans;
+
+class LoanAccountingMapper
+{
+    public function __construct(
+        private readonly JournalEntryBuilder $builder,
+    ) {
+    }
+
+    /**
+     * Build journal entry lines for a loan disbursement.
+     *
+     * Financial meaning:
+     * - Debit: Increase Loan Portfolio (asset) because the institution now has a receivable.
+     * - Credit: Decrease Cash/Bank (asset) because funds are released to the borrower.
+     *
+     * @param Loans  $loan   The loan being disbursed
+     * @param float  $amount Disbursement amount
+     *
+     * @return array Journal lines ready for validation/posting
+     */
+    public function buildLoanDisbursementEntry(Loans $loan, float $amount): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        // Debit: Loan Portfolio account (principal_account_id on loan)
+        $builder->addDebit(
+            (int) $loan->principal_account_id,
+            $amount,
+            "Loan disbursement – {$loan->loan_code}"
+        );
+
+        // Credit: Cash or Bank account (assumed system account; replace with actual cash account ID)
+        // For now, we use the same principal_account_id as a placeholder; adjust to real cash account.
+        $builder->addCredit(
+            (int) $loan->principal_account_id, // TODO: replace with actual cash/bank account ID
+            $amount,
+            "Cash disbursement – {$loan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    /**
+     * Build journal entry lines for a loan repayment.
+     *
+     * Financial meaning:
+     * - Debit: Increase Cash (asset) because cash is received.
+     * - Credit: Decrease Loan Portfolio (principal portion).
+     * - Credit: Recognize Interest Income (interest portion).
+     * - Credit: Recognize Penalty Income (penalty portion).
+     * - Credit: Recognize Fee Income (fee portion).
+     *
+     * @param array $allocation Expected keys: principal_amount, interest_amount, fee_amount, penalty_amount, loan_id
+     *
+     * @return array Journal lines ready for validation/posting
+     */
+    public function buildLoanRepaymentEntry(array $allocation): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $principal = (float) ($allocation['principal_amount'] ?? 0);
+        $interest = (float) ($allocation['interest_amount'] ?? 0);
+        $fee = (float) ($allocation['fee_amount'] ?? 0);
+        $penalty = (float) ($allocation['penalty_amount'] ?? 0);
+
+        // Debit: Cash account (placeholder; replace with actual cash account ID)
+        $totalCash = $principal + $interest + $fee + $penalty;
+        if ($totalCash > 0) {
+            // TODO: replace with actual cash/bank account ID
+            $builder->addDebit(
+                1, // placeholder cash account ID
+                $totalCash,
+                'Loan repayment – cash received'
+            );
+        }
+
+        // Credit: Loan Portfolio (principal)
+        if ($principal > 0) {
+            // TODO: retrieve principal_account_id from loan if needed
+            $builder->addCredit(
+                1, // placeholder principal account ID
+                $principal,
+                'Loan repayment – principal portion'
+            );
+        }
+
+        // Credit: Interest Income
+        if ($interest > 0) {
+            // TODO: retrieve interest_income_account_id from loan
+            $builder->addCredit(
+                1, // placeholder interest income account ID
+                $interest,
+                'Loan repayment – interest income'
+            );
+        }
+
+        // Credit: Penalty Income
+        if ($penalty > 0) {
+            // TODO: retrieve penalty_income_account_id from loan
+            $builder->addCredit(
+                1, // placeholder penalty income account ID
+                $penalty,
+                'Loan repayment – penalty income'
+            );
+        }
+
+        // Credit: Fee Income
+        if ($fee > 0) {
+            // TODO: retrieve fee_income_account_id from loan
+            $builder->addCredit(
+                1, // placeholder fee income account ID
+                $fee,
+                'Loan repayment – fee income'
+            );
+        }
+
+        return $builder->getLines();
+    }
+
+    /**
+     * Build journal entry lines for a loan write-off.
+     *
+     * Financial meaning:
+     * - Debit: Recognize Loan Loss Expense (expense) because the receivable is deemed uncollectible.
+     * - Credit: Decrease Loan Portfolio (asset) to remove the receivable.
+     *
+     * @param Loans  $loan   The loan being written off
+     * @param float  $amount Write-off amount (typically outstanding principal)
+     *
+     * @return array Journal lines ready for validation/posting
+     */
+    public function buildLoanWriteOffEntry(Loans $loan, float $amount): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        // Debit: Loan Loss Expense account (write_off_expense_account_id on loan)
+        $builder->addDebit(
+            (int) $loan->write_off_expense_account_id,
+            $amount,
+            "Loan write-off – {$loan->loan_code}"
+        );
+
+        // Credit: Loan Portfolio (principal_account_id)
+        $builder->addCredit(
+            (int) $loan->principal_account_id,
+            $amount,
+            "Write-off of loan principal – {$loan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    /**
+     * Build journal entry lines for a loan recovery (post-write-off collection).
+     *
+     * Financial meaning:
+     * - Debit: Increase Cash (asset) because cash is received.
+     * - Credit: Recognize Recovery Income (income) because it offsets previous loss.
+     *
+     * @param float $amount Recovery amount received
+     *
+     * @return array Journal lines ready for validation/posting
+     */
+    public function buildLoanRecoveryEntry(float $amount): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        // Debit: Cash account (placeholder; replace with actual cash account ID)
+        $builder->addDebit(
+            1, // placeholder cash account ID
+            $amount,
+            'Loan recovery – cash received'
+        );
+
+        // Credit: Recovery Income account (placeholder; replace with actual recovery income account ID)
+        $builder->addCredit(
+            1, // placeholder recovery income account ID
+            $amount,
+            'Loan recovery – income recognized'
+        );
+
+        return $builder->getLines();
+    }
+}

@@ -7,6 +7,8 @@ namespace App\Services\Loans\WriteOff;
 use App\Models\LoanInstallments;
 use App\Models\LoanWriteoffs;
 use App\Models\Loans;
+use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +16,9 @@ class LoanWriteOffEngine
 {
     public function __construct(
         private readonly LoanWriteOffValidator $validator,
-        private readonly LoanWriteOffCalculator $calculator
+        private readonly LoanWriteOffCalculator $calculator,
+        private readonly LoanTransactionLedger $ledger,
+        private readonly JournalPostingEngine $journalPostingEngine,
     ) {}
 
     /**
@@ -26,16 +30,18 @@ class LoanWriteOffEngine
      * - Remaining installments are frozen (deactivated) so they no longer participate in delinquency/collections engines
      * - The system still allows recovery tracking via loan_writeoff_recoveries
      */
-    public function writeOffLoan(Loans $loan, string $reason, int $approvedBy): LoanWriteoffs
+    public function writeOffLoan(Loans $loan, string $writeoffDate, string $reason, int $approvedBy): LoanWriteoffs
     {
         $this->validator->validate($loan);
 
-        return DB::transaction(function () use ($loan, $reason, $approvedBy) {
+        return DB::transaction(function () use ($loan, $writeoffDate, $reason, $approvedBy) {
             $balances = $this->calculator->calculateBalances($loan);
+
+            $date = Carbon::parse($writeoffDate)->toDateString();
 
             $writeoff = LoanWriteoffs::create([
                 'loan_id' => $loan->id,
-                'writeoff_date' => Carbon::today()->toDateString(),
+                'writeoff_date' => $date,
                 'principal_written_off' => $balances['principal_written_off'],
                 'interest_written_off' => $balances['interest_written_off'],
                 'fees_written_off' => $balances['fees_written_off'],
@@ -48,16 +54,29 @@ class LoanWriteOffEngine
 
             // Set loan status to stop accrual engines.
             $loan->status = 'written_off';
+            $loan->is_written_off = true;
             $loan->save();
 
-            // Freeze remaining schedule so it no longer participates in delinquency calculations and accrual engines.
+            // Close remaining schedule so it no longer participates in delinquency calculations and accrual engines.
             LoanInstallments::query()
                 ->where('loan_id', $loan->id)
                 ->where('is_active', true)
                 ->where('status', '!=', 'paid')
                 ->update([
                     'is_active' => false,
+                    'status' => 'written_off',
                 ]);
+
+            $this->ledger->recordWriteOff(
+                loan: $loan,
+                amount: (float) $balances['total_written_off'],
+                referenceId: (int) $writeoff->id
+            );
+
+            $this->journalPostingEngine->postLoanWriteOff(
+                loan: $loan,
+                amount: (float) $balances['total_written_off']
+            );
 
             return $writeoff;
         });

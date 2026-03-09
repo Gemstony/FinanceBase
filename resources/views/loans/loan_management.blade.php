@@ -75,9 +75,9 @@
                         <i class="fas fa-list"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Loans Management</span>
+                        <span class="info-box-text">Applied Loans</span>
                         <span class="info-box-number">
-                            View and manage loans
+                            View, manage and create loans
                         </span>
                         <div class="mt-1">
                             <span class="badge badge-warning">Pending: {{ (int) ($pendingLoansCount ?? 0) }}</span>
@@ -97,7 +97,7 @@
                         <i class="fas fa-user-check"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Loan Approvals</span>
+                        <span class="info-box-text">Pending Loan Approvals</span>
                         <span class="info-box-number">
                             Review pending approvals
                         </span>
@@ -119,12 +119,12 @@
                         <i class="fas fa-hand-holding-usd"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Approved Loans</span>
+                        <span class="info-box-text">Disburse Approved Loans</span>
                         <span class="info-box-number">
-                            Disburse approved loans
+                            Pending Disburse Approved Loans
                         </span>
                         <div class="mt-1">
-                            <span class="badge badge-success">Approved: {{ (int) ($approvedLoansCount ?? 0) }}</span>
+                            <span class="badge badge-warning">Pending: {{ (int) ($pendingDisburseCount ?? 0) }}</span>
                         </div>
                         <div class="mt-2">
                             <a href="{{ route('loans.disbursement.index') }}" class="btn btn-sm btn-outline-info">
@@ -141,7 +141,7 @@
                         <i class="fas fa-random"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Loan Restructure Approvals</span>
+                        <span class="info-box-text">Pending Restructure Approvals</span>
                         <span class="info-box-number">
                             Review and approve loan restructures
                         </span>
@@ -157,6 +157,27 @@
                 </div>
             </div>
 
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-ban"></i> 
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Written Off Loans</span>
+                        <span class="info-box-number">
+                            Review and manage written-off loans
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-danger">Count: {{ (int) ($pendingWriteOffApprovalsCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('writeoffs.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>

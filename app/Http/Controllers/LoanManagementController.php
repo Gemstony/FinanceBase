@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LoanRestructures;
+use App\Models\LoanWriteoffs;
 use App\Models\Loans;
 use App\Models\SubShop;
 use Illuminate\Support\Facades\Auth;
@@ -64,14 +65,18 @@ class LoanManagementController extends Controller
             })
             ->count();
 
+        $pendingRestructureApprovalsCount = LoanRestructures::query()
+            ->where('is_active', true)
+            ->where('status', 'pending')
+            ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
+            ->count();
+
         $repaymentsCount = Loans::query()
             ->where('subshop_id', $subshopId)
             ->whereIn('status', ['disbursed', 'partially_paid'])
             ->count();
 
-        $pendingRestructureApprovalsCount = LoanRestructures::query()
-            ->where('is_active', true)
-            ->where('status', 'pending')
+        $pendingWriteOffApprovalsCount = LoanWriteoffs::query()
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
             ->count();
 
@@ -81,7 +86,8 @@ class LoanManagementController extends Controller
             'approvedLoansCount',
             'pendingApprovalsCount',
             'pendingRestructureApprovalsCount',
-            'repaymentsCount'
+            'repaymentsCount',
+            'pendingWriteOffApprovalsCount'
         ));
     }
 }

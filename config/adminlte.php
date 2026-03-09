@@ -470,6 +470,7 @@ return [
                     'url' => 'loans/loan_groups',
                 ], 
 
+             
                 [
                     'text' => 'Loan Settings',
                     'url' => '/loans/loans_settings',

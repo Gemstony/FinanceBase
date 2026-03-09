@@ -39,6 +39,7 @@ class PaymentAllocator
             ->where('loan_id', (int) $loan->id)
             ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
+            ->where('status', '!=', 'written_off')
             ->where('outstanding_amount', '>', 0)
             ->orderBy('due_date')
             ->orderBy('installment_number')

@@ -376,6 +376,28 @@ Route::middleware(['auth'])->group(function () {
                 ->name('loan.restructures.history');
         });
 
+        // Loan write-off & recovery
+        Route::prefix('loans/{loan:loan_code}')->group(function () {
+            Route::get('writeoff/create', [\App\Http\Controllers\Loans\LoanWriteOffController::class, 'create'])
+                ->name('loans.writeoff.create');
+            Route::post('writeoff', [\App\Http\Controllers\Loans\LoanWriteOffController::class, 'store'])
+                ->name('loans.writeoff.store');
+
+            Route::get('recovery/create', [\App\Http\Controllers\Loans\LoanRecoveryController::class, 'create'])
+                ->name('loans.recovery.create');
+            Route::post('recovery', [\App\Http\Controllers\Loans\LoanRecoveryController::class, 'store'])
+                ->name('loans.recovery.store');
+        });
+
+        Route::prefix('loans/writeoffs')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Loans\WriteOffManagementController::class, 'index'])
+                ->name('writeoffs.index');
+            Route::get('/{writeoff}', [\App\Http\Controllers\Loans\WriteOffManagementController::class, 'show'])
+                ->name('writeoffs.show');
+            Route::get('/{writeoff}/recoveries', [\App\Http\Controllers\Loans\WriteOffManagementController::class, 'recoveries'])
+                ->name('writeoffs.recoveries');
+        });
+
         // Loans for creating loan, viewing and all about loan management
         Route::prefix('loans/loans')->name('loans.loans.')->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansController::class, 'index'])->name('index');

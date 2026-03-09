@@ -80,9 +80,18 @@
                         Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
                     </div>
                     <div class="mt-2">
-                        <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
-                            <i class="fas fa-random"></i> Restructure Loan
-                        </a>
+                        @if(!(bool) ($loan->is_written_off ?? false) && (string) $loan->status !== 'written_off')
+                            <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-random"></i> Restructure Loan
+                            </a>
+                            <a href="{{ route('loans.writeoff.create', $loan) }}" class="btn btn-sm btn-danger">
+                                <i class="fas fa-ban"></i> Write Off
+                            </a>
+                        @else
+                            <a href="{{ route('loans.recovery.create', $loan) }}" class="btn btn-sm btn-success">
+                                <i class="fas fa-hand-holding-usd"></i> Record Recovery
+                            </a>
+                        @endif
                         <a href="{{ route('loan.restructures.history', $loan) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-history"></i> History
                         </a>

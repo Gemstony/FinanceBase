@@ -21,7 +21,7 @@
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-        <li class="breadcrumb-item"><a href="{{ route('loans.management') }}">Loans</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('loans.management') }}"><i class="fas fa-university"></i> Loans Management</a></li>
         <li class="breadcrumb-item active" aria-current="page">Restructure Approvals</li>
     </ol>
 </nav>

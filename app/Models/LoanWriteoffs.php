@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LoanWriteoffs extends Model
@@ -47,5 +48,25 @@ class LoanWriteoffs extends Model
     public function recoveries()
     {
         return $this->hasMany(LoanWriteoffRecoveries::class, 'writeoff_id');
+    }
+
+    public function scopeOnlyWrittenOffLoans(Builder $query): Builder
+    {
+        return $query->whereHas('loan', function ($q) {
+            $q->where('is_written_off', true);
+        });
+    }
+
+    public function scopeFilterDateRange(Builder $query, ?string $from, ?string $to): Builder
+    {
+        if (!empty($from)) {
+            $query->whereDate('writeoff_date', '>=', $from);
+        }
+
+        if (!empty($to)) {
+            $query->whereDate('writeoff_date', '<=', $to);
+        }
+
+        return $query;
     }
 }

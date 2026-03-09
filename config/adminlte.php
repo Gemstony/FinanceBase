@@ -420,6 +420,27 @@ return [
         ],
 
 
+        [
+            'text' => 'Risk Monitoring',
+            'icon' => 'fas fa-shield-alt',
+            'submenu' => [
+                [
+                    'text' => 'Portfolio Risk',
+                    'url' => 'risk/portfolio',
+                    'icon' => 'fas fa-chart-line',
+                ],
+                [
+                    'text' => 'Delinquent Loans',
+                    'url' => 'risk/delinquent',
+                    'icon' => 'fas fa-exclamation-triangle',
+                ],
+                [
+                    'text' => 'Collections',
+                    'url' => 'risk/collections',
+                    'icon' => 'fas fa-hand-holding-usd',
+                ],
+            ],
+        ],
         //Accounting
 
          [

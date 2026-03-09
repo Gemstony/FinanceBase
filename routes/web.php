@@ -52,6 +52,8 @@ use App\Http\Controllers\PrinterSettingsController;
 use App\Http\Controllers\PrintJobsController;
 use App\Http\Controllers\SmsManagementController;
 use App\Http\Controllers\LoanRepaymentController;
+use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
+use App\Http\Controllers\Loans\Risk\CollectionsController;
 
 use Illuminate\Http\Request;
 
@@ -61,7 +63,12 @@ Route::get('/', function () {
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
-
+Route::prefix('risk')->group(function () {
+    Route::get('/portfolio', [PortfolioRiskController::class, 'dashboard'])->name('risk.portfolio');
+    Route::get('/delinquent', [PortfolioRiskController::class, 'delinquentLoans'])->name('risk.delinquent.index');
+    Route::get('/delinquent/{days}', [PortfolioRiskController::class, 'delinquentByDays'])->name('risk.delinquent.by_days');
+    Route::get('/collections', [CollectionsController::class, 'index'])->name('risk.collections');
+});
 // Route::middleware('auth')->group(function () {
 //     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 //     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

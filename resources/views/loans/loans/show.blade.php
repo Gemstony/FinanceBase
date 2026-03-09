@@ -34,6 +34,47 @@
 
 @section('content')
 <div class="container-fluid">
+    @php
+        $delinquencyEngine = app(\App\Services\Loans\Risk\LoanDelinquencyEngine::class);
+        $portfolioRisk = app(\App\Services\Loans\Risk\PortfolioRiskCalculator::class);
+        $riskCategory = $delinquencyEngine->classifyLoanRisk($loan);
+        $outstanding = $portfolioRisk->calculateLoanOutstanding($loan);
+        $maxOverdue = (int) $loan->installments()
+            ->where('is_active', true)
+            ->where('status', 'overdue')
+            ->get()
+            ->map(fn($i) => $delinquencyEngine->calculateDaysOverdue($i))
+            ->max();
+    @endphp
+
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card card-outline {{ $maxOverdue > 0 ? 'card-danger' : 'card-success' }}">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fas fa-exclamation-triangle"></i> Loan Risk Indicator</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h5>Risk Category</h5>
+                            <span class="badge {{ $riskCategory === 'default' ? 'bg-dark' : ($riskCategory === 'par90' ? 'bg-danger' : ($riskCategory === 'par60' ? 'bg-orange' : ($riskCategory === 'par30' ? 'bg-warning' : 'bg-success'))) }}" style="font-size: 1.2rem; padding: 10px 20px;">
+                                {{ strtoupper($riskCategory) }}
+                            </span>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Days Overdue</h5>
+                            <h3 class="{{ $maxOverdue > 0 ? 'text-danger' : 'text-success' }}">{{ $maxOverdue }}</h3>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Outstanding Balance</h5>
+                            <h3>{{ number_format($outstanding, 2) }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif

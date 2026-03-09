@@ -119,7 +119,7 @@ class PortfolioRiskCalculator
      * In most microfinance systems, PAR is measured on the active portfolio.
      * We exclude soft-deleted rows automatically (SoftDeletes).
      */
-    protected function activeLoansQuery(): Builder
+    public function activeLoansQuery(): Builder
     {
         return Loans::query()->where('is_active', true);
     }

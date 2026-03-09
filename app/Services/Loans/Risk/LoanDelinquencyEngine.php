@@ -134,4 +134,20 @@ class LoanDelinquencyEngine
 
         return 'default';
     }
+
+    /**
+     * Get a summary of the portfolio risk.
+     *
+     * @return array{portfolio_outstanding: float, par30: float, par60: float, par90: float, par180: float}
+     */
+    public function getPortfolioRiskSummary(): array
+    {
+        return [
+            'portfolio_outstanding' => $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding(),
+            'par30' => $this->calculatePAR(30),
+            'par60' => $this->calculatePAR(60),
+            'par90' => $this->calculatePAR(90),
+            'par180' => $this->calculatePAR(180),
+        ];
+    }
 }

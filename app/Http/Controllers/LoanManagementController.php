@@ -85,6 +85,16 @@ class LoanManagementController extends Controller
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
             ->count();
 
+        $completedLoansCount = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->where('status', 'paid_off')
+            ->count();
+
+        $rejectedLoansCount = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->where('status', 'rejected')
+            ->count();
+
         $pendingWriteOffApprovalsCount = LoanWriteoffs::query()
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
             ->count();
@@ -98,6 +108,8 @@ class LoanManagementController extends Controller
             'repaymentsCount',
             'pendingDisburseCount',
             'restructuredLoansCount',
+            'completedLoansCount',
+            'rejectedLoansCount',
             'pendingWriteOffApprovalsCount'
         ));
     }

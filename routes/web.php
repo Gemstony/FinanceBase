@@ -273,6 +273,19 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{loanFee}', [LoanFeesController::class, 'destroy'])->name('destroy');
         });
 
+        // Loan write-off & recovery
+        Route::prefix('loans/writeoffs')->group(function () {
+            Route::get('/', [WriteOffManagementController::class, 'index'])->name('writeoffs.index');
+            Route::get('/{loan}/create', [LoanWriteOffController::class, 'create'])->name('writeoffs.create');
+            Route::post('/{loan}/store', [LoanWriteOffController::class, 'store'])->name('writeoffs.store');
+        });
+
+        // Completed Loans
+        Route::get('loans/completed', [\App\Http\Controllers\Loans\CompletedLoansController::class, 'index'])->name('loans.completed.index');
+
+        // Rejected Loans
+        Route::get('loans/rejected', [\App\Http\Controllers\Loans\RejectedLoansController::class, 'index'])->name('loans.rejected.index');
+
         // Disbursement methods Routes
         Route::prefix('loans/loans_settings/disbursement_methods')->name('loans.disbursement_methods.')->group(function () {
             Route::get('/', [DisbursementMethodController::class, 'index'])->name('index');

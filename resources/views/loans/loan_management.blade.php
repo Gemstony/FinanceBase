@@ -181,6 +181,50 @@
 
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-check-circle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Completed Loans</span>
+                        <span class="info-box-number">
+                            Manage all paid off loans
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-success">Count: {{ (int) ($completedLoansCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('loans.completed.index') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-times-circle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Rejected Loans</span>
+                        <span class="info-box-number">
+                            View all rejected applications
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-danger">Count: {{ (int) ($rejectedLoansCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('loans.rejected.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-danger elevation-1">
                         <i class="fas fa-ban"></i> 
                     </span>

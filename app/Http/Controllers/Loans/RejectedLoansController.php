@@ -34,7 +34,7 @@ class RejectedLoansController extends Controller
             });
         }
 
-        $loans = $query->paginate(20)->appends($request->query());
+        $loans = $query->get();
 
         return view('loans.rejected.index', compact('subshop', 'loans'));
     }

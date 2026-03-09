@@ -190,37 +190,50 @@
                                         <tr>
                                             <th>#</th>
                                             <th>Due Date</th>
-                                            <th>Principal</th>
-                                            <th>Interest</th>
-                                            <th>Fee</th>
-                                            <th>Penalty</th>
+                                            <th>Principal Due</th>
+                                            <th>Interest Due</th>
+                                            <th>Fees Due</th>
+                                            <th>Penalty Due</th>
+                                            <th>Total Due</th>
+                                            <th>Principal Paid</th>
+                                            <th>Interest Paid</th>
+                                            <th>Fees Paid</th>
+                                            <th>Penalty Paid</th>
+                                            <th>Outstanding</th>
                                             <th>Status</th>
-                                            <th class="text-right">Outstanding</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($rows as $ins)
-                                            @php
-                                                $badge = match ((string) $ins->status) {
-                                                    'paid' => 'badge-success',
-                                                    'partial' => 'badge-warning',
-                                                    'overdue' => 'badge-danger',
-                                                    'restructured' => 'badge-secondary',
-                                                    default => 'badge-secondary',
-                                                };
-                                            @endphp
+                                        @forelse($rows as $i)
                                             <tr>
-                                                <td>{{ $ins->installment_number }}</td>
-                                                <td>{{ $ins->due_date ? \Carbon\Carbon::parse($ins->due_date)->format('Y-m-d') : '-' }}</td>
-                                                <td>{{ number_format((float) $ins->principal_due, 2) }}</td>
-                                                <td>{{ number_format((float) $ins->interest_due, 2) }}</td>
-                                                <td>{{ number_format((float) $ins->fees_due, 2) }}</td>
-                                                <td>{{ number_format((float) $ins->penalty_due, 2) }}</td>
-                                                <td><span class="badge {{ $badge }}">{{ $ins->status }}</span></td>
-                                                <td class="text-right">{{ number_format((float) $ins->outstanding_amount, 2) }}</td>
+                                                <td>{{ $i->installment_number }}</td>
+                                                <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
+                                                <td>{{ number_format((float)$i->principal_due, 2) }}</td>
+                                                <td>{{ number_format((float)$i->interest_due, 2) }}</td>
+                                                <td>{{ number_format((float)$i->fees_due, 2) }}</td>
+                                                <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
+                                                <td>{{ number_format((float)$i->total_due, 2) }}</td>
+                                                <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
+                                                <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
+                                                <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
+                                                <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
+                                                <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
+                                                @php
+                                                    $installmentBadgeClass = match ((string) $i->status) {
+                                                        'paid' => 'badge-success',
+                                                        'partial' => 'badge-info',
+                                                        'pending' => 'badge-warning',
+                                                        'overdue' => 'badge-danger',
+                                                        'restructured' => 'badge-secondary',
+                                                        default => 'badge-secondary',
+                                                    };
+                                                @endphp
+                                                <td><span class="badge {{ $installmentBadgeClass }}">{{ $i->status }}</span></td>
                                             </tr>
                                         @empty
-                                            <tr><td colspan="8" class="text-center text-muted">No installments found.</td></tr>
+                                            <tr>
+                                                <td colspan="13" class="text-center text-muted">No installments found.</td>
+                                            </tr>
                                         @endforelse
                                     </tbody>
                                 </table>

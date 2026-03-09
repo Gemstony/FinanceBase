@@ -40,7 +40,7 @@
     <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" id="approvalsTable">
                     <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                         <tr>
                             <th>Loan Code</th>
@@ -79,7 +79,7 @@
             </div>
 
             @if(method_exists($loans, 'links'))
-                <div class="d-flex justify-content-end">
+                <div class="mt-4 d-flex justify-content-center">
                     {{ $loans->links() }}
                 </div>
             @endif
@@ -87,6 +87,23 @@
     </div>
 </div>
 @stop
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#approvalsTable').length) {
+        $('#approvalsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [5] },
+                { searchable: false, targets: [5] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+</script>
+@endpush
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">

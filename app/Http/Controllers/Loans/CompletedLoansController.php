@@ -34,7 +34,7 @@ class CompletedLoansController extends Controller
             });
         }
 
-        $loans = $query->paginate(20)->appends($request->query());
+        $loans = $query->get();
 
         return view('loans.completed.index', compact('subshop', 'loans'));
     }

@@ -70,7 +70,7 @@
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="repaymentsTable">
                         <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                             <tr>
                                 <th>Loan Number</th>
@@ -112,13 +112,32 @@
                     </table>
                 </div>
 
-                <div class="d-flex justify-content-end">
-                    {{ $loans->links() }}
-                </div>
+                @if(method_exists($loans, 'links'))
+                    <div class="mt-4 d-flex justify-content-center">
+                        {{ $loans->links() }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#repaymentsTable').length) {
+        $('#repaymentsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [4] },
+                { searchable: false, targets: [4] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+</script>
 @endpush

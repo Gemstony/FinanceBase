@@ -34,7 +34,7 @@ class LoanRestructureController extends Controller
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
             ->with(['loan.loanProduct', 'loan.customer', 'loan.loanGroup'])
             ->orderByDesc('id')
-            ->paginate(20);
+            ->get();
 
         return view('loans.restructures.index', compact('subshop', 'requests'));
     }
@@ -51,7 +51,7 @@ class LoanRestructureController extends Controller
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
             ->with(['loan.loanProduct', 'loan.customer', 'loan.loanGroup'])
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->get();
 
         return view('loans.restructures.restructured_loans', compact('subshop', 'restructures'));
     }
@@ -207,7 +207,7 @@ class LoanRestructureController extends Controller
         $requests = LoanRestructures::query()
             ->where('loan_id', (int) $loan->id)
             ->orderByDesc('id')
-            ->paginate(20);
+            ->get();
 
         return view('loans.restructures.history', compact('subshop', 'loan', 'requests'));
     }

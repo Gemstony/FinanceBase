@@ -56,7 +56,7 @@
                     <div class="col-md-6 col-12">
                         <div class="small-box bg-success">
                             <div class="inner">
-                                <h3 class="mb-0">{{ number_format($loans->total()) }}</h3>
+                                <h3 class="mb-0">{{ number_format($loans->count()) }}</h3>
                                 <p>Approved Pending Disbursement</p>
                             </div>
                             <div class="icon"><i class="fas fa-check-circle"></i></div>
@@ -115,7 +115,7 @@
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="disbursementsTable">
                         <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                             <tr>
                                 <th>#</th>
@@ -130,6 +130,9 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $loanCounter = 1;
+                            @endphp
                             @forelse($loans as $loan)
                                 @php
                                     $coll = $loan->collateral_status_badge ?? ['status' => '—', 'class' => 'bg-secondary'];
@@ -138,9 +141,6 @@
 
                                     $hasBlocking = in_array($coll['class'], ['bg-danger'], true)
                                         || in_array($gua['class'], ['bg-danger'], true);
-                                @endphp
-                                @php
-                                    $loanCounter = 1;
                                 @endphp
                                 <tr @if($hasBlocking) style="background-color: #fff5f5;" @endif>
                                     <td><strong>{{ $loanCounter++ }}</strong></td>
@@ -175,13 +175,32 @@
                     </table>
                 </div>
 
-                <div class="d-flex justify-content-end">
-                    {{ $loans->links() }}
-                </div>
+                @if(method_exists($loans, 'links'))
+                    <div class="mt-4 d-flex justify-content-center">
+                        {{ $loans->links() }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
 @stop
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#disbursementsTable').length) {
+        $('#disbursementsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [8] },
+                { searchable: false, targets: [8] }
+            ],
+            order: [[0, 'asc']]
+        });
+    }
+});
+</script>
+@endpush
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">

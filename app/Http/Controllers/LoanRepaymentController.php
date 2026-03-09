@@ -48,7 +48,7 @@ class LoanRepaymentController extends Controller
             });
         }
 
-        $loans = $query->orderByDesc('id')->paginate(15)->withQueryString();
+        $loans = $query->orderByDesc('id')->get();
 
         return view('loans.repayments.index', compact('loans'));
     }

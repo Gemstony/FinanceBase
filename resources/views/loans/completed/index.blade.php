@@ -47,7 +47,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover table-striped">
+                <table class="table table-hover table-striped" id="completedLoansTable">
                     <thead>
                         <tr>
                             <th>Loan Code</th>
@@ -103,13 +103,32 @@
                 </table>
             </div>
 
-            <div class="mt-4 d-flex justify-content-center">
-                {{ $loans->links() }}
-            </div>
+            @if(method_exists($loans, 'links'))
+                <div class="mt-4 d-flex justify-content-center">
+                    {{ $loans->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
 @stop
+
+@section('js')
+<script>
+$(document).ready(function() {
+    if ($('#completedLoansTable').length) {
+        $('#completedLoansTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [6] },
+                { searchable: false, targets: [6] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+</script>
+@endsection
 
 @section('css')
 <style>

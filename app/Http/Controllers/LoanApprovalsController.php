@@ -61,7 +61,7 @@ class LoanApprovalsController extends Controller
             })
             ->with(['loanProduct', 'customer', 'loanGroup'])
             ->orderByDesc('id')
-            ->paginate(20);
+            ->get();
 
         return view('loans.approvals.index', compact('subshop', 'loans'));
     }

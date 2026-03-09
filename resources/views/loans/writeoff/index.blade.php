@@ -89,7 +89,7 @@
         <div class="card-header"><strong>All Write-Offs</strong></div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered table-hover">
+                <table class="table table-bordered table-hover" id="writeoffsTable">
                     <thead class="thead-light">
                         <tr>
                             <th>Write-Off ID</th>
@@ -131,13 +131,32 @@
                 </table>
             </div>
 
-            <div class="d-flex justify-content-end">
-                {{ $writeoffs->links() }}
-            </div>
+            @if(method_exists($writeoffs, 'links'))
+                <div class="mt-3">
+                    {{ $writeoffs->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
 @endsection
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#writeoffsTable').length) {
+        $('#writeoffsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [8] },
+                { searchable: false, targets: [8] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+</script>
+@endpush
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">

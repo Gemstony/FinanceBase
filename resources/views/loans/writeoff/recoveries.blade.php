@@ -55,7 +55,7 @@
         <div class="card-header"><strong>Recovery History</strong></div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered table-hover">
+                <table class="table table-bordered table-hover" id="writeoffRecoveriesTable">
                     <thead class="thead-light">
                         <tr>
                             <th>Recovery ID</th>
@@ -106,9 +106,11 @@
                 </table>
             </div>
 
-            <div class="d-flex justify-content-end">
-                {{ $recoveries->links() }}
-            </div>
+            @if(method_exists($recoveries, 'links'))
+                <div class="mt-4 d-flex justify-content-center">
+                    {{ $recoveries->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>

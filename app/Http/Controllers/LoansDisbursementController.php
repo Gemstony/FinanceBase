@@ -65,10 +65,10 @@ class LoansDisbursementController extends Controller
             $query->having('approval_date', '<=', $request->input('approval_date_to'));
         }
 
-        $loans = $query->paginate(20);
+        $loans = $query->get();
 
         // Compute readiness badges per loan for the index view (avoid calling controller methods from Blade).
-        $loans->getCollection()->transform(function (Loans $loan) {
+        $loans->transform(function (Loans $loan) {
             $loan->collateral_status_badge = $this->getCollateralStatus($loan);
             $loan->guarantor_status_badge = $this->getGuarantorStatus($loan);
             $loan->fees_status_badge = $this->getFeesStatus($loan);

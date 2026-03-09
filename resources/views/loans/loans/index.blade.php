@@ -164,7 +164,7 @@
             </form>
 
             <div class="table-responsive">
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover" id="loansTable">
                 <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                     <tr>
                         <th>ID</th>
@@ -228,12 +228,6 @@
                 </tbody>
             </table>
             </div>
-
-            @if(method_exists($loans, 'links'))
-                <div class="d-flex justify-content-end">
-                    {{ $loans->links() }}
-                </div>
-            @endif
     </div>
 </div>
 @stop
@@ -245,7 +239,18 @@
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function() {
+    if ($('#loansTable').length) {
+        $('#loansTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [7] },
+                { searchable: false, targets: [7] }
+            ],
+            order: [[0, 'asc']]
+        });
+    }
+
     document.querySelectorAll('.delete-loan-btn').forEach(function (btn) {
         btn.addEventListener('click', function (e) {
             e.preventDefault();

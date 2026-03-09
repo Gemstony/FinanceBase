@@ -42,7 +42,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover" id="restructureRequestsTable">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -110,9 +110,11 @@
                 </table>
             </div>
 
-            <div class="mt-3">
-                {{ $requests->links() }}
-            </div>
+            @if(method_exists($requests, 'links'))
+                <div class="mt-3">
+                    {{ $requests->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
@@ -121,6 +123,19 @@
 @section('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+$(document).ready(function() {
+    if ($('#restructureRequestsTable').length) {
+        $('#restructureRequestsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [7] },
+                { searchable: false, targets: [7] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.js-restructure-reject-form').forEach(function (form) {
         var btn = form.querySelector('.js-restructure-reject-btn');

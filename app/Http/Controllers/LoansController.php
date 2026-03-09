@@ -105,8 +105,7 @@ class LoansController extends Controller
 
         $loans = $query
             ->orderByDesc('id')
-            ->paginate(20)
-            ->appends($request->query());
+            ->get();
 
         $loanProducts = LoanProducts::query()
             ->where('subshop_id', $subshopId)

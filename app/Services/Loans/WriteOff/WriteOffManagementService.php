@@ -10,7 +10,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class WriteOffManagementService
 {
-    public function paginateWriteOffs(array $filters, ?int $subshopId = null): LengthAwarePaginator
+    public function paginateWriteOffs(array $filters, ?int $subshopId = null)
     {
         $query = LoanWriteoffs::query()
             ->with([
@@ -54,9 +54,9 @@ class WriteOffManagementService
             $query->where('total_written_off', '<=', (float) $amountMax);
         }
 
-        $paginator = $query->paginate(15)->appends($filters);
+        $paginator = $query->get();
 
-        $paginator->getCollection()->transform(function (LoanWriteoffs $w) {
+        $paginator->transform(function (LoanWriteoffs $w) {
             $borrowerName = $w->loan?->borrower_type === 'group'
                 ? ($w->loan?->loanGroup?->name ?? '-')
                 : ($w->loan?->customer?->name ?? '-');
@@ -123,7 +123,7 @@ class WriteOffManagementService
             ->where('writeoff_id', (int) $writeoff->id)
             ->orderByDesc('recovery_date')
             ->orderByDesc('id')
-            ->paginate(20);
+            ->get();
 
         $totals = [
             'principal' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('recovered_principal'),

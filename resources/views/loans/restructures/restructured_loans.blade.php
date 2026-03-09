@@ -57,7 +57,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover table-striped">
+                <table class="table table-hover" id="restructuredLoansTable">
                     <thead>
                         <tr>
                             <th>Loan Code</th>
@@ -151,9 +151,11 @@
                 </table>
             </div>
 
-            <div class="mt-4 d-flex justify-content-center">
-                {{ $restructures->links() }}
-            </div>
+            @if(method_exists($restructures, 'links'))
+                <div class="mt-4 d-flex justify-content-center">
+                    {{ $restructures->links() }}
+                </div>
+            @endif
         </div>
     </div>
 </div>
@@ -162,6 +164,19 @@
 @section('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+$(document).ready(function() {
+    if ($('#restructuredLoansTable').length) {
+        $('#restructuredLoansTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [6] },
+                { searchable: false, targets: [6] }
+            ],
+            order: [[0, 'desc']]
+        });
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.js-execute-form').forEach(function (form) {
         var btn = form.querySelector('.js-execute-btn');

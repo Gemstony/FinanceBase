@@ -159,6 +159,28 @@
 
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-teal elevation-1 text-white">
+                        <i class="fas fa-sync-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Restructured Loans</span>
+                        <span class="info-box-number">
+                            Manage all restructured loans
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-info">Count: {{ (int) ($restructuredLoansCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('loan.restructures.managed') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-danger elevation-1">
                         <i class="fas fa-ban"></i> 
                     </span>

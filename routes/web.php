@@ -357,6 +357,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [\App\Http\Controllers\LoanRestructureController::class, 'index'])
                 ->name('loan.restructures.index');
 
+            Route::get('/managed', [\App\Http\Controllers\LoanRestructureController::class, 'managed'])
+                ->name('loan.restructures.managed');
+
             Route::get('/{loan}/create', [\App\Http\Controllers\LoanRestructureController::class, 'create'])
                 ->name('loan.restructures.create');
 

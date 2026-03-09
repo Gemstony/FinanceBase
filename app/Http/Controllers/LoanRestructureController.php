@@ -40,6 +40,23 @@ class LoanRestructureController extends Controller
     }
 
     /**
+     * List all restructured loans for management.
+     */
+    public function managed(): View
+    {
+        $subshopId = (int) session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $restructures = LoanRestructures::query()
+            ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
+            ->with(['loan.loanProduct', 'loan.customer', 'loan.loanGroup'])
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        return view('loans.restructures.restructured_loans', compact('subshop', 'restructures'));
+    }
+
+    /**
      * Show form to request a restructure for a given loan.
      */
     public function create(Loans $loan): View

@@ -75,7 +75,7 @@
                         <i class="fas fa-list"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Loans</span>
+                        <span class="info-box-text">Loans Management</span>
                         <span class="info-box-number">
                             View and manage loans
                         </span>
@@ -97,7 +97,7 @@
                         <i class="fas fa-user-check"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Approvals</span>
+                        <span class="info-box-text">Loan Approvals</span>
                         <span class="info-box-number">
                             Review pending approvals
                         </span>
@@ -128,6 +128,28 @@
                         </div>
                         <div class="mt-2">
                             <a href="{{ route('loans.disbursement.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-warning elevation-1">
+                        <i class="fas fa-random"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Restructure Approvals</span>
+                        <span class="info-box-number">
+                            Review and approve loan restructures
+                        </span>
+                        <div class="mt-1">
+                            <span class="badge badge-danger">Pending: {{ (int) ($pendingRestructureApprovalsCount ?? 0) }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <a href="{{ route('loan.restructures.index') }}" class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-arrow-right mr-1"></i> Open
                             </a>
                         </div>

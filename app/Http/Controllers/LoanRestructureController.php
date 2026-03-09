@@ -128,6 +128,37 @@ class LoanRestructureController extends Controller
         });
     }
 
+    public function reject(Request $request, LoanRestructures $restructure): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:2000'],
+        ], [
+            'reason.required' => 'Please provide a reason for rejection.',
+        ]);
+
+        $user = Auth::user();
+        if (!$user) {
+            abort(403);
+        }
+
+        return DB::transaction(function () use ($restructure, $user, $validated) {
+            $locked = LoanRestructures::query()->whereKey((int) $restructure->id)->lockForUpdate()->firstOrFail();
+
+            if ((string) $locked->status !== 'pending') {
+                return back()->with('error', 'This restructure request is not pending.');
+            }
+
+            $locked->status = 'rejected';
+            $locked->approved_by = (int) $user->id;
+            $locked->approved_at = Carbon::now();
+            $locked->reason = (string) $validated['reason'];
+            $locked->is_active = false;
+            $locked->save();
+
+            return back()->with('success', 'Restructure request rejected successfully.');
+        });
+    }
+
     public function execute(LoanRestructures $restructure): RedirectResponse
     {
         try {

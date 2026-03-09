@@ -57,7 +57,6 @@
                         @if($loan->borrower_type)
                             &middot; {{ ucfirst($loan->borrower_type) }}
                         @endif
-                        &middot; Loan ID: <strong>#{{ $loan->id }}</strong>
                     </div>
                 </div>
                 <div class="text-right">
@@ -145,6 +144,7 @@
                         <thead>
                             <tr>
                                 <th>Level</th>
+                                <th>Role</th>
                                 <th>Status</th>
                                 <th>Approved By</th>
                                 <th>Approved At</th>
@@ -154,6 +154,7 @@
                             @forelse($approvals as $a)
                                 <tr>
                                     <td>{{ $a->level_order }}</td>
+                                    <td>{{ $a->loanProductApprovalLevel?->role?->name ?? $a->loanProductApprovalLevel?->role_id ?? '-' }}</td>
                                     @php
                                         $approvalBadgeClass = match ((string) $a->status) {
                                             'pending' => 'badge-warning',
@@ -168,7 +169,7 @@
                                     <td>{{ $a->approved_at ? \Carbon\Carbon::parse($a->approved_at)->format('Y-m-d H:i') : '-' }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="text-center text-muted">No approval levels.</td></tr>
+                                <tr><td colspan="5" class="text-center text-muted">No approval levels.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

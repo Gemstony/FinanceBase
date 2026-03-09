@@ -8,6 +8,7 @@ use App\Models\LoanApprovals;
 use App\Models\LoanCollaterals;
 use App\Models\LoanGroups;
 use App\Models\LoanInstallments;
+use App\Models\LoanPenalties;
 use App\Models\LoanProductApprovalLevels;
 use App\Models\LoanProducts;
 use App\Models\Loans;
@@ -320,7 +321,9 @@ class LoansController extends Controller
             return back()->withInput()->with('error', $message);
         }
 
-        return redirect()->route('loans.loans.show', ['loan' => $loanId])
+        $loanCode = Loans::query()->whereKey((int) $loanId)->value('loan_code');
+
+        return redirect()->route('loans.loans.show', ['loan' => $loanCode ?: $loanId])
             ->with('success', 'Loan created successfully.');
     }
 
@@ -603,7 +606,7 @@ class LoansController extends Controller
         $approvals = LoanApprovals::query()
             ->where('loan_id', $loan->id)
             ->where('is_active', true)
-            ->with('loanProductApprovalLevel')
+            ->with('loanProductApprovalLevel.role')
             ->orderBy('level_order')
             ->get();
 

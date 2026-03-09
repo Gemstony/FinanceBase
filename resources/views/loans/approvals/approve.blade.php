@@ -21,6 +21,7 @@
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('loans.management') }}"><i class="fas fa-university"></i> Loan Management</a></li>
         <li class="breadcrumb-item"><a href="{{ route('loans.approvals.index') }}">Loan Approvals</a></li>
         <li class="breadcrumb-item active" aria-current="page">{{ $loan->loan_code }}</li>
     </ol>
@@ -45,6 +46,74 @@
             </ul>
         </div>
     @endif
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap">
+                <div class="mb-2">
+                    <h4 class="mb-1">
+                        @if($loan->borrower_type === 'group')
+                            {{ $loan->loanGroup?->name }} Loan
+                        @else
+                            {{ $loan->customer?->name }} Loan
+                        @endif
+                    </h4>
+                    <div class="text-muted">
+                        {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        @if($loan->borrower_type)
+                            &middot; {{ ucfirst($loan->borrower_type) }}
+                        @endif
+                        &middot; Loan Code: <strong>{{ $loan->loan_code }}</strong>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="mb-1">
+                        @php
+                            $statusBadgeClass = match ((string) $loan->status) {
+                                'pending' => 'badge-warning',
+                                'approved' => 'badge-success',
+                                'rejected' => 'badge-danger',
+                                'disbursed' => 'badge-primary',
+                                'partially_paid' => 'badge-info',
+                                'paid_off' => 'badge-success',
+                                'defaulted' => 'badge-dark',
+                                'written_off' => 'badge-secondary',
+                                default => 'badge-secondary',
+                            };
+                        @endphp
+                        <span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span>
+                    </div>
+                    <div class="text-muted">
+                        Principal: <strong>{{ number_format((float) $loan->principal_amount, 2) }}</strong>
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-eye"></i> View Loan
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Interest Rate</div>
+                    <div><strong>{{ number_format((float) $loan->interest_rate, 2) }}%</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Installments</div>
+                    <div><strong>{{ (int) $loan->installments }}</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Disbursement</div>
+                    <div><strong>{{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</strong></div>
+                </div>
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="text-muted">Maturity</div>
+                    <div><strong>{{ $loan->maturity_date ? \Carbon\Carbon::parse($loan->maturity_date)->format('Y-m-d') : '-' }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-lg-8">
@@ -144,7 +213,7 @@
                                     You can approve/reject this loan at level <strong>{{ (int) $nextPending->level_order }}</strong>.
                                 </div>
 
-                                <form method="post" action="{{ route('loans.approvals.approve', $loan->loan_code) }}" class="mb-2">
+                                <form method="post" action="{{ route('loans.approvals.approve', $loan->loan_code) }}" class="mb-2 js-loan-approve-form">
                                     @csrf
                                     <div class="form-group">
                                         <label class="small mb-1">Comment (optional)</label>
@@ -155,13 +224,13 @@
                                     </button>
                                 </form>
 
-                                <form method="post" action="{{ route('loans.approvals.reject', $loan->loan_code) }}">
+                                <form method="post" action="{{ route('loans.approvals.reject', $loan->loan_code) }}" class="js-loan-reject-form">
                                     @csrf
                                     <div class="form-group">
                                         <label class="small mb-1">Rejection comment (required)</label>
                                         <textarea name="comments" class="form-control" rows="3" placeholder="Provide a reason for rejection" required>{{ old('comments') }}</textarea>
                                     </div>
-                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this loan?');">
+                                    <button type="submit" class="btn btn-danger">
                                         <i class="fas fa-times"></i> Reject
                                     </button>
                                 </form>
@@ -255,6 +324,61 @@
     </div>
 </div>
 @stop
+
+@section('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.js-loan-approve-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Approve this loan?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Approve',
+                confirmButtonColor: '#28a745',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                form.submit();
+            });
+        });
+    });
+
+    document.querySelectorAll('.js-loan-reject-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var textarea = form.querySelector('textarea[name="comments"]');
+            var reason = textarea ? textarea.value.trim() : '';
+
+            if (!reason) {
+                Swal.fire({
+                    title: 'Rejection reason required',
+                    text: 'Please enter a reason before rejecting.',
+                    icon: 'warning'
+                });
+                if (textarea) textarea.focus();
+                return;
+            }
+
+            Swal.fire({
+                title: 'Reject this loan?',
+                text: 'This will mark the loan as rejected at the current approval level.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Reject',
+                confirmButtonColor: '#dc3545',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                form.submit();
+            });
+        });
+    });
+});
+</script>
+@endsection
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">

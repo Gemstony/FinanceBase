@@ -27,14 +27,14 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Run expired-batch write-offs daily at 02:00 AM server time
-        $schedule->command('writeoff:expired-batches')->dailyAt('02:00');
+        // $schedule->command('writeoff:expired-batches')->dailyAt('02:00');
 
         // Run expiry alerts checks daily at 09:00 AM server time
-        $schedule->command('inventory:check-expiry-alerts')->dailyAt('09:00');
-        $schedule->command('subscriptions:check-expiry-alerts')->dailyAt('09:00');
+        // $schedule->command('inventory:check-expiry-alerts')->dailyAt('09:00');
+        // $schedule->command('subscriptions:check-expiry-alerts')->dailyAt('09:00');
 
         // Run shop suspension check daily at 09:30 AM server time
-        $schedule->command('shops:suspend-expired')->dailyAt('09:30');
+        // $schedule->command('shops:suspend-expired')->dailyAt('09:30');
 
         // Process overdue installment penalties daily at 00:10 AM server time
         $schedule->command('loans:process-penalties')->dailyAt('00:10');

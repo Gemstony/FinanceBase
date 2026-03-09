@@ -91,6 +91,14 @@
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                     </form>
+
+                                    <form action="{{ route('loan.restructures.reject', $r) }}" method="POST" class="d-inline js-restructure-reject-form">
+                                        @csrf
+                                        <input type="hidden" name="reason" value="">
+                                        <button type="button" class="btn btn-sm btn-danger js-restructure-reject-btn">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         @empty
@@ -109,6 +117,46 @@
     </div>
 </div>
 @stop
+
+@section('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.js-restructure-reject-form').forEach(function (form) {
+        var btn = form.querySelector('.js-restructure-reject-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Reject restructure request?',
+                text: 'Please provide a reason for rejection.',
+                icon: 'warning',
+                input: 'textarea',
+                inputPlaceholder: 'Enter rejection reason...',
+                inputAttributes: {
+                    'aria-label': 'Rejection reason'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Reject',
+                confirmButtonColor: '#dc3545',
+                cancelButtonText: 'Cancel',
+                preConfirm: (value) => {
+                    if (!value || !value.trim()) {
+                        Swal.showValidationMessage('Rejection reason is required');
+                        return false;
+                    }
+                    return value.trim();
+                }
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                form.querySelector('input[name="reason"]').value = result.value;
+                form.submit();
+            });
+        });
+    });
+});
+</script>
+@endsection
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush

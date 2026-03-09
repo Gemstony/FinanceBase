@@ -366,6 +366,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{restructure}/approve', [\App\Http\Controllers\LoanRestructureController::class, 'approve'])
                 ->name('loan.restructures.approve');
 
+            Route::post('/{restructure}/reject', [\App\Http\Controllers\LoanRestructureController::class, 'reject'])
+                ->name('loan.restructures.reject');
+
             Route::post('/{restructure}/execute', [\App\Http\Controllers\LoanRestructureController::class, 'execute'])
                 ->name('loan.restructures.execute');
 

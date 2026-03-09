@@ -79,9 +79,9 @@
                                 <td>{{ $r->executed_at ? $r->executed_at->format('Y-m-d H:i') : '-' }}</td>
                                 <td class="text-right">
                                     @if((string) $r->status === 'approved')
-                                        <form method="POST" action="{{ route('loan.restructures.execute', $r) }}" class="d-inline">
+                                        <form method="POST" action="{{ route('loan.restructures.execute', $r) }}" class="d-inline js-restructure-execute-form">
                                             @csrf
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Execute restructure now? This will generate a new schedule version.')">
+                                            <button type="submit" class="btn btn-sm btn-danger">
                                                 <i class="fas fa-play"></i> Execute
                                             </button>
                                         </form>
@@ -104,6 +104,31 @@
     </div>
 </div>
 @stop
+
+@section('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.js-restructure-execute-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Execute restructure now?',
+                text: 'This will generate a new schedule version.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Execute',
+                confirmButtonColor: '#dc3545',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (!result.isConfirmed) return;
+                form.submit();
+            });
+        });
+    });
+});
+</script>
+@endsection
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LoanRestructures;
 use App\Models\Loans;
 use App\Models\SubShop;
 use Illuminate\Support\Facades\Auth;
@@ -68,6 +69,19 @@ class LoanManagementController extends Controller
             ->whereIn('status', ['disbursed', 'partially_paid'])
             ->count();
 
-        return view('loans.loan_management', compact('subshop', 'pendingLoansCount', 'approvedLoansCount', 'pendingApprovalsCount', 'repaymentsCount'));
+        $pendingRestructureApprovalsCount = LoanRestructures::query()
+            ->where('is_active', true)
+            ->where('status', 'pending')
+            ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
+            ->count();
+
+        return view('loans.loan_management', compact(
+            'subshop',
+            'pendingLoansCount',
+            'approvedLoansCount',
+            'pendingApprovalsCount',
+            'pendingRestructureApprovalsCount',
+            'repaymentsCount'
+        ));
     }
 }

@@ -267,6 +267,9 @@
                                 
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
+                                        <a href="{{ route('credits.show', $customer->id) }}" class="btn btn-sm btn-outline-success" title="View Credits">
+                                            <i class="fas fa-wallet"></i>
+                                        </a>
                                         <button type="button" class="btn btn-sm btn-primary view-customer" 
                                             data-id="{{ $customer->id }}" 
                                             data-name="{{ $customer->name }}"

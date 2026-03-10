@@ -30,6 +30,34 @@
     </div>
 @stop
 
+@section('js')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const outstanding = Number({{ (float) ($summary['total_balance'] ?? 0) }});
+            const input = document.querySelector('input[name="payment_amount"]');
+            const box = document.getElementById('overpayment_warning');
+            const amountEl = document.getElementById('overpayment_amount');
+
+            function update() {
+                if (!input || !box || !amountEl) return;
+                const val = Number(input.value || 0);
+                const over = Math.round(Math.max(0, val - outstanding) * 100) / 100;
+                if (over > 0) {
+                    amountEl.textContent = over.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    box.style.display = '';
+                } else {
+                    box.style.display = 'none';
+                }
+            }
+
+            if (input) {
+                input.addEventListener('input', update);
+                update();
+            }
+        });
+    </script>
+@stop
+
 @section('content')
     <div class="container-fluid">
         @if(session('success'))
@@ -133,6 +161,10 @@
                             <div class="form-group">
                                 <label>Payment Amount</label>
                                 <input type="number" step="0.01" name="payment_amount" class="form-control" value="{{ old('payment_amount') }}" required>
+                                <div id="overpayment_warning" class="alert alert-warning mt-2" style="display:none;">
+                                    Payment exceeds remaining balance.
+                                    Extra amount (<strong id="overpayment_amount"></strong>) will be stored as customer credit.
+                                </div>
                             </div>
 
                             <div class="form-group">

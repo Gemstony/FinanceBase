@@ -54,6 +54,7 @@ use App\Http\Controllers\SmsManagementController;
 use App\Http\Controllers\LoanRepaymentController;
 use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
+use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
 
 use Illuminate\Http\Request;
 
@@ -193,6 +194,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->middleware('can:view_dashboard')
             ->name('dashboard');
+
+        Route::prefix('credits')->group(function () {
+            Route::get('/', [CustomerCreditsController::class, 'index'])->name('credits.index');
+            Route::get('/{customer}', [CustomerCreditsController::class, 'show'])->name('credits.show');
+            Route::post('/apply', [CustomerCreditsController::class, 'apply'])->name('credits.apply');
+            Route::post('/refund', [CustomerCreditsController::class, 'refund'])->name('credits.refund');
+        });
 
         //Accounting routes
         //charts of account

@@ -11,9 +11,11 @@ use App\Models\LoanPayments;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Loans\Account\LoanAccountEngine;
+use App\Services\Loans\Credits\CustomerCreditService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class PaymentProcessor
@@ -23,6 +25,7 @@ class PaymentProcessor
         private readonly LoanAccountEngine $loanAccountEngine,
         private readonly LoanTransactionLedger $ledger,
         private readonly JournalPostingEngine $accounting,
+        private readonly CustomerCreditService $customerCreditService,
     ) {
     }
 
@@ -80,6 +83,7 @@ class PaymentProcessor
             $interestTotal = 0.0;
             $feeTotal = 0.0;
             $penaltyTotal = 0.0;
+            $allocatedTotal = 0.0;
 
             foreach ($allocations as $row) {
                 $installment = LoanInstallments::query()
@@ -136,6 +140,7 @@ class PaymentProcessor
                 $interestTotal += $interest;
                 $feeTotal += $fee;
                 $penaltyTotal += $penalty;
+                $allocatedTotal += $total;
             }
 
             $summary = $this->loanAccountEngine->getLoanAccountSummary($loan);
@@ -150,6 +155,27 @@ class PaymentProcessor
 
             $loan->status = $hasOutstanding ? 'partially_paid' : 'paid_off';
             $loan->save();
+
+            // Overpayment handling layer (do not alter existing allocation logic):
+            // If some amount could not be allocated to installments, store it as customer credit.
+            $remainingPayment = round(max(0.0, (float) $paymentAmount - (float) $allocatedTotal), 2);
+            if ($remainingPayment > 0 && !$hasOutstanding) {
+                $this->customerCreditService->createCreditFromOverpayment(
+                    (int) $loan->subshop_id,
+                    $resolvedCustomerId,
+                    (int) $loan->id,
+                    (int) $payment->id,
+                    $remainingPayment,
+                    'Overpayment credit created automatically from repayment.'
+                );
+
+                Log::info('Overpayment stored as customer credit', [
+                    'loan_id' => (int) $loan->id,
+                    'payment_id' => (int) $payment->id,
+                    'customer_id' => $resolvedCustomerId,
+                    'remaining_payment' => $remainingPayment,
+                ]);
+            }
 
             $this->ledger->recordRepayment(
                 $loan,

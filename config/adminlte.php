@@ -441,6 +441,18 @@ return [
                 ],
             ],
         ],
+
+        [
+            'text' => 'Customer Credits',
+            'icon' => 'fas fa-wallet',
+            'submenu' => [
+                [
+                    'text' => 'Customer Credits',
+                    'url' => 'credits',
+                    'icon' => 'fas fa-wallet',
+                ],
+            ],
+        ],
         //Accounting
 
          [

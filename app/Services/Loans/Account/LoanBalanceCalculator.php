@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Loans\Account;
 
-use App\Models\LoanInterestAccruals;
 use App\Models\LoanInstallments;
 use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPenaltyApplications;
@@ -44,23 +43,29 @@ class LoanBalanceCalculator
         $paidPrincipal = (float) LoanPaymentAllocations::query()
             ->join('loan_installments as li', 'li.id', '=', 'loan_payment_allocations.loan_installment_id')
             ->where('li.loan_id', $loanId)
+            ->where('li.schedule_version', $latestVersion)
+            ->where('li.is_active', true)
             ->sum('loan_payment_allocations.principal_amount');
 
         $principalOutstanding = max(0.0, $scheduledPrincipal - $paidPrincipal);
 
         // Interest outstanding:
-        // SUM(daily_interest from loan_interest_accruals) - SUM(interest_amount from loan_payment_allocations)
-        $accruedInterest = (float) LoanInterestAccruals::query()
+        // SUM(interest_due from loan_installments) - SUM(interest_amount from loan_payment_allocations)
+        // We use the latest active schedule version so restructure recalculations remain consistent.
+        $scheduledInterest = (float) LoanInstallments::query()
             ->where('loan_id', $loanId)
+            ->where('schedule_version', $latestVersion)
             ->where('is_active', true)
-            ->sum('daily_interest');
+            ->sum('interest_due');
 
         $paidInterest = (float) LoanPaymentAllocations::query()
             ->join('loan_installments as li', 'li.id', '=', 'loan_payment_allocations.loan_installment_id')
             ->where('li.loan_id', $loanId)
+            ->where('li.schedule_version', $latestVersion)
+            ->where('li.is_active', true)
             ->sum('loan_payment_allocations.interest_amount');
 
-        $interestOutstanding = max(0.0, $accruedInterest - $paidInterest);
+        $interestOutstanding = max(0.0, $scheduledInterest - $paidInterest);
 
         // Penalties outstanding:
         // SUM(amount from loan_penalty_applications) - SUM(penalty_amount from loan_payment_allocations)
@@ -86,6 +91,8 @@ class LoanBalanceCalculator
         $paidFees = (float) LoanPaymentAllocations::query()
             ->join('loan_installments as li', 'li.id', '=', 'loan_payment_allocations.loan_installment_id')
             ->where('li.loan_id', $loanId)
+            ->where('li.schedule_version', $latestVersion)
+            ->where('li.is_active', true)
             ->sum('loan_payment_allocations.fee_amount');
 
         $feesOutstanding = max(0.0, $scheduledFees - $paidFees);

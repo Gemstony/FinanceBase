@@ -22,11 +22,30 @@ class PortfolioRiskController extends Controller
     public function dashboard(Request $request): View
     {
         $summary = $this->delinquencyEngine->getPortfolioRiskSummary();
-        
-        // Count performing vs delinquent loans (PAR1+)
-        $totalActive = $this->portfolioRisk->activeLoansQuery()->count();
+
+        // Count performing vs delinquent loans within the active portfolio only.
         $delinquentCount = $this->delinquencyEngine->getDelinquentLoans(1)->count();
-        $performingCount = max(0, $totalActive - $delinquentCount);
+
+        $performingCount = 0;
+        $this->portfolioRisk
+            ->activeLoansQuery()
+            ->select(['id'])
+            ->chunkById(200, function ($loans) use (&$performingCount) {
+                foreach ($loans as $loan) {
+                    if ($this->portfolioRisk->calculateLoanOutstanding($loan) <= 0) {
+                        continue;
+                    }
+
+                    $hasOverdue = $loan->installments()
+                        ->where('is_active', true)
+                        ->where('status', 'overdue')
+                        ->exists();
+
+                    if (!$hasOverdue) {
+                        $performingCount++;
+                    }
+                }
+            });
 
         return view('risk.portfolio', compact('summary', 'delinquentCount', 'performingCount'));
     }

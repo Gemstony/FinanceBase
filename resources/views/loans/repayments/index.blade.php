@@ -73,6 +73,7 @@
                     <table class="table table-striped table-hover" id="repaymentsTable">
                         <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                             <tr>
+                                <th>#</th>
                                 <th>Loan Number</th>
                                 <th>Borrower</th>
                                 <th>Product</th>
@@ -81,6 +82,10 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                              $counter = 1;
+                            @endphp
+                          
                             @forelse($loans as $loan)
                                 @php
                                     $statusBadgeClass = match ((string) $loan->status) {
@@ -90,7 +95,8 @@
                                     };
                                 @endphp
                                 <tr>
-                                    <td><strong>{{ $loan->loan_code }}</strong></td>
+                                    <td>{{ $counter++ }}</td>
+                                    <td><strong><a href="{{ route('loans.loans.show', $loan->loan_code ) }}">{{ $loan->loan_code }}</a></strong></td>
                                     <td>{{ $loan->loanGroup?->name ?? $loan->customer?->name ?? '—' }}</td>
                                     <td>{{ $loan->loanProduct?->name ?? '—' }}</td>
                                     <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
@@ -135,7 +141,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [4] },
                 { searchable: false, targets: [4] }
             ],
-            order: [[0, 'desc']]
+            order: [[1, 'desc']]
         });
     }
 });

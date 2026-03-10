@@ -76,10 +76,16 @@ class LoanDelinquencyEngine
             return new Collection();
         }
 
-        return Loans::query()
-            ->where('is_active', true)
+        $loans = $this->portfolioRiskCalculator
+            ->activeLoansQuery()
             ->whereIn('id', $loanIds)
             ->get();
+
+        return $loans
+            ->filter(function (Loans $loan) {
+                return $this->portfolioRiskCalculator->calculateLoanOutstanding($loan) > 0;
+            })
+            ->values();
     }
 
     /**
@@ -105,6 +111,18 @@ class LoanDelinquencyEngine
      */
     public function classifyLoanRisk(Loans $loan): string
     {
+        $isPortfolioLoan = (bool) ($loan->is_active ?? false)
+            && in_array((string) $loan->status, ['disbursed', 'partially_paid', 'defaulted'], true)
+            && !(bool) ($loan->is_written_off ?? false);
+
+        if (!$isPortfolioLoan) {
+            return 'current';
+        }
+
+        if ($this->portfolioRiskCalculator->calculateLoanOutstanding($loan) <= 0) {
+            return 'current';
+        }
+
         $maxDaysOverdue = (int) LoanInstallments::query()
             ->where('loan_id', $loan->id)
             ->where('is_active', true)

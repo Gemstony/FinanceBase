@@ -68,7 +68,10 @@ class PortfolioRiskCalculator
             ->select(['id'])
             ->chunkById(200, function ($loans) use (&$total) {
                 foreach ($loans as $loan) {
-                    $total += $this->calculateLoanOutstanding($loan);
+                    $outstanding = $this->calculateLoanOutstanding($loan);
+                    if ($outstanding > 0) {
+                        $total += $outstanding;
+                    }
                 }
             });
 
@@ -106,7 +109,10 @@ class PortfolioRiskCalculator
             ->select(['id'])
             ->chunkById(200, function ($loans) use (&$total) {
                 foreach ($loans as $loan) {
-                    $total += $this->calculateLoanOutstanding($loan);
+                    $outstanding = $this->calculateLoanOutstanding($loan);
+                    if ($outstanding > 0) {
+                        $total += $outstanding;
+                    }
                 }
             });
 
@@ -121,6 +127,13 @@ class PortfolioRiskCalculator
      */
     public function activeLoansQuery(): Builder
     {
-        return Loans::query()->where('is_active', true);
+        return Loans::query()
+            ->where('is_active', true)
+            ->whereIn('status', [
+                'disbursed',
+                'partially_paid',
+                'defaulted',
+            ])
+            ->where('is_written_off', false);
     }
 }

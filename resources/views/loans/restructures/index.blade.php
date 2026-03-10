@@ -56,12 +56,15 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $counter = 1;
+                        @endphp
                         @forelse($requests as $r)
                             @php
                                 $loan = $r->loan;
                             @endphp
                             <tr>
-                                <td>{{ (int) $r->id }}</td>
+                                <td>{{ $counter }}</td>
                                 <td>
                                     @if($loan)
                                         <a href="{{ route('loans.loans.show', $loan) }}">{{ $loan->loan_code }}</a>
@@ -131,7 +134,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [7] },
                 { searchable: false, targets: [7] }
             ],
-            order: [[0, 'desc']]
+            order: [[1, 'desc']]
         });
     }
 });

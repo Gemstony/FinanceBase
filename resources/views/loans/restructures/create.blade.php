@@ -142,7 +142,8 @@
                 </div>
                 <div class="card-body">
                     <div class="text-muted">
-                        This request will preserve all historical installments and create a new schedule version.
+                        This request will preserve all historical installments and create a new schedule version. <br>
+                        Restructuring can help loan officers to bypass Loan Product rules during emergence time
                     </div>
                 </div>
             </div>

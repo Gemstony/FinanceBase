@@ -26,7 +26,12 @@ class CollectionsController extends Controller
         
         $loans->load(['customer', 'loanGroup', 'loanOfficer']);
 
-        // Enrich with outstanding balance and risk category for the view
+        // Enrich with outstanding balance and risk category for the view.
+        // Also exclude any loans with 0 outstanding (safety filter).
+        $loans = $loans->filter(function ($loan) {
+            return $this->portfolioRisk->calculateLoanOutstanding($loan) > 0;
+        })->values();
+
         foreach ($loans as $loan) {
             $loan->outstanding_balance = $this->portfolioRisk->calculateLoanOutstanding($loan);
             $loan->risk_category = $this->delinquencyEngine->classifyLoanRisk($loan);

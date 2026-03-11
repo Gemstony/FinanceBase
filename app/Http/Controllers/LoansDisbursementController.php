@@ -6,6 +6,7 @@ use App\Models\DisbursementMethods;
 use App\Models\LoanApprovals;
 use App\Models\LoanDisbursements;
 use App\Models\Loans;
+use App\Models\LoanSecurityDeposit;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
@@ -115,6 +116,7 @@ class LoansDisbursementController extends Controller
         $collateralStatus = $this->getCollateralStatus($loan);
         $guarantorStatus = $this->getGuarantorStatus($loan);
         $feesStatus = $this->getFeesStatus($loan);
+        $securityDepositStatus = $this->getSecurityDepositStatus($loan);
 
         $subshopId = (int) session('subshop_id');
         $disbursementMethods = DisbursementMethods::query()
@@ -123,7 +125,7 @@ class LoansDisbursementController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'requires_reference']);
 
-        return view('loans.disbursements.show', compact('loan', 'collateralStatus', 'guarantorStatus', 'feesStatus', 'approvalDate', 'installments', 'disbursementMethods'));
+        return view('loans.disbursements.show', compact('loan', 'collateralStatus', 'guarantorStatus', 'feesStatus', 'securityDepositStatus', 'approvalDate', 'installments', 'disbursementMethods'));
     }
 
     /**
@@ -173,11 +175,11 @@ class LoansDisbursementController extends Controller
             return redirect()->back()->with('error', 'Disbursement date must be on or after the approval date.')->withInput();
         }
 
-        // Business rule checks
-        $this->validateDisbursementEligibility($loan);
-
-        // Execute disbursement in a transaction to ensure atomicity
         try {
+            // Business rule checks
+            $this->validateDisbursementEligibility($loan);
+
+            // Execute disbursement in a transaction to ensure atomicity
             DB::transaction(function () use ($loan, $disbursementDate, $referenceNumber, $disbursementMethodId, $notes) {
                 /** @var Loans $loanLocked */
                 $loanLocked = Loans::query()->whereKey($loan->id)->lockForUpdate()->firstOrFail();
@@ -209,6 +211,10 @@ class LoansDisbursementController extends Controller
             });
 
             return redirect()->route('loans.disbursement.index')->with('success', "Loan {$loan->loan_code} has been disbursed successfully.");
+        } catch (ValidationException $e) {
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->withInput();
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Disbursement failed: ' . $e->getMessage())->withInput();
         }
@@ -253,6 +259,45 @@ class LoansDisbursementController extends Controller
         // Placeholder: ensure fees are cleared/deducted
         // In a real system, you would check a loan_fees table or similar.
         // For now, we assume fees are handled elsewhere or not blocking.
+
+        if ((bool) $loan->requires_security_deposit) {
+            $required = round((float) ($loan->security_deposit_amount ?? 0.0), 2);
+            $paid = (float) LoanSecurityDeposit::query()
+                ->where('loan_id', (int) $loan->id)
+                ->where('subshop_id', (int) $loan->subshop_id)
+                ->where('status', 'held')
+                ->sum('amount');
+
+            if ($required > 0 && round($paid, 2) < $required) {
+                throw ValidationException::withMessages([
+                    'security_deposit' => 'Required security deposit has not been fully collected.',
+                ]);
+            }
+        }
+    }
+
+    private function getSecurityDepositStatus(Loans $loan): array
+    {
+        if (!(bool) $loan->requires_security_deposit) {
+            return ['status' => 'Not Required', 'class' => 'bg-secondary'];
+        }
+
+        $required = round((float) ($loan->security_deposit_amount ?? 0.0), 2);
+        if ($required <= 0) {
+            return ['status' => 'Not Required', 'class' => 'bg-secondary'];
+        }
+
+        $paid = (float) LoanSecurityDeposit::query()
+            ->where('loan_id', (int) $loan->id)
+            ->where('subshop_id', (int) $loan->subshop_id)
+            ->where('status', 'held')
+            ->sum('amount');
+
+        if (round($paid, 2) >= $required) {
+            return ['status' => 'Collected', 'class' => 'bg-success'];
+        }
+
+        return ['status' => 'Pending', 'class' => 'bg-warning'];
     }
 
     /**

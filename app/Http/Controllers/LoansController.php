@@ -9,8 +9,14 @@ use App\Models\LoanCollaterals;
 use App\Models\LoanGroups;
 use App\Models\LoanInstallments;
 use App\Models\LoanPenalties;
+use App\Models\LoanProductAccounts;
 use App\Models\LoanProductApprovalLevels;
+use App\Models\LoanProductFees;
+use App\Models\LoanProductPenalties;
+use App\Models\LoanProductRules;
+use App\Models\LoanProductTypes;
 use App\Models\LoanProducts;
+use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
 use App\Models\SubShop;
 use App\Models\loanGuarantors;
@@ -609,6 +615,29 @@ class LoansController extends Controller
             ->orderBy('level_order')
             ->get();
 
+        $securityDepositRequired = round((float) ($loan->security_deposit_amount ?? 0.0), 2);
+        $securityDepositPaid = (float) LoanSecurityDeposit::query()
+            ->where('subshop_id', (int) $loan->subshop_id)
+            ->where('loan_id', (int) $loan->id)
+            ->where('status', 'held')
+            ->sum('amount');
+
+        $securityDepositStatus = 'not_required';
+        if ((bool) $loan->requires_security_deposit) {
+            if ($securityDepositRequired > 0 && round($securityDepositPaid, 2) >= $securityDepositRequired) {
+                $securityDepositStatus = 'held';
+            } else {
+                $securityDepositStatus = 'pending';
+            }
+        }
+
+        $securityDeposits = LoanSecurityDeposit::query()
+            ->where('subshop_id', (int) $loan->subshop_id)
+            ->where('loan_id', (int) $loan->id)
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
         return view('loans.loans.show', compact(
             'subshop',
             'loan',
@@ -618,7 +647,11 @@ class LoansController extends Controller
             'latestScheduleVersion',
             'collaterals',
             'guarantors',
-            'approvals'
+            'approvals',
+            'securityDepositRequired',
+            'securityDepositPaid',
+            'securityDepositStatus',
+            'securityDeposits'
         ));
     }
 

@@ -55,6 +55,7 @@ use App\Http\Controllers\LoanRepaymentController;
 use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
 use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
+use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
 
 use Illuminate\Http\Request;
 
@@ -201,6 +202,19 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/apply', [CustomerCreditsController::class, 'apply'])->name('credits.apply');
             Route::post('/refund', [CustomerCreditsController::class, 'refund'])->name('credits.refund');
         });
+
+        Route::prefix('security-deposits')->group(function () {
+            Route::get('/', [SecurityDepositsController::class, 'index'])->name('security-deposits.index');
+            Route::get('/borrower/{customer}', [SecurityDepositsController::class, 'borrower'])->name('security-deposits.borrower');
+            Route::get('/loan/{loan:loan_code}', [SecurityDepositsController::class, 'loan'])->name('security-deposits.loan');
+            Route::get('/collect/{loan:loan_code}', [SecurityDepositsController::class, 'collectForm'])->name('security-deposits.collect.form');
+            Route::post('/refund', [SecurityDepositsController::class, 'refund'])->name('security-deposits.refund');
+            Route::post('/apply', [SecurityDepositsController::class, 'apply'])->name('security-deposits.apply');
+            Route::post('/forfeit', [SecurityDepositsController::class, 'forfeit'])->name('security-deposits.forfeit');
+        });
+
+        Route::post('/loans/{loan:loan_code}/security-deposit', [SecurityDepositsController::class, 'collect'])
+            ->name('security-deposits.collect');
 
         //Accounting routes
         //charts of account

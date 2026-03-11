@@ -453,6 +453,18 @@ return [
                 ],
             ],
         ],
+
+        [
+            'text' => 'Security Deposits',
+            'icon' => 'fas fa-shield-alt',
+            'submenu' => [
+                [
+                    'text' => 'Security Deposits',
+                    'url' => 'security-deposits',
+                    'icon' => 'fas fa-shield-alt',
+                ],
+            ],
+        ],
         //Accounting
 
          [

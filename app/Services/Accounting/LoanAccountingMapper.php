@@ -192,4 +192,100 @@ class LoanAccountingMapper
 
         return $builder->getLines();
     }
+
+    public function buildSecurityDepositCollectedEntry(Loans $loan, float $amount, string $paymentMethod): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        $liabilityAccountId = (int) $loan->customer_security_deposit_account_id;
+
+        $builder->addDebit(
+            $cashAccountId,
+            $amount,
+            "Security deposit collected – {$loan->loan_code}"
+        );
+
+        $builder->addCredit(
+            $liabilityAccountId,
+            $amount,
+            "Security deposit liability – {$loan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    public function buildSecurityDepositRefundedEntry(Loans $loan, float $amount, string $paymentMethod): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        $liabilityAccountId = (int) $loan->customer_security_deposit_account_id;
+
+        $builder->addDebit(
+            $liabilityAccountId,
+            $amount,
+            "Security deposit refunded – {$loan->loan_code}"
+        );
+
+        $builder->addCredit(
+            $cashAccountId,
+            $amount,
+            "Security deposit cash refund – {$loan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    public function buildSecurityDepositAppliedEntry(Loans $sourceLoan, Loans $targetLoan, float $amount): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $liabilityAccountId = (int) $sourceLoan->customer_security_deposit_account_id;
+
+        $builder->addDebit(
+            $liabilityAccountId,
+            $amount,
+            "Security deposit applied – {$sourceLoan->loan_code}"
+        );
+
+        $builder->addCredit(
+            (int) $targetLoan->principal_account_id,
+            $amount,
+            "Applied to loan receivable – {$targetLoan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    public function buildSecurityDepositForfeitedEntry(Loans $loan, float $amount): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $liabilityAccountId = (int) $loan->customer_security_deposit_account_id;
+        $recoveryAccountId = (int) ($loan->fee_income_account_id ?: ($loan->interest_income_account_id ?: 1));
+
+        $builder->addDebit(
+            $liabilityAccountId,
+            $amount,
+            "Security deposit forfeited – {$loan->loan_code}"
+        );
+
+        $builder->addCredit(
+            $recoveryAccountId,
+            $amount,
+            "Security deposit forfeiture income – {$loan->loan_code}"
+        );
+
+        return $builder->getLines();
+    }
+
+    private function resolveCashAccountId(string $paymentMethod): int
+    {
+        return 1;
+    }
 }

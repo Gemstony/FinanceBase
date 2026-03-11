@@ -188,6 +188,57 @@
 
         <div class="col-md-6">
             <div class="card">
+                <div class="card-header"><strong>Security Deposit</strong></div>
+                <div class="card-body">
+                    <div class="mb-1"><strong>Required:</strong> {{ number_format((float) ($securityDepositRequired ?? 0), 2) }}</div>
+                    <div class="mb-1"><strong>Paid:</strong> {{ number_format((float) ($securityDepositPaid ?? 0), 2) }}</div>
+                    <div class="mb-2">
+                        <strong>Status:</strong>
+                        @php
+                            $sd = (string) ($securityDepositStatus ?? 'not_required');
+                            $sdCls = match($sd) {
+                                'held' => 'badge-success',
+                                'pending' => 'badge-warning',
+                                default => 'badge-secondary',
+                            };
+                        @endphp
+                        <span class="badge {{ $sdCls }}">{{ str_replace('_', ' ', $sd) }}</span>
+                    </div>
+
+                    @if((bool) ($loan->requires_security_deposit ?? false) && (string) $loan->borrower_type === 'individual')
+                        <form method="POST" action="{{ route('security-deposits.collect', $loan) }}" class="border rounded p-2 bg-light">
+                            @csrf
+                            <div class="form-row">
+                                <div class="form-group col-md-4">
+                                    <label class="small mb-1">Amount</label>
+                                    <input type="number" name="amount" step="0.01" min="0" class="form-control" required>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label class="small mb-1">Payment Method</label>
+                                    <select name="payment_method" class="form-control" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="mobile_money">Mobile Money</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <label class="small mb-1">Notes</label>
+                                    <input type="text" name="notes" class="form-control" placeholder="Optional">
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-primary" type="submit">
+                                <i class="fas fa-plus"></i> Collect Deposit
+                            </button>
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ route('security-deposits.loan', $loan) }}">View Deposits</a>
+                        </form>
+                    @else
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('security-deposits.loan', $loan) }}">View Deposits</a>
+                    @endif
+                </div>
+            </div>
+
+            <div class="card">
                 <div class="card-header"><strong>Approvals</strong></div>
                 <div class="card-body table-responsive">
                     <table class="table table-sm table-striped mb-0">

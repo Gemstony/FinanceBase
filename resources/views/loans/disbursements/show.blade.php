@@ -37,6 +37,15 @@
     @if(session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0 pl-3">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <div class="card mb-3">
         <div class="card-body">
@@ -164,6 +173,10 @@
                         <tr>
                             <th>Fees</th>
                             <td><span class="badge {{ $feesStatus['class'] }}">{{ $feesStatus['status'] }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Security Deposit</th>
+                            <td><span class="badge {{ $securityDepositStatus['class'] }}">{{ $securityDepositStatus['status'] }}</span></td>
                         </tr>
                     </table>
                 </div>

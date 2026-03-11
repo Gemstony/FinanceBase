@@ -70,9 +70,10 @@
                 </form>
 
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="depositsTable">
                         <thead class="thead-light">
                             <tr>
+                                <th>#</th>
                                 <th>Borrower</th>
                                 <th>Loan</th>
                                 <th class="text-right">Amount</th>
@@ -82,8 +83,12 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $counter = 1;
+                            @endphp
                             @forelse($deposits as $d)
                                 <tr>
+                                    <td>{{ $counter++ }}</td>
                                     <td>{{ $d->customer?->name ?? '—' }}</td>
                                     <td>{{ $d->loan?->loan_code ?? '—' }}</td>
                                     <td class="text-right">{{ number_format((float) $d->amount, 2) }}</td>
@@ -131,4 +136,21 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#depositsTable').length) {
+        $('#depositsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [5] },
+                { searchable: false, targets: [5] }
+            ],
+            order: [[5, 'desc']]
+        });
+    }
+});
+</script>
 @endpush

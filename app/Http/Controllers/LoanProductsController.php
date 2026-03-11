@@ -37,6 +37,7 @@ class LoanProductsController extends Controller
             $minLoan = $request->input('min_loan_amount');
             $maxLoan = $request->input('max_loan_amount');
             $defaultLoan = $request->input('default_loan_amount');
+            $minCollateralCoverage = $request->input('min_collateral_coverage_ratio');
 
             if ($minLoan !== null && $maxLoan !== null && is_numeric($minLoan) && is_numeric($maxLoan)) {
                 if ((float)$minLoan > (float)$maxLoan) {
@@ -50,34 +51,6 @@ class LoanProductsController extends Controller
                 }
                 if ($maxLoan !== null && $maxLoan !== '' && is_numeric($maxLoan) && (float)$defaultLoan > (float)$maxLoan) {
                     $v->errors()->add('default_loan_amount', 'Default Loan Amount cannot be greater than Maximum Loan Amount.');
-                }
-            }
-
-            if ($request->boolean('requires_active_savings')) {
-                $msb = $request->input('min_savings_balance');
-                if ($msb === null || $msb === '' || !is_numeric($msb) || (float)$msb < 0) {
-                    $v->errors()->add('min_savings_balance', 'Minimum Savings Balance is required when Active Savings is required.');
-                }
-            }
-
-            $depReq = $request->input('deposit_requirement');
-            if (in_array($depReq, ['fixed_amount', 'percentage'], true)) {
-                $dv = $request->input('deposit_value');
-                if ($dv === null || $dv === '' || !is_numeric($dv) || (float)$dv < 0) {
-                    $v->errors()->add('deposit_value', 'Deposit Value is required and must be 0 or greater.');
-                }
-            }
-            if ($depReq === 'percentage') {
-                $db = $request->input('deposit_basis');
-                if ($db === null || $db === '') {
-                    $v->errors()->add('deposit_basis', 'Deposit Basis is required when Deposit Requirement is Percentage.');
-                }
-            }
-
-            if ($request->boolean('use_customer_savings')) {
-                $lpd = $request->input('lock_period_days');
-                if ($lpd === null || $lpd === '' || !is_numeric($lpd) || (int)$lpd < 0) {
-                    $v->errors()->add('lock_period_days', 'Lock Period Days is required when Use Customer Savings is enabled.');
                 }
             }
 
@@ -148,6 +121,13 @@ class LoanProductsController extends Controller
                     }
                 }
             }
+
+            if ($request->boolean('requires_collateral')) {
+                if ($minCollateralCoverage === null || $minCollateralCoverage === '') {
+                    $v->errors()->add('min_collateral_coverage_ratio', 'Minimum Collateral Coverage is required when collateral is required.');
+                }
+            }
+
         });
     }
 
@@ -377,16 +357,6 @@ class LoanProductsController extends Controller
             'min_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
 
-            // Cash config
-            'deposit_requirement' => ['required', Rule::in(['none', 'fixed_amount', 'percentage', 'savings_based'])],
-            'deposit_value' => ['nullable', 'numeric', 'min:0'],
-            'deposit_basis' => ['nullable', Rule::in(['loan_amount', 'principal'])],
-            'use_customer_savings' => ['nullable'],
-            'lock_period_days' => ['nullable', 'integer', 'min:0'],
-            'allow_withdrawal_during_loan' => ['nullable'],
-            'is_refundable' => ['nullable'],
-            'apply_on_default' => ['nullable'],
-
             // Accounts
             'principal_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'interest_receivable_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
@@ -403,12 +373,6 @@ class LoanProductsController extends Controller
             // Fees
             'fees_config' => ['nullable', 'array'],
             'fees_config.*.loan_fee_id' => ['nullable', 'integer', 'exists:loan_fees,id'],
-            'fees_config.*.charge_event' => ['nullable', Rule::in(['approval', 'disbursement', 'first_installment', 'every_installment', 'manual'])],
-            'fees_config.*.payment_method' => ['nullable', Rule::in(['upfront', 'added_to_loan', 'separate_payment'])],
-            'fees_config.*.auto_apply' => ['nullable'],
-            'fees_config.*.max_applications' => ['nullable', 'integer', 'min:0'],
-            'fees_config.*.is_waivable' => ['nullable'],
-            'fees_config.*.is_mandatory' => ['nullable'],
 
             // Penalties
             'penalties_config' => ['nullable', 'array'],
@@ -476,7 +440,7 @@ class LoanProductsController extends Controller
                     'min_interest_rate' => $validated['min_interest_rate'] ?? null,
                     'max_interest_rate' => $validated['max_interest_rate'] ?? null,
                     'allow_interest_override' => $request->boolean('allow_interest_override'),
-                    'penalty_start_day' => $validated['penalty_start_day'] ?? null,
+                    'penalty_start_day' => $validated['penalty_start_day'] ?? 0,
                     'auto_apply_penalty' => $request->boolean('auto_apply_penalty'),
                     'allow_top_up' => $request->boolean('allow_top_up'),
                     'min_repayment_ratio_for_topup' => $validated['min_repayment_ratio_for_topup'] ?? null,
@@ -489,14 +453,14 @@ class LoanProductsController extends Controller
                 LoanProductCashConfigs::create([
                     'subshop_id' => $subshopId,
                     'loan_product_id' => $loanProduct->id,
-                    'deposit_requirement' => $validated['deposit_requirement'],
-                    'deposit_value' => $validated['deposit_value'] ?? null,
-                    'deposit_basis' => $validated['deposit_basis'] ?? null,
-                    'use_customer_savings' => $request->boolean('use_customer_savings'),
-                    'lock_period_days' => $validated['lock_period_days'] ?? null,
-                    'allow_withdrawal_during_loan' => $request->boolean('allow_withdrawal_during_loan'),
-                    'is_refundable' => $request->boolean('is_refundable'),
-                    'apply_on_default' => $request->boolean('apply_on_default'),
+                    'deposit_requirement' => 'none',
+                    'deposit_value' => null,
+                    'deposit_basis' => null,
+                    'use_customer_savings' => false,
+                    'lock_period_days' => null,
+                    'allow_withdrawal_during_loan' => false,
+                    'is_refundable' => false,
+                    'apply_on_default' => false,
                     'is_active' => true,
                 ]);
 
@@ -529,14 +493,12 @@ class LoanProductsController extends Controller
                             'subshop_id' => $subshopId,
                             'loan_product_id' => $loanProduct->id,
                             'loan_fee_id' => $loanFeeId,
-                            'charge_event' => $feeRow['charge_event'] ?? 'disbursement',
-                            'payment_method' => $feeRow['payment_method'] ?? 'upfront',
-                            'auto_apply' => !empty($feeRow['auto_apply']),
-                            'max_applications' => isset($feeRow['max_applications']) && $feeRow['max_applications'] !== ''
-                                ? (int) $feeRow['max_applications']
-                                : null,
-                            'is_waivable' => !empty($feeRow['is_waivable']),
-                            'is_mandatory' => array_key_exists('is_mandatory', $feeRow) ? !empty($feeRow['is_mandatory']) : true,
+                            'charge_event' => 'disbursement',
+                            'payment_method' => 'upfront',
+                            'auto_apply' => true,
+                            'max_applications' => null,
+                            'is_waivable' => false,
+                            'is_mandatory' => true,
                             'is_active' => true,
                         ]);
 
@@ -831,16 +793,6 @@ class LoanProductsController extends Controller
             'min_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'max_interest_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
 
-            // Cash config
-            'deposit_requirement' => ['required', Rule::in(['none', 'fixed_amount', 'percentage', 'savings_based'])],
-            'deposit_value' => ['nullable', 'numeric', 'min:0'],
-            'deposit_basis' => ['nullable', Rule::in(['loan_amount', 'principal'])],
-            'use_customer_savings' => ['nullable'],
-            'lock_period_days' => ['nullable', 'integer', 'min:0'],
-            'allow_withdrawal_during_loan' => ['nullable'],
-            'is_refundable' => ['nullable'],
-            'apply_on_default' => ['nullable'],
-
             // Accounts
             'principal_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'interest_receivable_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
@@ -857,12 +809,6 @@ class LoanProductsController extends Controller
             // Fees
             'fees_config' => ['nullable', 'array'],
             'fees_config.*.loan_fee_id' => ['nullable', 'integer', 'exists:loan_fees,id'],
-            'fees_config.*.charge_event' => ['nullable', Rule::in(['approval', 'disbursement', 'first_installment', 'every_installment', 'manual'])],
-            'fees_config.*.payment_method' => ['nullable', Rule::in(['upfront', 'added_to_loan', 'separate_payment'])],
-            'fees_config.*.auto_apply' => ['nullable'],
-            'fees_config.*.max_applications' => ['nullable', 'integer', 'min:0'],
-            'fees_config.*.is_waivable' => ['nullable'],
-            'fees_config.*.is_mandatory' => ['nullable'],
 
             // Penalties
             'penalties_config' => ['nullable', 'array'],
@@ -926,7 +872,7 @@ class LoanProductsController extends Controller
                         'min_interest_rate' => $validated['min_interest_rate'] ?? null,
                         'max_interest_rate' => $validated['max_interest_rate'] ?? null,
                         'allow_interest_override' => $request->boolean('allow_interest_override'),
-                        'penalty_start_day' => $validated['penalty_start_day'] ?? null,
+                        'penalty_start_day' => $validated['penalty_start_day'] ?? 0,
                         'auto_apply_penalty' => $request->boolean('auto_apply_penalty'),
                         'allow_top_up' => $request->boolean('allow_top_up'),
                         'min_repayment_ratio_for_topup' => $validated['min_repayment_ratio_for_topup'] ?? null,
@@ -940,14 +886,14 @@ class LoanProductsController extends Controller
                 LoanProductCashConfigs::updateOrCreate(
                     ['subshop_id' => $ownerSubshopId, 'loan_product_id' => $loanProduct->id],
                     [
-                        'deposit_requirement' => $validated['deposit_requirement'],
-                        'deposit_value' => $validated['deposit_value'] ?? null,
-                        'deposit_basis' => $validated['deposit_basis'] ?? null,
-                        'use_customer_savings' => $request->boolean('use_customer_savings'),
-                        'lock_period_days' => $validated['lock_period_days'] ?? null,
-                        'allow_withdrawal_during_loan' => $request->boolean('allow_withdrawal_during_loan'),
-                        'is_refundable' => $request->boolean('is_refundable'),
-                        'apply_on_default' => $request->boolean('apply_on_default'),
+                        'deposit_requirement' => 'none',
+                        'deposit_value' => null,
+                        'deposit_basis' => null,
+                        'use_customer_savings' => false,
+                        'lock_period_days' => null,
+                        'allow_withdrawal_during_loan' => false,
+                        'is_refundable' => false,
+                        'apply_on_default' => false,
                         'is_active' => true,
                     ]
                 );
@@ -987,14 +933,12 @@ class LoanProductsController extends Controller
                             'subshop_id' => $ownerSubshopId,
                             'loan_product_id' => $loanProduct->id,
                             'loan_fee_id' => $loanFeeId,
-                            'charge_event' => $feeRow['charge_event'] ?? 'disbursement',
-                            'payment_method' => $feeRow['payment_method'] ?? 'upfront',
-                            'auto_apply' => !empty($feeRow['auto_apply']),
-                            'max_applications' => isset($feeRow['max_applications']) && $feeRow['max_applications'] !== ''
-                                ? (int) $feeRow['max_applications']
-                                : null,
-                            'is_waivable' => !empty($feeRow['is_waivable']),
-                            'is_mandatory' => array_key_exists('is_mandatory', $feeRow) ? !empty($feeRow['is_mandatory']) : true,
+                            'charge_event' => 'disbursement',
+                            'payment_method' => 'upfront',
+                            'auto_apply' => true,
+                            'max_applications' => null,
+                            'is_waivable' => false,
+                            'is_mandatory' => true,
                             'is_active' => true,
                         ]);
                     }

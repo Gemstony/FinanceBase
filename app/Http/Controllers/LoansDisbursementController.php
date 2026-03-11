@@ -10,6 +10,7 @@ use App\Models\LoanSecurityDeposit;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
+use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class LoansDisbursementController extends Controller
     public function __construct(
         private readonly LoanDisbursementEngine $disbursementEngine,
         private readonly LoanTransactionLedger $ledger,
+        private readonly FeeEngine $feeEngine,
     ) {
     }
 
@@ -205,6 +207,11 @@ class LoansDisbursementController extends Controller
 
                 // Update installments: set start dates and active status based on disbursement date
                 $this->activateInstallments($loanLocked);
+
+                // Apply fees configured for disbursement / installment events
+                $this->feeEngine->applyFees($loanLocked, 'loan_disbursed', $disbursementDate);
+                $this->feeEngine->applyFees($loanLocked, 'first_installment', $disbursementDate);
+                $this->feeEngine->applyFees($loanLocked, 'every_installment', $disbursementDate);
 
                 // Deduct fees if applicable (placeholder: adjust to real fee deduction logic)
                 $this->deductFees($loanLocked, $disbursementDate);

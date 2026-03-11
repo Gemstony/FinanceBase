@@ -23,7 +23,7 @@
     <div class="container-fluid">
         <div class="card">
             <div class="card-body table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" id="borrowerDepositsTable">
                     <thead class="thead-light">
                         <tr>
                             <th>Loan</th>
@@ -38,7 +38,18 @@
                             <tr>
                                 <td>{{ $d->loan?->loan_code ?? '—' }}</td>
                                 <td class="text-right">{{ number_format((float) $d->amount, 2) }}</td>
-                                <td>{{ ucfirst($d->status) }}</td>
+                                <td>
+                                        @php
+                                            $cls = match((string) $d->status) {
+                                                'held' => 'badge-success',
+                                                'applied' => 'badge-info',
+                                                'refunded' => 'badge-secondary',
+                                                'forfeited' => 'badge-dark',
+                                                default => 'badge-light',
+                                            };
+                                        @endphp
+                                        <span class="badge {{ $cls }}">{{ ucfirst($d->status) }}</span>
+                                    </td>
                                 <td>{{ $d->held_at?->format('Y-m-d H:i') ?? '—' }}</td>
                                 <td>{{ $d->released_at?->format('Y-m-d H:i') ?? '—' }}</td>
                             </tr>
@@ -58,4 +69,21 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+$(document).ready(function() {
+    if ($('#borrowerDepositsTable').length) {
+        $('#borrowerDepositsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [] },
+                { searchable: false, targets: [] }
+            ],
+            order: [[3, 'desc']]
+        });
+    }
+});
+</script>
 @endpush

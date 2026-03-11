@@ -361,6 +361,7 @@ class LoansController extends Controller
         $this->generateAndStoreSchedule($scheduleEngine, $loan, $scheduleAnchorDate);
 
         // Fees (application)
+        $feeEngine->applyAllFees($loan, now());
         $feeEngine->applyFees($loan, 'loan_submitted', now());
 
         // Penalties (safe no-op at creation; keeps behavior consistent)

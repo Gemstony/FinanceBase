@@ -8,6 +8,7 @@ use App\Models\LoanInstallments;
 use App\Models\Loans;
 use App\Models\SubShop;
 use App\Models\loanGuarantors;
+use App\Services\Loans\Fees\FeeEngine;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,11 @@ use RuntimeException;
 
 class LoanApprovalsController extends Controller
 {
+    public function __construct(
+        private readonly FeeEngine $feeEngine,
+    ) {
+    }
+
     /**
      * List loans pending approval for the logged-in user based on their role.
      *
@@ -186,6 +192,10 @@ class LoanApprovalsController extends Controller
                 $loanLocked->status = 'approved';
                 $loanLocked->approval_completed = true;
                 $loanLocked->save();
+
+                // Apply any fees configured for approval/manual events
+                $this->feeEngine->applyFees($loanLocked, 'loan_approved', Carbon::now());
+                $this->feeEngine->applyFees($loanLocked, 'manual', Carbon::now());
 
                 // Installments are already generated during loan creation.
                 // We only ensure maturity_date exists if missing.

@@ -119,6 +119,91 @@ class FeeEngine
     }
 
     /**
+     * Apply all auto-applied fees configured on the loan product.
+     *
+     * This is intended for loan creation flows where we want fees captured immediately
+     * after installments are generated, without requiring lifecycle-specific triggers.
+     */
+    public function applyAllFees(Loans $loan, ?Carbon $asOfDate = null): void
+    {
+        $asOf = ($asOfDate ?? now())->startOfDay();
+
+        $loan->loadMissing('loanProduct.fees.loanFee');
+
+        $rules = $loan->loanProduct?->fees
+            ?->where('is_active', true)
+            ;
+
+        if (!$rules || $rules->isEmpty()) {
+            return;
+        }
+
+        DB::transaction(function () use ($loan, $rules, $asOf) {
+            $firstInstallment = LoanInstallments::query()
+                ->where('loan_id', $loan->id)
+                ->where('is_active', true)
+                ->orderBy('installment_number')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$firstInstallment) {
+                return;
+            }
+
+            foreach ($rules as $rule) {
+                /** @var LoanProductFees $rule */
+                $fee = $rule->loanFee;
+                if (!$fee instanceof LoanFees || !$fee->is_active) {
+                    continue;
+                }
+
+                $appliedOn = $asOf;
+
+                $baseAmount = $this->resolveBaseAmount($loan, $firstInstallment, $fee, 'application');
+                $amount = round($this->calculateFeeForRule($baseAmount, $fee), 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                LoanFeeApplications::firstOrCreate(
+                    [
+                        'loan_id' => $loan->id,
+                        'loan_product_fee_id' => $rule->id,
+                        'applied_on' => $appliedOn->toDateString(),
+                    ],
+                    [
+                        'amount' => $amount,
+                        'charge_event' => 'application',
+                        'is_paid' => false,
+                    ]
+                );
+            }
+
+            $firstInstallment->fees_due = (float) LoanFeeApplications::query()
+                ->where('loan_id', $loan->id)
+                ->whereDate('applied_on', $asOf->toDateString())
+                ->sum('amount');
+
+            $firstInstallment->total_due = round(
+                (float) $firstInstallment->principal_due +
+                (float) $firstInstallment->interest_due +
+                (float) $firstInstallment->fees_due +
+                (float) $firstInstallment->penalty_due,
+                2
+            );
+
+            $firstInstallment->outstanding_amount = round(
+                max(0, (float) $firstInstallment->total_due - (float) $firstInstallment->amount_paid),
+                2
+            );
+
+            $firstInstallment->save();
+
+            $this->recordToAccounting($loan, (int) $firstInstallment->id, (float) $firstInstallment->fees_due, $asOf);
+        });
+    }
+
+    /**
      * @return \Illuminate\Support\Collection<int, LoanInstallments>
      */
     private function resolveTargetInstallments(Loans $loan, $rules)

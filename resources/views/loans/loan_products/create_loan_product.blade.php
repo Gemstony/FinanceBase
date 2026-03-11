@@ -161,57 +161,6 @@
 
 
         </div>
-
-
-                <div class="row" id="collateralRulesCard" style="display:none;">
-            <div class="col-lg-12">
-                <div class="card mb-3">
-                    <div class="card-header bg-light">
-                        <i class="fas fa-shield-alt mr-1"></i> Collateral Rules
-                    </div>
-                    <div class="card-body">
-                        <div class="card card-outline card-secondary collapsed-card mb-3">
-                            <div class="card-header p-2">
-                                <h3 class="card-title text-muted">Information &amp; Guidelines (Click + to expand)</h3>
-                                <div class="card-tools">
-                                    <button type="button" class="btn btn-tool" data-card-widget="collapse">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body p-2">
-                                <p class="mb-2">Use this section when the product supports collateral. It helps staff apply consistent collateral valuation and coverage requirements.</p>
-                                <ul class="mb-2 pl-3">
-                                    <li><strong>Collateral Required:</strong> If enabled, collateral is mandatory for loans under this product. If disabled, collateral may still be accepted based on case-by-case risk assessment.</li>
-                                    <li><strong>Minimum Collateral Coverage (%):</strong> The minimum value of collateral relative to the loan amount. Higher coverage reduces risk but may exclude low-asset clients.</li>
-                                </ul>
-                                <p class="mb-0"><strong>Business impact:</strong> Too-low coverage increases default loss exposure; too-high coverage can reduce outreach and slow down disbursement.</p>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="requires_collateral"
-                                        name="requires_collateral" value="1"
-                                        {{ old('requires_collateral', ($loanProductRules->requires_collateral ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="requires_collateral">Requires
-                                        Collateral</label>
-                                </div>
-                            </div>
-                            <div class="form-group col-md-4">
-                                <label for="min_collateral_coverage_ratio">Minimum Collateral Coverage (%)</label>
-                                <input type="number" step="0.01" class="form-control" id="min_collateral_coverage_ratio"
-                                    name="min_collateral_coverage_ratio" min="0" max="100"
-                                    value="{{ old('min_collateral_coverage_ratio', $loanProductRules->min_collateral_coverage_ratio ?? '') }}">
-                            </div>
-                        </div>
-                        <small class="text-muted">Allowed collateral types can be managed in collateral
-                            settings.</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="row">
 
             <div class="col-lg-12" id="interestTenureCard">
@@ -410,8 +359,8 @@
                                 </ul>
                                 <p class="mb-2"><strong>Collateral, guarantors, and overrides</strong></p>
                                 <ul class="mb-2 pl-3">
-                                    <li><strong>Requires Guarantor / Security Deposit:</strong> Use for higher-risk client segments or specific products. Ensure staff follow the required documentation process.</li>
-                                    <li><strong>Minimum Collateral Coverage:</strong> Configure under the Collateral Rules section when collateral is supported.</li>
+                                    <li><strong>Requires Guarantor:</strong> Use for higher-risk client segments or specific products. Ensure staff follow the required documentation process.</li>
+                                    <li><strong>Security Deposit &amp; Collateral Coverage:</strong> Configure under the Collateral Rules section when the product supports collateral.</li>
                                     <li><strong>Manual Override Allowed:</strong> If enabled, staff may approve exceptions; apply strict approval controls and audit trails.</li>
                                 </ul>
                                 <p class="mb-0"><strong>Business impact:</strong> Weak or inconsistent rules can lead to policy exceptions, higher arrears, and unfair lending decisions across clients.</p>
@@ -554,13 +503,11 @@
             </div>
         </div>
 
-
-
-        <div class="row">
+        <div class="row" id="collateralRulesCard" >
             <div class="col-lg-12">
                 <div class="card mb-3">
                     <div class="card-header bg-secondary" style="background:#f8f9fa;">
-                        <i class="fas fa-hand-holding-usd mr-1"></i> Deposits & Cash Handling
+                        <i class="fas fa-hand-holding-usd mr-1"></i> Collateral Rules
                     </div>
                     <div class="card-body">
                         <div class="card card-outline card-secondary collapsed-card mb-3">
@@ -573,16 +520,12 @@
                                 </div>
                             </div>
                             <div class="card-body p-2">
-                                <p class="mb-2">Configure how deposits and linked savings are handled for this product. This affects client cash collection, refunds, and accounting entries.</p>
+                                <p class="mb-2">Configure collateral and security deposit requirements for this product. These settings affect loan eligibility checks and cash handling at origination/closure.</p>
                                 <ul class="mb-2 pl-3">
-                                    <li><strong>Deposit Requirement:</strong> If enabled, the product requires a security deposit at origination or as per policy.</li>
-                                    <li><strong>Deposit Basis &amp; Value:</strong> Fixed uses a flat amount; Percentage uses a percentage of the loan amount. Set values that are realistic for your target clients.</li>
-                                    <li><strong>Refundable:</strong> If enabled, deposit can be refunded when the loan is cleared (subject to your policy and deductions).</li>
-                                    <li><strong>Apply on Default:</strong> If enabled, deposit can be applied against arrears/default balances as part of recovery procedures.</li>
-                                    <li><strong>Use Customer Savings:</strong> Links a savings account for collections/controls. Set <strong>Lock Period Days</strong> only if your policy restricts withdrawals.</li>
-                                    <li><strong>Allow Withdrawal During Loan:</strong> Enable only when withdrawals should remain possible while the loan is active.</li>
+                                    <li><strong>Security Deposit:</strong> If enabled, the product requires a security deposit at origination or as per policy.</li>
+                                    <li><strong>Collateral Coverage:</strong> If enabled, you must set a minimum coverage percentage. This ensures collateral value meets policy before disbursement.</li>
                                 </ul>
-                                <p class="mb-0"><strong>Business impact:</strong> Incorrect settings may cause disputes at closure (refunds), cash handling exceptions, and mismatched savings controls.</p>
+                                <p class="mb-0"><strong>Business impact:</strong> Incorrect settings can cause weak risk controls, delays in appraisal, or disputes at closure (refunds/returns).</p>
                             </div>
                         </div>
 
@@ -596,65 +539,21 @@
                                 </div>
                             </div>
                         </div>
-                        <h6 class="mb-2">Security / Deposit</h6>
-                        <div class="form-row align-items-center">
-                            <div class="form-group col-md-3">
-                                <label for="deposit_requirement">Deposit Requirement</label>
-                                <select class="form-control" id="deposit_requirement" name="deposit_requirement">
-                                    <option value="none" {{ old('deposit_requirement', $loanProductCashConfig->deposit_requirement ?? 'none')==='none' ? 'selected' : '' }}>None</option>
-                                    <option value="fixed_amount" {{ old('deposit_requirement', $loanProductCashConfig->deposit_requirement ?? 'none')==='fixed_amount' ? 'selected' : '' }}>Fixed Amount</option>
-                                    <option value="percentage" {{ old('deposit_requirement', $loanProductCashConfig->deposit_requirement ?? 'none')==='percentage' ? 'selected' : '' }}>Percentage</option>
-                                    <option value="savings_based" {{ old('deposit_requirement', $loanProductCashConfig->deposit_requirement ?? 'none')==='savings_based' ? 'selected' : '' }}>Savings Based</option>
-                                </select>
-                            </div>
-                            <div class="form-group col-md-3 deposit-only" style="display:none;">
-                                <label for="deposit_basis">Deposit Basis</label>
-                                <select class="form-control" id="deposit_basis" name="deposit_basis">
-                                    <option value="">Select basis</option>
-                                    <option value="loan_amount" {{ old('deposit_basis', $loanProductCashConfig->deposit_basis ?? '')==='loan_amount' ? 'selected' : '' }}>Loan Amount</option>
-                                    <option value="principal" {{ old('deposit_basis', $loanProductCashConfig->deposit_basis ?? '')==='principal' ? 'selected' : '' }}>Principal</option>
-                                </select>
-                            </div>
-                            <div class="form-group col-md-3 deposit-only" style="display:none;">
-                                <label for="deposit_value">Deposit Value</label>
-                                <input type="number" step="0.01" class="form-control" id="deposit_value" name="deposit_value" min="0"
-                                    value="{{ old('deposit_value', $loanProductCashConfig->deposit_value ?? '') }}">
-                            </div>
-                            <div class="form-group col-md-3">
+                        <h6 class="mb-2">Collateral Coverage</h6>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
                                 <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="is_refundable" name="is_refundable" value="1"
-                                        {{ old('is_refundable', ($loanProductCashConfig->is_refundable ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="is_refundable">Refundable</label>
-                                </div>
-                                <div class="custom-control custom-switch mt-2">
-                                    <input type="checkbox" class="custom-control-input" id="apply_on_default" name="apply_on_default" value="1"
-                                        {{ old('apply_on_default', ($loanProductCashConfig->apply_on_default ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="apply_on_default">Apply on Default</label>
+                                    <input type="checkbox" class="custom-control-input" id="requires_collateral" name="requires_collateral" value="1"
+                                        {{ old('requires_collateral', ($loanProductRules->requires_collateral ?? false) ? '1' : '') ? 'checked' : '' }}>
+                                    <label class="custom-control-label" for="requires_collateral">Requires Collateral</label>
                                 </div>
                             </div>
                         </div>
-
-                        <hr>
-                        <h6 class="mb-2">Savings Linkage</h6>
-                        <div class="form-row align-items-center">
-                            <div class="form-group col-md-3">
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="use_customer_savings" name="use_customer_savings" value="1"
-                                        {{ old('use_customer_savings', ($loanProductCashConfig->use_customer_savings ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="use_customer_savings">Use Customer Savings</label>
-                                </div>
-                            </div>
-                            <div class="form-group col-md-3 savings-link-only" style="display:none;">
-                                <label for="lock_period_days">Lock Period Days</label>
-                                <input type="number" class="form-control" id="lock_period_days" name="lock_period_days" min="0"
-                                    value="{{ old('lock_period_days', $loanProductCashConfig->lock_period_days ?? '') }}">
-                            </div>
-                            <div class="form-group col-md-3">
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="allow_withdrawal_during_loan" name="allow_withdrawal_during_loan" value="1"
-                                        {{ old('allow_withdrawal_during_loan', ($loanProductCashConfig->allow_withdrawal_during_loan ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="allow_withdrawal_during_loan">Allow Withdrawal During Loan</label>
-                                </div>
+                        <div class="form-row collateral-only" >
+                            <div class="form-group col-md-4">
+                                <label for="min_collateral_coverage_ratio">Min Collateral Coverage (%)</label>
+                                <input type="number" step="0.01" class="form-control" id="min_collateral_coverage_ratio" name="min_collateral_coverage_ratio" min="0"
+                                    value="{{ old('min_collateral_coverage_ratio', $loanProductRules->min_collateral_coverage_ratio ?? '') }}">
                             </div>
                         </div>
                     </div>
@@ -682,7 +581,7 @@
                                 <p class="mb-2">Map this loan product to the correct accounts so postings are accurate for financial statements, aging reports, and income recognition.</p>
                                 <ul class="mb-2 pl-3">
                                     <li><strong>Mandatory:</strong> Principal, Interest Receivable, Interest Income, Penalty Receivable, Penalty Income, and Write-off Expense.</li>
-                                    <li><strong>Optional:</strong> Fee Income, Customer Savings Control, and Security Deposit Control (enable only when applicable).</li>
+                                    <li><strong>Optional:</strong> Fee Income (if you track fees separately), Customer Savings Control (if savings rules are used), and Security Deposit Control (if security deposit is used).</li>
                                 </ul>
                                 <p class="mb-0"><strong>Business impact:</strong> Wrong account mapping causes misstatements in reports, inaccurate receivables, and reconciliation issues during audits.</p>
                             </div>
@@ -693,7 +592,7 @@
                             <select class="form-control" id="principal_account_id" name="principal_account_id" required>
                                 <option value="">Select account</option>
                                 @foreach($accounts as $a)
-                                <option value="{{ $a->id }}" {{ (string)old('principal_account_id', $loanProductAccounts?->principal_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})</option>
+                                <option value="{{ $a->id }}" {{ (string)old('principal_account_id', $loanProductAccounts?->principal_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -705,7 +604,7 @@
                                     name="interest_receivable_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('interest_receivable_account_id', $loanProductAccounts?->interest_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('interest_receivable_account_id', $loanProductAccounts?->interest_receivable_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -717,7 +616,7 @@
                                     name="interest_income_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('interest_income_account_id', $loanProductAccounts?->interest_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('interest_income_account_id', $loanProductAccounts?->interest_income_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -731,7 +630,7 @@
                                     name="penalty_receivable_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('penalty_receivable_account_id', $loanProductAccounts?->penalty_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('penalty_receivable_account_id', $loanProductAccounts?->penalty_receivable_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -743,7 +642,7 @@
                                     name="penalty_income_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('penalty_income_account_id', $loanProductAccounts?->penalty_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('penalty_income_account_id', $loanProductAccounts?->penalty_income_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -755,7 +654,7 @@
                                 <select class="form-control" id="fee_income_account_id" name="fee_income_account_id">
                                     <option value="">Select account (optional)</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('fee_income_account_id', $loanProductAccounts?->fee_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('fee_income_account_id', $loanProductAccounts?->fee_income_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -767,7 +666,7 @@
                                     name="write_off_expense_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('write_off_expense_account_id', $loanProductAccounts?->write_off_expense_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('write_off_expense_account_id', $loanProductAccounts?->write_off_expense_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -781,7 +680,7 @@
                                     name="customer_savings_control_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_control_account_id', $loanProductAccounts?->customer_savings_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_control_account_id', $loanProductAccounts?->customer_savings_control_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -793,7 +692,7 @@
                                     name="security_deposit_control_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('security_deposit_control_account_id', $loanProductAccounts?->security_deposit_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('security_deposit_control_account_id', $loanProductAccounts?->security_deposit_control_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -806,7 +705,7 @@
                                 <select class="form-control" id="customer_savings_account_id" name="customer_savings_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_account_id', $loanProductAccounts?->customer_savings_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_account_id', $loanProductAccounts?->customer_savings_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -816,7 +715,7 @@
                                 <select class="form-control" id="customer_security_deposit_account_id" name="customer_security_deposit_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_security_deposit_account_id', $loanProductAccounts?->customer_security_deposit_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_security_deposit_account_id', $loanProductAccounts?->customer_security_deposit_account_id ?? '')==='none' ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -825,9 +724,6 @@
                     </div>
                 </div>
             </div>
-
-
-
         </div>
 
         <div class="row">
@@ -847,20 +743,15 @@
                                 </div>
                             </div>
                             <div class="card-body p-2">
-                                <p class="mb-2">Use this section to define which fees and penalties apply by default and how they will be charged. This supports consistent treatment across branches and loan officers.</p>
+                                <p class="mb-2">Use this section to define which fees and penalties apply by default to loans under this product.</p>
                                 <p class="mb-2"><strong>Loan fees configuration (Optional)</strong></p>
                                 <ul class="mb-2 pl-3">
-                                    <li><strong>Charge Event:</strong> When the fee is applied (disbursement, repayment, top-up). Choose carefully to match the client agreement.</li>
-                                    <li><strong>Payment Method:</strong> Whether the client pays upfront, the fee is added to the loan, or handled separately.</li>
-                                    <li><strong>Auto Apply:</strong> If enabled, the system applies the fee automatically. Use only when fee rules are stable and approved.</li>
-                                    <li><strong>Maximum Applications:</strong> Limits how many times the fee can apply, preventing repeated or accidental charges.</li>
-                                    <li><strong>Waivable:</strong> Allows authorized staff to waive the fee when policy permits.</li>
-                                    <li><strong>Mandatory:</strong> Indicates the fee must be applied unless the product itself is not used.</li>
+                                    <li><strong>Fee selection:</strong> Select the fee(s) you want to apply for this product.</li>
+                                    <li><strong>How it applies:</strong> The system applies configured product fees during loan creation to keep setup simple and consistent.</li>
                                 </ul>
                                 <p class="mb-2"><strong>Penalty configuration (Optional)</strong></p>
                                 <ul class="mb-2 pl-3">
                                     <li><strong>Grace Days Override:</strong> Overrides the default grace period for this penalty, if needed.</li>
-                                    <li><strong>Recurring Penalty:</strong> If enabled, penalty can be applied repeatedly (for example, daily). Ensure your policy allows compounding penalties.</li>
                                     <li><strong>Auto Apply:</strong> Applies the penalty automatically when the client is past due based on the configured behavior.</li>
                                     <li><strong>Maximum Applications:</strong> Caps how many times the penalty can be applied to avoid excessive charges.</li>
                                 </ul>
@@ -874,12 +765,6 @@
                             @php($feesConfig = old('fees_config', ($isEdit ? ($loanProductFees ?? collect())->values()->map(function($f){
                                 return [
                                     'loan_fee_id' => $f->loan_fee_id,
-                                    'charge_event' => $f->charge_event,
-                                    'payment_method' => $f->payment_method,
-                                    'max_applications' => $f->max_applications,
-                                    'auto_apply' => $f->auto_apply,
-                                    'is_waivable' => $f->is_waivable,
-                                    'is_mandatory' => $f->is_mandatory,
                                 ];
                             })->toArray() : [])))
                             @php($feesConfig = is_array($feesConfig) && count($feesConfig) ? $feesConfig : [[]])
@@ -898,52 +783,9 @@
                                                     @endforeach
                                                 </select>
                                             </div>
-
-                                            <div class="form-group col-md-4">
-                                                <label>Charge Event</label>
-                                                <select class="form-control" name="fees_config[{{ $i }}][charge_event]" form="loanProductForm">
-                                                    <option value="disbursement" {{ ($row['charge_event'] ?? 'disbursement')==='disbursement' ? 'selected' : '' }}>Disbursement</option>
-                                                    <option value="approval" {{ ($row['charge_event'] ?? '')==='approval' ? 'selected' : '' }}>Approval</option>
-                                                    <option value="first_installment" {{ ($row['charge_event'] ?? '')==='first_installment' ? 'selected' : '' }}>First Installment</option>
-                                                    <option value="every_installment" {{ ($row['charge_event'] ?? '')==='every_installment' ? 'selected' : '' }}>Every Installment</option>
-                                                    <option value="manual" {{ ($row['charge_event'] ?? '')==='manual' ? 'selected' : '' }}>Manual</option>
-                                                </select>
-                                            </div>
-
-                                            <div class="form-group col-md-4">
-                                                <label>Payment Method</label>
-                                                <select class="form-control" name="fees_config[{{ $i }}][payment_method]" form="loanProductForm">
-                                                    <option value="upfront" {{ ($row['payment_method'] ?? 'upfront')==='upfront' ? 'selected' : '' }}>Upfront</option>
-                                                    <option value="added_to_loan" {{ ($row['payment_method'] ?? '')==='added_to_loan' ? 'selected' : '' }}>Added to Loan</option>
-                                                    <option value="separate_payment" {{ ($row['payment_method'] ?? '')==='separate_payment' ? 'selected' : '' }}>Separate Payment</option>
-                                                </select>
-                                            </div>
                                         </div>
                                         <div class="form-row">
-                                            <div class="form-group col-md-4">
-                                                <label>Max Applications</label>
-                                                <input type="number" class="form-control" name="fees_config[{{ $i }}][max_applications]" form="loanProductForm" min="0" value="{{ $row['max_applications'] ?? '' }}">
-                                            </div>
-                                            <div class="form-group col-md-2">
-                                                <div class="custom-control custom-switch mt-4">
-                                                    <input type="checkbox" class="custom-control-input" id="fee_auto_apply_{{ $i }}" name="fees_config[{{ $i }}][auto_apply]" form="loanProductForm" value="1" {{ !empty($row['auto_apply']) ? 'checked' : '' }}>
-                                                    <label class="custom-control-label" for="fee_auto_apply_{{ $i }}">Auto Apply</label>
-                                                </div>
-                                            </div>
-
-                                            <div class="form-group col-md-2">
-                                                <div class="custom-control custom-switch mt-4">
-                                                    <input type="checkbox" class="custom-control-input" id="fee_is_waivable_{{ $i }}" name="fees_config[{{ $i }}][is_waivable]" form="loanProductForm" value="1" {{ !empty($row['is_waivable']) ? 'checked' : '' }}>
-                                                    <label class="custom-control-label" for="fee_is_waivable_{{ $i }}">Waivable</label>
-                                                </div>
-                                            </div>
-                                            <div class="form-group col-md-2">
-                                                <div class="custom-control custom-switch mt-4">
-                                                    <input type="checkbox" class="custom-control-input" id="fee_is_mandatory_{{ $i }}" name="fees_config[{{ $i }}][is_mandatory]" form="loanProductForm" value="1" {{ array_key_exists('is_mandatory', $row) ? (!empty($row['is_mandatory']) ? 'checked' : '') : 'checked' }}>
-                                                    <label class="custom-control-label" for="fee_is_mandatory_{{ $i }}">Mandatory</label>
-                                                </div>
-                                            </div>
-                                            <div class="form-group col-md-4 text-right">
+                                            <div class="form-group col-md-12 text-right">
                                                 <button type="button" class="btn btn-sm btn-outline-danger remove-fee-row" {{ $i === 0 ? 'disabled' : '' }}>Remove</button>
                                             </div>
                                         </div>
@@ -1015,7 +857,7 @@
             </div>
         </div>
 
-        <div class="row" id="approvalWorkflowCard" style="display:none;">
+        <div class="row">
             <div class="col-lg-12">
                 <div class="card mb-3">
                     <div class="card-header" style="background:#f0f3f5;">
@@ -1348,17 +1190,6 @@ $(document).ready(function() {
             { label: 'Manual Override Allowed', value: yesNo('#manual_override_allowed') }
         ]);
 
-        const deposits = buildTable([
-            { label: 'Deposit Requirement', value: getSelectText('#deposit_requirement') },
-            { label: 'Deposit Basis', value: getSelectText('#deposit_basis') },
-            { label: 'Deposit Value', value: getInputVal('#deposit_value') },
-            { label: 'Refundable', value: yesNo('#is_refundable') },
-            { label: 'Apply on Default', value: yesNo('#apply_on_default') },
-            { label: 'Use Customer Savings', value: yesNo('#use_customer_savings') },
-            { label: 'Lock Period Days', value: getInputVal('#lock_period_days') },
-            { label: 'Allow Withdrawal During Loan', value: yesNo('#allow_withdrawal_during_loan') }
-        ]);
-
         const accounting = buildTable([
             { label: 'Principal Account (Asset)', value: getSelectText('#principal_account_id') },
             { label: 'Interest Receivable (Asset)', value: getSelectText('#interest_receivable_account_id') },
@@ -1380,14 +1211,7 @@ $(document).ready(function() {
                 const name = sel.length ? sel.find('option:selected').text() : '';
                 return name || 'Fee';
             },
-            ($item) => buildTable([
-                { label: 'Charge Event', value: textOrDash($item.find('select[name^="fees_config"][name$="[charge_event]"] option:selected').text()) },
-                { label: 'Payment Method', value: textOrDash($item.find('select[name^="fees_config"][name$="[payment_method]"] option:selected').text()) },
-                { label: 'Max Applications', value: textOrDash($item.find('input[name^="fees_config"][name$="[max_applications]"]').val()) },
-                { label: 'Auto Apply', value: $item.find('input[name^="fees_config"][name$="[auto_apply]"]').is(':checked') ? 'Yes' : 'No' },
-                { label: 'Waivable', value: $item.find('input[name^="fees_config"][name$="[is_waivable]"]').is(':checked') ? 'Yes' : 'No' },
-                { label: 'Mandatory', value: $item.find('input[name^="fees_config"][name$="[is_mandatory]"]').is(':checked') ? 'Yes' : 'No' }
-            ])
+            ($item) => buildTable([])
         );
 
         const penaltiesHtml = buildRepeaterList(
@@ -1435,7 +1259,6 @@ $(document).ready(function() {
         html += card('Interest & Repayment / Tenure', interest);
         html += card('Loan Amount Rules', amountRules);
         html += card('Eligibility & Behavioral Rules', eligibility);
-        html += card('Deposits & Cash Handling', deposits);
         html += card('Accounting Mapping', accounting);
         html += card('Default Fees (Optional)', feesHtml);
         html += card('Penalties (Optional)', penaltiesHtml);
@@ -1447,12 +1270,7 @@ $(document).ready(function() {
     $('#confirmLoanProductSubmitBtn').on('click', function() {
         loanProductConfirmed = true;
         $('#loanProductConfirmModal').modal('hide');
-        const form = document.getElementById('loanProductForm');
-        if (form && typeof form.requestSubmit === 'function') {
-            form.requestSubmit();
-        } else if (form) {
-            form.submit();
-        }
+        $('#loanProductForm').submit();
     });
 
     $('#loanProductConfirmModal').on('hidden.bs.modal', function() {
@@ -1471,13 +1289,6 @@ $(document).ready(function() {
             e.preventDefault();
         }
 
-        // TEMP: Prevent submission to allow console inspection
-        // if (loanProductConfirmed) {
-        //     e.preventDefault();
-        //     alert('Form submission blocked. Check browser console for "Loan Product Submit Payload (repeaters)" debug output.');
-        //     return false;
-        // }
-
         // Installments min/max
         const minI = parseInt($('#min_installments').val() || '0', 10);
         const maxI = parseInt($('#max_installments').val() || '0', 10);
@@ -1490,8 +1301,6 @@ $(document).ready(function() {
             });
             return false;
         }
-
-
 
         // Age min/max
         const minA = parseInt($('#min_age').val() || '0', 10);
@@ -1678,73 +1487,9 @@ $(document).ready(function() {
             }
         }
 
-        const reqSavings = $('#requires_active_savings').is(':checked');
-        if (!reqSavings) {
-            $('#min_savings_balance').val('').prop('disabled', true);
-        } else {
-            $('#min_savings_balance').prop('disabled', false);
-            const msb = $('#min_savings_balance').val();
-            if (msb === '' || isNaN(parseFloat(msb)) || parseFloat(msb) < 0) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Validation',
-                    text: 'Minimum Savings Balance is required when Active Savings is required.'
-                });
-                return false;
-            }
-        }
-
-        const depReqVal = $('#deposit_requirement').val();
-        const depOn = depReqVal && depReqVal !== 'none';
-        if (!depOn) {
-            $('#deposit_basis').val('').prop('disabled', true);
-            $('#deposit_value').val('').prop('disabled', true);
-        } else {
-            const dv = $('#deposit_value').val();
-            if (depReqVal === 'fixed_amount' || depReqVal === 'percentage') {
-                if (dv === '' || isNaN(parseFloat(dv)) || parseFloat(dv) < 0) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation',
-                        text: 'Deposit Value is required and must be 0 or greater.'
-                    });
-                    return false;
-                }
-            }
-            if (depReqVal === 'percentage') {
-                const db = $('#deposit_basis').val();
-                if (!db) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation',
-                        text: 'Deposit Basis is required when Deposit Requirement is Percentage.'
-                    });
-                    return false;
-                }
-            }
-        }
-
-        const useSav = $('#use_customer_savings').is(':checked');
-        if (!useSav) {
-            $('#lock_period_days').val('').prop('disabled', true);
-        } else {
-            $('#lock_period_days').prop('disabled', false);
-            const lpd = $('#lock_period_days').val();
-            if (lpd === '' || isNaN(parseInt(lpd, 10)) || parseInt(lpd, 10) < 0) {
-                e.preventDefault();
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Validation',
-                    text: 'Lock Period Days is required when Use Customer Savings is enabled.'
-                });
-                return false;
-            }
-        }
-
+        // If user hasn't confirmed, show preview modal and stop submit
         if (!loanProductConfirmed) {
+            e.preventDefault();
             $('#loanProductConfirmSummary').html(buildConfirmationSummaryHtml());
             $('#loanProductConfirmModal').modal('show');
             return false;
@@ -1828,35 +1573,6 @@ $(document).ready(function() {
     toggleTopUpRules();
 
 
-    function toggleDepositRequirement() {
-        const val = $('#deposit_requirement').val();
-        const on = val && val !== 'none';
-        const showBasis = val === 'percentage';
-        const showValue = val === 'fixed_amount' || val === 'percentage';
-        $('.deposit-only').toggle(on);
-        $('#deposit_basis').closest('.deposit-only').toggle(showBasis);
-        $('#deposit_value').closest('.deposit-only').toggle(showValue);
-        $('#deposit_basis').prop('disabled', !showBasis);
-        $('#deposit_value').prop('disabled', !showValue);
-        if (!on) {
-            $('#deposit_basis').val('');
-            $('#deposit_value').val('');
-        }
-    }
-    $('#deposit_requirement').on('change', toggleDepositRequirement);
-    toggleDepositRequirement();
-
-    function toggleSavingsLinkage() {
-        const on = $('#use_customer_savings').is(':checked');
-        $('.savings-link-only').toggle(on);
-        $('#lock_period_days').prop('disabled', !on);
-        if (!on) {
-            $('#lock_period_days').val('');
-        }
-    }
-    $('#use_customer_savings').on('change', toggleSavingsLinkage);
-    toggleSavingsLinkage();
-
     let feeIndex = getMaxDataIndex($('#feesRepeater'), '.fee-config');
     $('#addFeeRow').on('click', function() {
         feeIndex++;
@@ -1871,58 +1587,15 @@ $(document).ready(function() {
                             <option value="">Select Loan Fee</option>
                             ${feeOptions}
                         </select>
-                        
-                    </div>
-
-                    <div class="form-group col-md-4">
-                        <label>Charge Event</label>
-                        <select class="form-control" name="fees_config[${feeIndex}][charge_event]" form="loanProductForm">
-                            <option value="disbursement">Disbursement</option>
-                            <option value="approval">Approval</option>
-                            <option value="first_installment">First Installment</option>
-                            <option value="every_installment">Every Installment</option>
-                            <option value="manual">Manual</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group col-md-4">
-                        <label>Payment Method</label>
-                        <select class="form-control" name="fees_config[${feeIndex}][payment_method]" form="loanProductForm">
-                            <option value="upfront">Upfront</option>
-                            <option value="added_to_loan">Added to Loan</option>
-                            <option value="separate_payment">Separate Payment</option>
-                        </select>
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group col-md-4">
-                        <label>Max Applications</label>
-                        <input type="number" class="form-control" name="fees_config[${feeIndex}][max_applications]" form="loanProductForm" min="0">
-                    </div>
-                    <div class="form-group col-md-2">
-                        <div class="custom-control custom-switch mt-4">
-                            <input type="checkbox" class="custom-control-input" id="fee_auto_apply_${feeIndex}" name="fees_config[${feeIndex}][auto_apply]" form="loanProductForm" value="1">
-                            <label class="custom-control-label" for="fee_auto_apply_${feeIndex}">Auto Apply</label>
-                        </div>
-                    </div>
-
-                    <div class="form-group col-md-2">
-                        <div class="custom-control custom-switch mt-4">
-                            <input type="checkbox" class="custom-control-input" id="fee_is_waivable_${feeIndex}" name="fees_config[${feeIndex}][is_waivable]" form="loanProductForm" value="1">
-                            <label class="custom-control-label" for="fee_is_waivable_${feeIndex}">Waivable</label>
-                        </div>
-                    </div>
-                    <div class="form-group col-md-2">
-                        <div class="custom-control custom-switch mt-4">
-                            <input type="checkbox" class="custom-control-input" id="fee_is_mandatory_${feeIndex}" name="fees_config[${feeIndex}][is_mandatory]" form="loanProductForm" value="1">
-                            <label class="custom-control-label" for="fee_is_mandatory_${feeIndex}">Mandatory</label>
-                        </div>
-                    </div>
-                    <div class="form-group col-md-4 text-right">
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-fee-row" disabled>Remove</button>
+                    <div class="form-group col-md-12 text-right">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-fee-row">Remove</button>
                     </div>
                 </div>
-            </div>`;
+            </div>
+        `;
         $('#feesRepeater').append(block);
         $('.remove-fee-row').prop('disabled', $('.fee-config').length <= 1);
     });

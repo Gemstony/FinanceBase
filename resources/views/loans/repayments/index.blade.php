@@ -100,14 +100,14 @@
                                     <td>{{ $loan->loanGroup?->name ?? $loan->customer?->name ?? '—' }}</td>
                                     <td>{{ $loan->loanProduct?->name ?? '—' }}</td>
                                     <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
-                                    <td class="text-right">
-                                        <a href="{{ route('loan.repayments.create', $loan) }}" class="btn btn-sm btn-success">
-                                            Make Payment
-                                        </a>
-                                        <a href="{{ route('loan.repayments.history', $loan) }}" class="btn btn-sm btn-outline-primary">
-                                            History
-                                        </a>
-                                    </td>
+                                    <td class="text-center">
+                                <a href="{{ route('loan.repayments.create', $loan->loan_code) }}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-hand-holding-usd"></i> Pay
+                                </a>
+                                <a href="{{ route('loan.repayments.show', $loan->loan_code) }}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-history"></i> History
+                                </a>
+                            </td>
                                 </tr>
                             @empty
                                 <tr>

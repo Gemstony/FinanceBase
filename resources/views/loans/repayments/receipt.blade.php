@@ -11,7 +11,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-receipt"></i> Payment Receipt</h1>
                     <p class="mb-0 text-light">Receipt #: <strong>{{ $payment->id }}</strong></p>
                 </div>
-                <a href="{{ route('loan.repayments.history', $payment->loan) }}" class="btn btn-light border">
+                <a href="{{ route('loan.repayments.show', $payment->loan->loan_code) }}" class="btn btn-light border">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>

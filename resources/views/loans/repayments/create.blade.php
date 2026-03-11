@@ -137,7 +137,7 @@
                         <form method="POST" action="{{ route('loan.repayments.store') }}">
                             @csrf
 
-                            <input type="hidden" name="loan_id" value="{{ $loan->id }}">
+                            <input type="hidden" name="loan_code" value="{{ $loan->loan_code }}">
 
                             @if(!$loan->customer_id)
                                 <div class="form-group">

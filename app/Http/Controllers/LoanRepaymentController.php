@@ -106,7 +106,7 @@ class LoanRepaymentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'loan_id' => ['required', 'integer', 'exists:loans,id'],
+            'loan_code' => ['required', 'string', 'exists:loans,loan_code'],
             'payment_date' => ['required', 'date'],
             'payment_amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
@@ -115,7 +115,7 @@ class LoanRepaymentController extends Controller
             'payer_customer_id' => ['nullable', 'integer'],
         ]);
 
-        $loan = Loans::query()->findOrFail((int) $validated['loan_id']);
+        $loan = Loans::query()->where('loan_code', $validated['loan_code'])->firstOrFail();
 
         $subshopId = (int) session('subshop_id');
         if ((int) $loan->subshop_id !== $subshopId) {

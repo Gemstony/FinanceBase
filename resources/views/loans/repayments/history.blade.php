@@ -135,9 +135,9 @@
                                 <td>{{ $p->user?->name ?? '—' }}</td>
                                 <td><span class="badge {{ $badge }}">{{ $p->status }}</span></td>
                                 <td class="text-right">
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('loan.repayments.receipt', $p) }}">Receipt</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('loan.repayments.receipt', $p->id) }}">Receipt</a>
                                     @if((string) $p->status === 'confirmed')
-                                        <form method="POST" action="{{ route('loan.repayments.reverse', $p) }}" class="d-inline" onsubmit="return confirm('Reverse this payment?');">
+                                        <form method="POST" action="{{ route('loan.repayments.reverse', $p->id) }}" class="d-inline" onsubmit="return confirm('Reverse this payment?');">
                                             @csrf
                                             <button class="btn btn-sm btn-outline-danger" type="submit">Reverse</button>
                                         </form>

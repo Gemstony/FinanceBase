@@ -356,28 +356,8 @@ Route::middleware(['auth'])->group(function () {
         // Loan disbursement management
         Route::prefix('loans/disbursement')->name('loans.disbursement.')->group(function () {
             Route::get('/', [\App\Http\Controllers\LoansDisbursementController::class, 'index'])->name('index');
-            Route::get('/{loan}', [\App\Http\Controllers\LoansDisbursementController::class, 'show'])->name('show');
-            Route::post('/{loan}/disburse', [\App\Http\Controllers\LoansDisbursementController::class, 'disburse'])->name('disburse');
-        });
-
-        Route::prefix('loan-repayments')->group(function () {
-            Route::get('/', [LoanRepaymentController::class, 'index'])
-                ->name('loan.repayments.index');
-
-            Route::get('/{loan}/create', [LoanRepaymentController::class, 'create'])
-                ->name('loan.repayments.create');
-
-            Route::post('/store', [LoanRepaymentController::class, 'store'])
-                ->name('loan.repayments.store');
-
-            Route::get('/{loan}/history', [LoanRepaymentController::class, 'show'])
-                ->name('loan.repayments.history');
-
-            Route::get('/receipt/{payment}', [LoanRepaymentController::class, 'receipt'])
-                ->name('loan.repayments.receipt');
-
-            Route::post('/reverse/{payment}', [LoanRepaymentController::class, 'reverse'])
-                ->name('loan.repayments.reverse');
+            Route::get('/{loan:loan_code}', [\App\Http\Controllers\LoansDisbursementController::class, 'show'])->name('show');
+            Route::post('/{loan:loan_code}/disburse', [\App\Http\Controllers\LoansDisbursementController::class, 'disburse'])->name('disburse');
         });
 
         // Loan restructuring
@@ -388,10 +368,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/managed', [\App\Http\Controllers\LoanRestructureController::class, 'managed'])
                 ->name('loan.restructures.managed');
 
-            Route::get('/{loan}/create', [\App\Http\Controllers\LoanRestructureController::class, 'create'])
+            Route::get('/{loan:loan_code}/create', [\App\Http\Controllers\LoanRestructureController::class, 'create'])
                 ->name('loan.restructures.create');
 
-            Route::post('/{loan}/store', [\App\Http\Controllers\LoanRestructureController::class, 'store'])
+            Route::post('/{loan:loan_code}/store', [\App\Http\Controllers\LoanRestructureController::class, 'store'])
                 ->name('loan.restructures.store');
 
             Route::post('/{restructure}/approve', [\App\Http\Controllers\LoanRestructureController::class, 'approve'])
@@ -403,8 +383,17 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{restructure}/execute', [\App\Http\Controllers\LoanRestructureController::class, 'execute'])
                 ->name('loan.restructures.execute');
 
-            Route::get('/{loan}/history', [\App\Http\Controllers\LoanRestructureController::class, 'history'])
+            Route::get('/{loan:loan_code}/history', [\App\Http\Controllers\LoanRestructureController::class, 'history'])
                 ->name('loan.restructures.history');
+        });
+
+        Route::prefix('loan-repayments')->group(function () {
+            Route::get('/loans/repayments', [LoanRepaymentController::class, 'index'])->name('loan.repayments.index');
+            Route::get('/loans/repayments/create/{loan:loan_code}', [LoanRepaymentController::class, 'create'])->name('loan.repayments.create');
+            Route::post('/loans/repayments/store', [LoanRepaymentController::class, 'store'])->name('loan.repayments.store');
+            Route::get('/loans/repayments/history/{loan:loan_code}', [LoanRepaymentController::class, 'show'])->name('loan.repayments.show');
+            Route::get('/loans/repayments/receipt/{payment}', [LoanRepaymentController::class, 'receipt'])->name('loan.repayments.receipt');
+            Route::post('/loans/repayments/reverse/{payment}', [LoanRepaymentController::class, 'reverse'])->name('loan.repayments.reverse');
         });
 
         // Loan write-off & recovery

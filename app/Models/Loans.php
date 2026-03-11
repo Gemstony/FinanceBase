@@ -88,6 +88,11 @@ class Loans extends Model
         'approval_history' => 'array',
     ];
 
+    public function getRouteKeyName(): string
+    {
+        return 'loan_code';
+    }
+
     public function subshop()
     {
         return $this->belongsTo(SubShop::class, 'subshop_id');

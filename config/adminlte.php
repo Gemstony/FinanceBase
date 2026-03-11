@@ -641,6 +641,16 @@ return [
             'can' => 'view_customers',
         ],
         [
+            'text' => 'Deposit Accounts',
+            'url' => '/deposits',
+            'icon' => 'fas fa-piggy-bank',
+        ],
+        [
+            'text' => 'Deposit Products',
+            'url' => '/deposits/products',
+            'icon' => 'fas fa-box',
+        ],
+        [
             'text' => 'Suppliers',
             'url' => '/admin/inventory/suppliers',
             'icon' => 'fas fa-truck',

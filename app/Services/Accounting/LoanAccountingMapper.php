@@ -284,6 +284,70 @@ class LoanAccountingMapper
         return $builder->getLines();
     }
 
+    public function buildDepositReceivedEntry(float $amount, string $paymentMethod, int $customerDepositsLiabilityAccountId): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+
+        $builder->addDebit(
+            $cashAccountId,
+            $amount,
+            'Customer deposit – cash received'
+        );
+
+        $builder->addCredit(
+            $customerDepositsLiabilityAccountId,
+            $amount,
+            'Customer deposits liability – funds held'
+        );
+
+        return $builder->getLines();
+    }
+
+    public function buildDepositWithdrawalEntry(float $amount, string $paymentMethod, int $customerDepositsLiabilityAccountId): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+
+        $builder->addDebit(
+            $customerDepositsLiabilityAccountId,
+            $amount,
+            'Customer deposits liability – withdrawal'
+        );
+
+        $builder->addCredit(
+            $cashAccountId,
+            $amount,
+            'Customer withdrawal – cash paid'
+        );
+
+        return $builder->getLines();
+    }
+
+    public function buildDepositLoanPaymentEntry(Loans $loan, float $amount, int $customerDepositsLiabilityAccountId): array
+    {
+        $builder = clone $this->builder;
+        $builder->reset();
+
+        $builder->addDebit(
+            $customerDepositsLiabilityAccountId,
+            $amount,
+            'Customer deposits liability – loan payment'
+        );
+
+        $builder->addCredit(
+            (int) $loan->principal_account_id,
+            $amount,
+            'Loan receivable – payment from savings'
+        );
+
+        return $builder->getLines();
+    }
+
     private function resolveCashAccountId(string $paymentMethod): int
     {
         return 1;

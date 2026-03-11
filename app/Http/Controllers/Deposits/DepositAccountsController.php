@@ -1,0 +1,317 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Deposits;
+
+use App\Http\Controllers\Controller;
+use App\Models\Customers;
+use App\Models\DepositAccount;
+use App\Models\DepositProduct;
+use App\Models\Loans;
+use App\Services\Deposits\DepositAccountService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+use InvalidArgumentException;
+use Throwable;
+
+class DepositAccountsController extends Controller
+{
+    public function __construct(private readonly DepositAccountService $service)
+    {
+    }
+
+    public function destroy(int $deposit_account, Request $request): RedirectResponse
+    {
+        $subshopId = (int) session('subshop_id');
+        if ($subshopId <= 0) {
+            return back()->with('error', 'Active branch context is required.');
+        }
+
+        try {
+            DB::transaction(function () use ($deposit_account, $subshopId) {
+                $account = DepositAccount::query()
+                    ->whereKey($deposit_account)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ((int) $account->subshop_id !== $subshopId) {
+                    abort(403);
+                }
+
+                if (round((float) $account->balance, 2) !== 0.0) {
+                    throw new InvalidArgumentException('Only zero-balance accounts can be deleted.');
+                }
+
+                if ($account->depositTransactions()->exists()) {
+                    throw new InvalidArgumentException('Account cannot be deleted because it has a transaction history.');
+                }
+
+                $account->delete();
+            });
+
+            return redirect()->route('deposits.index')->with('success', 'Deposit account deleted successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to delete deposit account.';
+            return back()->with('error', $msg);
+        }
+    }
+
+    public function index(Request $request): View
+    {
+        $subshopId = (int) session('subshop_id');
+
+        $query = DepositAccount::query()
+            ->with(['customer', 'depositProduct'])
+            ->where('subshop_id', $subshopId)
+            ->orderByDesc('id');
+
+        if ($request->filled('status')) {
+            $query->where('status', (string) $request->string('status'));
+        }
+
+        if ($request->filled('borrower')) {
+            $borrower = (string) $request->string('borrower');
+            $query->whereHas('customer', function ($q) use ($borrower) {
+                $q->where('name', 'like', '%' . $borrower . '%');
+            });
+        }
+
+        if ($request->filled('product')) {
+            $query->whereHas('depositProduct', function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->string('product') . '%');
+            });
+        }
+
+        $accounts = $query->paginate(20)->withQueryString();
+
+        return view('customer_deposits.index', compact('accounts'));
+    }
+
+    public function show(Customers $customer, Request $request): View
+    {
+        $subshopId = (int) session('subshop_id');
+        if ((int) $customer->subshop_id !== $subshopId) {
+            abort(403);
+        }
+
+        $accounts = $this->service->getCustomerAccounts((int) $customer->id)
+            ->paginate(20)
+            ->withQueryString();
+
+        $depositProducts = DepositProduct::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
+
+        $activeLoans = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->where('customer_id', (int) $customer->id)
+            ->whereIn('status', ['disbursed', 'partially_paid'])
+            ->where('outstanding_balance', '>', 0)
+            ->get(['id', 'loan_code', 'outstanding_balance']);
+
+        return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans'));
+    }
+
+    public function create(Request $request): View|RedirectResponse
+    {
+        $subshopId = (int) session('subshop_id');
+
+        $depositProducts = DepositProduct::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
+
+        if ($depositProducts->isEmpty()) {
+            return back()->with('error', 'No active deposit products found. Create a deposit product first.');
+        }
+
+        $customers = Customers::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('customer_deposits.create', compact('depositProducts', 'customers'));
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'deposit_product_id' => ['required', 'integer', 'exists:deposit_products,id'],
+            'account_number' => ['nullable', 'string', 'max:50', 'unique:deposit_accounts,account_number'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $this->service->createAccount(
+                    (int) $validated['customer_id'],
+                    (int) $validated['deposit_product_id'],
+                    $validated['account_number'] ?? null
+                );
+            });
+
+            return redirect()->route('deposits.index')->with('success', 'Deposit account created successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to create deposit account.';
+            return back()->withInput()->with('error', $msg);
+        }
+    }
+
+    public function deposit(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'deposit_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference' => ['nullable', 'string', 'max:200'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $account = DepositAccount::query()->findOrFail((int) $validated['deposit_account_id']);
+                $this->service->deposit(
+                    $account,
+                    (float) $validated['amount'],
+                    (string) $validated['payment_method'],
+                    $validated['reference'] ?? null,
+                    $validated['notes'] ?? null
+                );
+            });
+
+            return redirect()->back()->with('success', 'Deposit recorded successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to record deposit.';
+            return back()->withInput()->with('error', $msg);
+        }
+    }
+
+    public function withdraw(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'deposit_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'string', 'max:50'],
+            'reference' => ['nullable', 'string', 'max:200'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $account = DepositAccount::query()->findOrFail((int) $validated['deposit_account_id']);
+                $this->service->withdraw(
+                    $account,
+                    (float) $validated['amount'],
+                    (string) $validated['payment_method'],
+                    $validated['reference'] ?? null,
+                    $validated['notes'] ?? null
+                );
+            });
+
+            return redirect()->back()->with('success', 'Withdrawal recorded successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to record withdrawal.';
+            return back()->withInput()->with('error', $msg);
+        }
+    }
+
+    public function transfer(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'from_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
+            'to_account_id' => ['required', 'integer', 'exists:deposit_accounts,id', 'different:from_account_id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reference' => ['nullable', 'string', 'max:200'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $from = DepositAccount::query()->findOrFail((int) $validated['from_account_id']);
+                $to = DepositAccount::query()->findOrFail((int) $validated['to_account_id']);
+                $this->service->transfer(
+                    $from,
+                    $to,
+                    (float) $validated['amount'],
+                    $validated['reference'] ?? null,
+                    $validated['notes'] ?? null
+                );
+            });
+
+            return redirect()->back()->with('success', 'Transfer completed successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to complete transfer.';
+            return back()->withInput()->with('error', $msg);
+        }
+    }
+
+    public function payLoan(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'deposit_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
+            'loan_id' => ['required', 'integer', 'exists:loans,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reference' => ['nullable', 'string', 'max:200'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $account = DepositAccount::query()->findOrFail((int) $validated['deposit_account_id']);
+                $loan = Loans::query()->findOrFail((int) $validated['loan_id']);
+                $this->service->payLoanInstallment(
+                    $account,
+                    $loan,
+                    (float) $validated['amount'],
+                    $validated['reference'] ?? null,
+                    $validated['notes'] ?? null
+                );
+            });
+
+            return redirect()->back()->with('success', 'Loan installment paid from savings successfully.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to pay loan from savings.';
+            return back()->withInput()->with('error', $msg);
+        }
+    }
+
+    public function transactions(int $deposit_account, Request $request): View
+    {
+        $subshopId = (int) session('subshop_id');
+        if ($subshopId <= 0) {
+            abort(403);
+        }
+
+        $account = DepositAccount::query()
+            ->whereKey($deposit_account)
+            ->where('subshop_id', $subshopId)
+            ->firstOrFail();
+
+        $transactions = $account->depositTransactions()
+            ->with('createdBy')
+            ->orderBy('created_at', 'desc')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('customer_deposits.transactions', compact('account', 'transactions'));
+    }
+}

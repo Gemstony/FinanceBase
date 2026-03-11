@@ -10,6 +10,8 @@ use App\Http\Controllers\CustomerCollateralsController;
 use App\Http\Controllers\CustomersController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataController;
+use App\Http\Controllers\Deposits\DepositAccountsController;
+use App\Http\Controllers\Deposits\DepositProductsController;
 use App\Http\Controllers\DisbursementMethodController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InterestCycleController;
@@ -204,6 +206,34 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/refund', [CustomerCreditsController::class, 'refund'])->name('credits.refund');
         });
 
+        Route::prefix('deposits')->group(function () {
+            Route::get('/', [DepositAccountsController::class, 'index'])->name('deposits.index');
+            Route::get('/create', [DepositAccountsController::class, 'create'])->name('deposits.create');
+            Route::post('/', [DepositAccountsController::class, 'store'])->name('deposits.store');
+            Route::delete('/{deposit_account}', [DepositAccountsController::class, 'destroy'])
+                ->whereNumber('deposit_account')
+                ->name('deposits.destroy');
+            Route::get('/{customer}', [DepositAccountsController::class, 'show'])
+                ->whereNumber('customer')
+                ->name('deposits.show');
+            Route::get('/{deposit_account}/transactions', [DepositAccountsController::class, 'transactions'])
+                ->whereNumber('deposit_account')
+                ->name('deposits.transactions');
+            Route::post('/deposit', [DepositAccountsController::class, 'deposit'])->name('deposits.deposit');
+            Route::post('/withdraw', [DepositAccountsController::class, 'withdraw'])->name('deposits.withdraw');
+            Route::post('/transfer', [DepositAccountsController::class, 'transfer'])->name('deposits.transfer');
+            Route::post('/pay-loan', [DepositAccountsController::class, 'payLoan'])->name('deposits.pay-loan');
+
+            Route::prefix('products')->name('deposits.products.')->group(function () {
+                Route::get('/', [DepositProductsController::class, 'index'])->name('index');
+                Route::get('/create', [DepositProductsController::class, 'create'])->name('create');
+                Route::post('/', [DepositProductsController::class, 'store'])->name('store');
+                Route::get('/{product}/edit', [DepositProductsController::class, 'edit'])->name('edit');
+                Route::put('/{product}', [DepositProductsController::class, 'update'])->name('update');
+                Route::delete('/{product}', [DepositProductsController::class, 'destroy'])->name('destroy');
+            });
+        });
+
         Route::prefix('security-deposits')->group(function () {
             Route::get('/', [SecurityDepositsController::class, 'index'])->name('security-deposits.index');
             Route::get('/borrower/{customer}', [SecurityDepositsController::class, 'borrower'])->name('security-deposits.borrower');
@@ -306,8 +336,8 @@ Route::middleware(['auth'])->group(function () {
         // Loan write-off & recovery
         Route::prefix('loans/writeoffs')->group(function () {
             Route::get('/', [WriteOffManagementController::class, 'index'])->name('writeoffs.index');
-            Route::get('/{loan}/create', [LoanWriteOffController::class, 'create'])->name('writeoffs.create');
-            Route::post('/{loan}/store', [LoanWriteOffController::class, 'store'])->name('writeoffs.store');
+            // Route::get('/{loan}/create', [LoanWriteOffController::class, 'create'])->name('writeoffs.create');
+            // Route::post('/{loan}/store', [LoanWriteOffController::class, 'store'])->name('writeoffs.store');
         });
 
         // Completed Loans

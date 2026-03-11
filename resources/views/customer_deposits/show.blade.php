@@ -1,0 +1,360 @@
+@extends('adminlte::page')
+
+@section('title', 'Deposit Accounts – ' . $customer->name)
+
+@section('content_header')
+    <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="d-none d-md-block text-light"><i class="fas fa-wallet"></i> Deposit Accounts</h1>
+                    <h1 class="d-md-none text-light"><i class="fas fa-wallet"></i> Deposit Accounts</h1>
+                    <p class="mb-0 text-light">Borrower: <strong>{{ $customer->name }}</strong></p>
+                </div>
+                <div>
+                    <a href="{{ route('deposits.create') }}" class="btn btn-success border">
+                        <i class="fas fa-plus"></i> New Account
+                    </a>
+                    <a href="{{ route('deposits.index') }}" class="btn btn-light border ml-2">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('deposits.index') }}">Customer Deposit Accounts</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ $customer->name }}</li>
+            </ol>
+        </nav>
+    </div>
+@stop
+
+@section('content')
+    <div class="container-fluid">
+        @if(session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+        @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header"><strong>Summary</strong></div>
+                    <div class="card-body">
+                        <div class="mb-2"><strong>Total Balance:</strong> {{ number_format((float) $accounts->sum('balance'), 2) }}</div>
+                        <div class="mb-2"><strong>Accounts:</strong> {{ $accounts->count() }}</div>
+                        <div class="mb-2"><strong>Active:</strong> {{ $accounts->where('status', 'active')->count() }}</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><strong>Quick Actions</strong></div>
+                    <div class="card-body">
+                        <div class="text-muted mb-2">
+                            Deposit, withdraw, transfer, or pay a loan from any active account below.
+                        </div>
+
+                        @if($accounts->where('status', 'active')->isNotEmpty())
+                            <!-- Deposit Form -->
+                            <form method="POST" action="{{ route('deposits.deposit') }}" class="mb-3">
+                                @csrf
+                                <div class="form-group">
+                                    <label>Account</label>
+                                    <select name="deposit_account_id" class="form-control" required>
+                                        <option value="">Select account</option>
+                                        @foreach($accounts->where('status', 'active') as $a)
+                                            <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" step="0.01" name="amount" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Payment Method</label>
+                                    <select name="payment_method" class="form-control" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="bank">Bank Transfer</option>
+                                        <option value="mobile">Mobile Money</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Reference</label>
+                                    <input type="text" name="reference" class="form-control" placeholder="Optional">
+                                </div>
+                                <button class="btn btn-primary btn-block" type="submit">
+                                    <i class="fas fa-plus"></i> Deposit
+                                </button>
+                            </form>
+
+                            <!-- Withdrawal Form -->
+                            <form method="POST" action="{{ route('deposits.withdraw') }}" class="mb-3">
+                                @csrf
+                                <div class="form-group">
+                                    <label>Account</label>
+                                    <select name="deposit_account_id" class="form-control" required>
+                                        <option value="">Select account</option>
+                                        @foreach($accounts->where('status', 'active') as $a)
+                                            <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" step="0.01" name="amount" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Payment Method</label>
+                                    <select name="payment_method" class="form-control" required>
+                                        <option value="cash">Cash</option>
+                                        <option value="bank">Bank Transfer</option>
+                                        <option value="mobile">Mobile Money</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Reference</label>
+                                    <input type="text" name="reference" class="form-control" placeholder="Optional">
+                                </div>
+                                <button class="btn btn-outline-danger btn-block" type="submit">
+                                    <i class="fas fa-minus"></i> Withdraw
+                                </button>
+                            </form>
+
+                            <!-- Transfer Form -->
+                            <form method="POST" action="{{ route('deposits.transfer') }}" class="mb-3">
+                                @csrf
+                                <div class="form-group">
+                                    <label>From Account</label>
+                                    <select name="from_account_id" class="form-control" required>
+                                        <option value="">Select account</option>
+                                        @foreach($accounts->where('status', 'active') as $a)
+                                            <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>To Account</label>
+                                    <select name="to_account_id" class="form-control" required>
+                                        <option value="">Select account</option>
+                                        @foreach($accounts->where('status', 'active') as $a)
+                                            <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" step="0.01" name="amount" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Reference</label>
+                                    <input type="text" name="reference" class="form-control" placeholder="Optional">
+                                </div>
+                                <button class="btn btn-info btn-block" type="submit">
+                                    <i class="fas fa-exchange-alt"></i> Transfer
+                                </button>
+                            </form>
+
+                            <!-- Pay Loan Form -->
+                            @if($activeLoans->isNotEmpty())
+                                <form method="POST" action="{{ route('deposits.pay-loan') }}" class="mb-3">
+                                    @csrf
+                                    <div class="form-group">
+                                        <label>Account</label>
+                                        <select name="deposit_account_id" class="form-control" required>
+                                            <option value="">Select account</option>
+                                            @foreach($accounts->where('status', 'active') as $a)
+                                                <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Loan</label>
+                                        <select name="loan_id" class="form-control" required>
+                                            <option value="">Select loan</option>
+                                            @foreach($activeLoans as $l)
+                                                <option value="{{ $l->id }}">{{ $l->loan_code }} – Balance: {{ number_format((float) $l->outstanding_balance, 2) }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Amount</label>
+                                        <input type="number" step="0.01" name="amount" class="form-control" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Reference</label>
+                                        <input type="text" name="reference" class="form-control" placeholder="Optional">
+                                    </div>
+                                    <button class="btn btn-success btn-block" type="submit">
+                                        <i class="fas fa-credit-card"></i> Pay Loan
+                                    </button>
+                                </form>
+                            @endif
+                        @else
+                            <div class="text-center text-muted py-3">
+                                <i class="fas fa-info-circle fa-2x mb-2"></i>
+                                <p class="mb-0">No active accounts available for transactions.</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header"><strong>Accounts</strong></div>
+                    <div class="card-body table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Account</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Balance</th>
+                                    <th>Status</th>
+                                    <th>Opened</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($accounts as $a)
+                                    <tr>
+                                        <td>{{ $a->account_number }}</td>
+                                        <td>{{ $a->depositProduct?->name ?? '—' }}</td>
+                                        <td class="text-right">{{ number_format((float) $a->balance, 2) }}</td>
+                                        <td>
+                                            @php
+                                                $cls = match((string) $a->status) {
+                                                    'active' => 'badge-success',
+                                                    'frozen' => 'badge-warning',
+                                                    'dormant' => 'badge-secondary',
+                                                    'closed' => 'badge-dark',
+                                                    default => 'badge-light',
+                                                };
+                                            @endphp
+                                            <span class="badge {{ $cls }}">{{ ucfirst($a->status) }}</span>
+                                        </td>
+                                        <td>{{ $a->opened_at?->format('Y-m-d') ?? '—' }}</td>
+                                        <td>
+                                            <a class="btn btn-sm btn-outline-secondary" href="{{ route('deposits.transactions', $a) }}">
+                                                <i class="fas fa-list"></i> Ledger
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No deposit accounts found.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+
+                        <div class="mt-3">
+                            {{ $accounts->links() }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@stop
+@push('css')
+<link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Deposit form
+    const depositForm = document.querySelector('form[action*="deposit"]');
+    if (depositForm) {
+        depositForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Confirm Deposit?',
+                text: 'This will record a deposit into the selected account.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#007bff',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Deposit'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // Withdrawal form
+    const withdrawForm = document.querySelector('form[action*="withdraw"]');
+    if (withdrawForm) {
+        withdrawForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Confirm Withdrawal?',
+                text: 'This will record a withdrawal from the selected account.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Withdraw'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // Transfer form
+    const transferForm = document.querySelector('form[action*="transfer"]');
+    if (transferForm) {
+        transferForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Confirm Transfer?',
+                text: 'This will transfer funds between the selected accounts.',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#17a2b8',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Transfer'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+
+    // Pay loan form
+    const payLoanForm = document.querySelector('form[action*="pay-loan"]');
+    if (payLoanForm) {
+        payLoanForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Pay Loan from Savings?',
+                text: 'This will use the selected deposit account to pay the loan installment.',
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Pay'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.submit();
+                }
+            });
+        });
+    }
+});
+</script>
+@endpush

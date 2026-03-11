@@ -270,6 +270,9 @@
                                         <a href="{{ route('credits.show', $customer->id) }}" class="btn btn-sm btn-outline-success" title="View Credits">
                                             <i class="fas fa-wallet"></i>
                                         </a>
+                                        <a href="{{ route('deposits.show', $customer->id) }}" class="btn btn-sm btn-outline-primary" title="View Deposit Accounts">
+                                            <i class="fas fa-piggy-bank"></i>
+                                        </a>
                                         <a href="{{ route('security-deposits.borrower', $customer->id) }}" class="btn btn-sm btn-outline-secondary" title="View Security Deposits">
                                             <i class="fas fa-shield-alt"></i>
                                         </a>

@@ -6,6 +6,7 @@ use App\Models\CustomerCollaterals;
 use App\Models\Customers;
 use App\Models\LoanApprovals;
 use App\Models\LoanCollaterals;
+use App\Models\LoanFeeApplications;
 use App\Models\LoanGroups;
 use App\Models\LoanInstallments;
 use App\Models\LoanPenalties;
@@ -31,9 +32,119 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Illuminate\Http\JsonResponse;
 
 class LoansController extends Controller
 {
+    public function apiCustomers(Request $request): JsonResponse
+    {
+        $request->validate([
+            'q' => ['nullable', 'string'],
+            'id' => ['nullable'],
+            'subshop_id' => ['nullable', 'integer'],
+        ]);
+
+        $subshopId = session('subshop_id') ?? $request->input('subshop_id');
+        if (!$subshopId) {
+            return response()->json(['error' => 'No subshop selected'], 400);
+        }
+
+        $q = $request->get('q');
+        $id = $request->get('id');
+
+        $customers = Customers::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->when($id, function ($query) use ($id) {
+                $query->where('id', (int) $id);
+            })
+            ->when($q, function ($query) use ($q) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                        ->orWhere('phone', 'like', "%{$q}%")
+                        ->orWhere('email', 'like', "%{$q}%");
+                });
+            })
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name', 'phone']);
+
+        return response()->json($customers);
+    }
+
+    public function apiLoanGroups(Request $request): JsonResponse
+    {
+        $request->validate([
+            'q' => ['nullable', 'string'],
+            'id' => ['nullable'],
+            'subshop_id' => ['nullable', 'integer'],
+        ]);
+
+        $subshopId = session('subshop_id') ?? $request->input('subshop_id');
+        if (!$subshopId) {
+            return response()->json(['error' => 'No subshop selected'], 400);
+        }
+
+        $q = $request->get('q');
+        $id = $request->get('id');
+
+        $groups = LoanGroups::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->when($id, function ($query) use ($id) {
+                $query->where('id', (int) $id);
+            })
+            ->when($q, function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%");
+            })
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name']);
+
+        return response()->json($groups);
+    }
+
+    public function apiCollaterals(Request $request): JsonResponse
+    {
+        $request->validate([
+            'q' => ['nullable', 'string'],
+            'id' => ['nullable'],
+            'customer_id' => ['nullable', 'integer'],
+            'subshop_id' => ['nullable', 'integer'],
+        ]);
+
+        $subshopId = session('subshop_id') ?? $request->input('subshop_id');
+        if (!$subshopId) {
+            return response()->json(['error' => 'No subshop selected'], 400);
+        }
+
+        $q = $request->get('q');
+        $id = $request->get('id');
+        $customerId = $request->get('customer_id');
+
+        $query = CustomerCollaterals::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true);
+
+        if ($customerId) {
+            $query->where('customer_id', (int) $customerId);
+        }
+
+        if ($id) {
+            $query->where('id', (int) $id);
+        }
+
+        if ($q) {
+            $query->where('description', 'like', "%{$q}%");
+        }
+
+        $collaterals = $query->orderBy('description')
+            ->limit(20)
+            ->get(['id', 'description', 'estimated_value']);
+
+        return response()->json($collaterals);
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -609,6 +720,11 @@ class LoansController extends Controller
             ->with('guarantor')
             ->get();
 
+        $loanFees = LoanFeeApplications::query()
+            ->where('loan_id', $loan->id)
+            ->with('loanProductFee.loanFee')
+            ->get();
+
         $approvals = LoanApprovals::query()
             ->where('loan_id', $loan->id)
             ->where('is_active', true)
@@ -648,6 +764,7 @@ class LoansController extends Controller
             'latestScheduleVersion',
             'collaterals',
             'guarantors',
+            'loanFees',
             'approvals',
             'securityDepositRequired',
             'securityDepositPaid',

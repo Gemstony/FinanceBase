@@ -280,7 +280,7 @@
     </div>
 
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-header"><strong>Collaterals</strong></div>
                 <div class="card-body table-responsive">
@@ -308,7 +308,7 @@
             </div>
         </div>
 
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-header"><strong>Guarantors</strong></div>
                 <div class="card-body table-responsive">
@@ -327,6 +327,32 @@
                                 </tr>
                             @empty
                                 <tr><td colspan="2" class="text-center text-muted">No guarantors attached.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header"><strong>Applied Fees</strong></div>
+                <div class="card-body table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fee Name</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($loanFees as $lf)
+                                <tr>
+                                    <td>{{ $lf->loanProductFee?->loanFee?->name ?? 'Fee' }}</td>
+                                    <td>{{ number_format((float)$lf->amount, 2) }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="2" class="text-center text-muted">No fees applied.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

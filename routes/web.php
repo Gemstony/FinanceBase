@@ -19,6 +19,7 @@ use App\Http\Controllers\LoanFeesController;
 use App\Http\Controllers\LoanGroupController;
 use App\Http\Controllers\LoanPenaltiesController;
 use App\Http\Controllers\LoanProductTypesController;
+use App\Http\Controllers\LoansController;
 use App\Http\Controllers\LoansSettingsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrdersController;
@@ -782,6 +783,11 @@ Route::middleware(['auth'])->group(function () {
         // POS APIs for searchable selects
         Route::get('/api/pos/customers', [PosController::class, 'apiCustomers'])->name('api.pos.customers');
         Route::get('/api/pos/items', [PosController::class, 'apiItems'])->name('api.pos.items');
+
+        // Loans APIs for searchable selects
+        Route::get('/api/loans/customers', [LoansController::class, 'apiCustomers'])->name('api.loans.customers');
+        Route::get('/api/loans/loan-groups', [LoansController::class, 'apiLoanGroups'])->name('api.loans.loan-groups');
+        Route::get('/api/loans/collaterals', [LoansController::class, 'apiCollaterals'])->name('api.loans.collaterals');
 
         // Purchases routes
         Route::get('/admin/purchases/purchase/subshops', [PurchasesController::class, 'subshops'])->name('purchases.subshops');

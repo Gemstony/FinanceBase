@@ -120,6 +120,30 @@ class PortfolioRiskCalculator
     }
 
     /**
+     * Calculate total outstanding for loans within specific subshops.
+     *
+     * Uses the same active loan definition and per-loan outstanding calculation.
+     */
+    public function calculateTotalPortfolioOutstandingForSubshops($subshopIds): float
+    {
+        $total = 0.0;
+
+        $this->activeLoansQuery()
+            ->whereIn('subshop_id', $subshopIds)
+            ->select(['id'])
+            ->chunkById(200, function ($loans) use (&$total) {
+                foreach ($loans as $loan) {
+                    $outstanding = $this->calculateLoanOutstanding($loan);
+                    if ($outstanding > 0) {
+                        $total += $outstanding;
+                    }
+                }
+            });
+
+        return round($total, 2);
+    }
+
+    /**
      * Active loans query used across calculations.
      *
      * In most microfinance systems, PAR is measured on the active portfolio.
@@ -127,7 +151,7 @@ class PortfolioRiskCalculator
      */
     public function activeLoansQuery(): Builder
     {
-        return Loans::query()
+        return \App\Models\Loans::query()
             ->where('is_active', true)
             ->whereIn('status', [
                 'disbursed',

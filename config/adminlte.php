@@ -475,15 +475,17 @@ return [
                     'text' => 'Charts Of Account ',
                     'url' => 'accounting/charts_of_account/',
                 ],
+
+                [
+                    'text' => 'Manual Journal',
+                    'url' => '/accounting/manual-journals',
+                ], 
                 [
                     'text' => 'Accounting Settings',
                     'url' => 'accounting/accounting_settings/',
                 ],
          
-                // [
-                //     'text' => 'Loans',
-                //     'url' => 'loans/loans',
-                // ], 
+
 
                 // [
                 //     'text' => 'Loan Groups',
@@ -492,6 +494,21 @@ return [
              
              
             ],
+        ],
+
+        [
+            'text' => 'Customer Deposits',
+            'icon' => 'fas fa-piggy-bank',
+            'submenu' => [
+                        [
+                            'text' => 'Deposit Accounts',
+                            'url' => '/deposits',
+                        ],
+                        [
+                            'text' => 'Deposit Products',
+                            'url' => '/deposits/products',
+                        ],
+            ]
         ],
 
         //Loan management
@@ -640,16 +657,7 @@ return [
             'icon' => 'fas fa-users',
             'can' => 'view_customers',
         ],
-        [
-            'text' => 'Deposit Accounts',
-            'url' => '/deposits',
-            'icon' => 'fas fa-piggy-bank',
-        ],
-        [
-            'text' => 'Deposit Products',
-            'url' => '/deposits/products',
-            'icon' => 'fas fa-box',
-        ],
+
         [
             'text' => 'Suppliers',
             'url' => '/admin/inventory/suppliers',

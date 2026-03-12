@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customers;
+use App\Models\DepositAccount;
+use App\Models\Loans;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use App\Models\SubShop;
 use App\Models\SalesOrders;
 use App\Models\SalesOrdersItems;
@@ -12,6 +15,10 @@ use Illuminate\Http\Request;
 
 class CustomersController extends Controller
 {
+    public function __construct(
+        private readonly PortfolioRiskCalculator $portfolioRisk,
+    ) {
+    }
     /**
      * Display a listing of the resource.
      */
@@ -32,26 +39,8 @@ class CustomersController extends Controller
                 ->with('error', 'Shop is not active. Please contact the owner to activate it.');
         }
 
-        // Aggregate subquery: orders count and total spent per customer in current subshop (with optional date range)
-        $statsSub = SalesOrders::selectRaw('customer_id, COUNT(*) as orders_count, COALESCE(SUM(grand_total),0) as total_spent')
-            ->whereIn('subshop_id', $shopSubshopIds);
-
-        // Apply date range to orders for stats (so filters affect counts/totals)
-        if ($request->filled('date_from')) {
-            $statsSub->whereDate('created_at', '>=', $request->input('date_from'));
-        }
-        if ($request->filled('date_to')) {
-            $statsSub->whereDate('created_at', '<=', $request->input('date_to'));
-        }
-
-        $statsSub->groupBy('customer_id');
-
-        // Base query with stats
         $customers = Customers::whereIn('customers.subshop_id', $shopSubshopIds)
-            ->leftJoinSub($statsSub, 'stats', function($join){
-                $join->on('stats.customer_id', '=', 'customers.id');
-            })
-            ->select('customers.*', DB::raw('COALESCE(stats.orders_count,0) as orders_count'), DB::raw('COALESCE(stats.total_spent,0) as total_spent'));
+            ->select('customers.*');
 
         // Search by name, email, phone, contact person
         if ($request->filled('search')) {
@@ -69,25 +58,12 @@ class CustomersController extends Controller
             $customers->where('customers.is_active', $request->status === 'active' ? 1 : 0);
         }
 
-        // If date range provided, show only customers with activity in that range
-        if ($request->filled('date_from') || $request->filled('date_to')) {
-            $customers->whereRaw('COALESCE(stats.orders_count,0) > 0');
+        // Date range filter (customer registration date)
+        if ($request->filled('date_from')) {
+            $customers->whereDate('customers.created_at', '>=', $request->input('date_from'));
         }
-
-        // Orders count range
-        if ($request->filled('min_orders')) {
-            $customers->whereRaw('COALESCE(stats.orders_count,0) >= ?', [(int)$request->input('min_orders')]);
-        }
-        if ($request->filled('max_orders')) {
-            $customers->whereRaw('COALESCE(stats.orders_count,0) <= ?', [(int)$request->input('max_orders')]);
-        }
-
-        // Total spent range
-        if ($request->filled('min_spent')) {
-            $customers->whereRaw('COALESCE(stats.total_spent,0) >= ?', [(float)$request->input('min_spent')]);
-        }
-        if ($request->filled('max_spent')) {
-            $customers->whereRaw('COALESCE(stats.total_spent,0) <= ?', [(float)$request->input('max_spent')]);
+        if ($request->filled('date_to')) {
+            $customers->whereDate('customers.created_at', '<=', $request->input('date_to'));
         }
 
         // Sorting
@@ -98,14 +74,6 @@ class CustomersController extends Controller
             $customers->orderBy('customers.name', 'desc');
         } elseif ($sort === 'date_asc') {
             $customers->orderBy('customers.created_at', 'asc');
-        } elseif ($sort === 'orders_desc') {
-            $customers->orderByRaw('COALESCE(stats.orders_count,0) desc');
-        } elseif ($sort === 'orders_asc') {
-            $customers->orderByRaw('COALESCE(stats.orders_count,0) asc');
-        } elseif ($sort === 'spent_desc') {
-            $customers->orderByRaw('COALESCE(stats.total_spent,0) desc');
-        } elseif ($sort === 'spent_asc') {
-            $customers->orderByRaw('COALESCE(stats.total_spent,0) asc');
         } elseif ($sort === 'status') {
             $customers->orderBy('customers.is_active', 'desc');
         } else {
@@ -115,7 +83,16 @@ class CustomersController extends Controller
 
         $customers = $customers->paginate(10)->appends($request->query());
 
-        return view("sales.customers.customers", compact("customers", "subshop"));
+        // Summary stats for cards
+        $summary = [
+            'total_customers' => Customers::whereIn('subshop_id', $shopSubshopIds)->count(),
+            'active_customers' => Customers::whereIn('subshop_id', $shopSubshopIds)->where('is_active', true)->count(),
+            'inactive_customers' => Customers::whereIn('subshop_id', $shopSubshopIds)->where('is_active', false)->count(),
+            'total_loans' => Loans::whereIn('subshop_id', $shopSubshopIds)->count(),
+            'total_outstanding' => $this->portfolioRisk->calculateTotalPortfolioOutstandingForSubshops($shopSubshopIds),
+        ];
+
+        return view('customers.index', compact('customers', 'subshop', 'summary'));
     }
 
     /**
@@ -123,7 +100,19 @@ class CustomersController extends Controller
      */
     public function create()
     {
-        // Not used as we're using modals
+        $subshopId = session('subshop_id');
+        if (!$subshopId) {
+            return redirect()->route('subshops.choose', ['intended' => route('customers.create')]);
+        }
+
+        $subshop = SubShop::findOrFail($subshopId);
+        if ($subshop->is_active != 1) {
+            session()->forget('subshop_id');
+            return redirect()->route('subshops.choose', ['intended' => route('customers.create')])
+                ->with('error', 'Shop is not active. Please contact the owner to activate it.');
+        }
+
+        return view('customers.create', compact('subshop'));
     }
 
     /**
@@ -134,10 +123,14 @@ class CustomersController extends Controller
         try {
             $subshopId = session('subshop_id');
             if (!$subshopId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No subshop selected. Please select a shop first.'
-                ], 400);
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No subshop selected. Please select a shop first.'
+                    ], 400);
+                }
+
+                return redirect()->route('subshops.choose', ['intended' => route('customers.create')]);
             }
 
             $request->validate([
@@ -215,7 +208,7 @@ class CustomersController extends Controller
                 ]);
             }
 
-            return redirect()->back()->with('success', $message);
+            return redirect()->route('customers.show', $customer->id)->with('success', $message);
         } catch (\Illuminate\Validation\ValidationException $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
@@ -241,8 +234,44 @@ class CustomersController extends Controller
      */
     public function show(string $id)
     {
+        $subshopId = session('subshop_id');
+        if (!$subshopId) {
+            return redirect()->route('subshops.choose', ['intended' => route('customers.show', $id)]);
+        }
+
         $customer = Customers::withTrashed()->findOrFail($id);
-        return response()->json($customer);
+
+        if ((int) $customer->subshop_id !== (int) $subshopId) {
+            abort(404);
+        }
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json($customer);
+        }
+
+        // Calculate outstanding for active loans only using PortfolioRiskCalculator
+        $activeLoans = $this->portfolioRisk->activeLoansQuery()
+            ->where('subshop_id', $subshopId)
+            ->where('customer_id', $customer->id)
+            ->get(['id']);
+
+        $outstandingBalance = 0.0;
+        foreach ($activeLoans as $loan) {
+            $outstandingBalance += $this->portfolioRisk->calculateLoanOutstanding($loan);
+        }
+
+        $stats = [
+            'loans_count' => $activeLoans->count(),
+            'total_principal' => (float) (Loans::whereIn('id', $activeLoans->pluck('id'))->sum('principal_amount') ?? 0),
+            'outstanding_balance' => $outstandingBalance,
+            'active_loans_count' => $activeLoans->count(),
+            'deposit_accounts_count' => (int) DepositAccount::query()
+                ->where('subshop_id', $subshopId)
+                ->where('customer_id', $customer->id)
+                ->count(),
+        ];
+
+        return view('customers.show', compact('customer', 'stats'));
     }
 
     /**
@@ -509,7 +538,17 @@ class CustomersController extends Controller
      */
     public function edit(string $id)
     {
-        // Not used as we're using modals
+        $subshopId = session('subshop_id');
+        if (!$subshopId) {
+            return redirect()->route('subshops.choose', ['intended' => route('customers.edit', $id)]);
+        }
+
+        $customer = Customers::findOrFail($id);
+        if ((int) $customer->subshop_id !== (int) $subshopId) {
+            abort(404);
+        }
+
+        return view('customers.edit', compact('customer'));
     }
 
     /**
@@ -520,10 +559,14 @@ class CustomersController extends Controller
         try {
             $subshopId = session('subshop_id');
             if (!$subshopId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No subshop selected. Please select a shop first.'
-                ], 400);
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No subshop selected. Please select a shop first.'
+                    ], 400);
+                }
+
+                return redirect()->route('subshops.choose', ['intended' => route('customers.edit', $id)]);
             }
 
             $customer = Customers::findOrFail($id);
@@ -598,7 +641,7 @@ class CustomersController extends Controller
                 ]);
             }
 
-            return redirect()->back()->with('success', 'Customer updated successfully.');
+            return redirect()->route('customers.show', $customer->id)->with('success', 'Customer updated successfully.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
@@ -633,7 +676,7 @@ class CustomersController extends Controller
                         'message' => 'No subshop selected. Please select a shop first.'
                     ], 400);
                 }
-                return redirect()->back()->with('error', 'No subshop selected. Please select a shop first.');
+                return redirect()->route('subshops.choose', ['intended' => route('customers.index')]);
             }
 
             $customer = Customers::findOrFail($id);
@@ -658,7 +701,7 @@ class CustomersController extends Controller
                 ]);
             }
 
-            return redirect()->back()->with('success', 'Customer deleted successfully.');
+            return redirect()->route('customers.index')->with('success', 'Customer deleted successfully.');
         } catch (\Exception $e) {
             if (request()->ajax() || request()->wantsJson()) {
                 return response()->json([
@@ -809,7 +852,7 @@ class CustomersController extends Controller
                 'rows' => $rows,
                 'subshop' => $subshop,
                 'summary' => $summary,
-                'generatedBy' => optional(auth()->user())->name ?? 'System',
+                'generatedBy' => optional(auth()->guard()->user())->name ?? 'System',
             ]);
             return $pdf->download('customers_'.now()->format('Y-m-d_H-i-s').'.pdf');
         }

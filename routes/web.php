@@ -23,6 +23,7 @@ use App\Http\Controllers\LoanPenaltiesController;
 use App\Http\Controllers\LoanProductTypesController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\LoansSettingsController;
+use App\Http\Controllers\Accounting\ManualJournalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrdersController;
 use App\Http\Controllers\PurchaseReturnsController;
@@ -273,6 +274,15 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [AccountGroupsController::class, 'store'])->name('store');
             Route::put('/{accountGroup}', [AccountGroupsController::class, 'update'])->name('update');
             Route::delete('/{accountGroup}', [AccountGroupsController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('accounting/manual-journals')->name('accounting.manual-journals.')->group(function () {
+            Route::get('/', [ManualJournalController::class, 'index'])->name('index');
+            Route::get('/create', [ManualJournalController::class, 'create'])->name('create');
+            Route::post('/', [ManualJournalController::class, 'store'])->name('store');
+            Route::get('/{id}', [ManualJournalController::class, 'show'])->whereNumber('id')->name('show');
+            Route::post('/{id}/post', [ManualJournalController::class, 'post'])->whereNumber('id')->name('post');
+            Route::post('/{id}/reverse', [ManualJournalController::class, 'reverse'])->whereNumber('id')->name('reverse');
         });
 
 
@@ -776,7 +786,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/sales/customers/export/{format}', [CustomersController::class, 'export'])->name('customers.export');
         Route::get('/admin/sales/customers/import/sample', [CustomersController::class, 'downloadSample'])->name('customers.import.sample');
         Route::post('/admin/sales/customers/import', [CustomersController::class, 'import'])->name('customers.import');
+        Route::get('/admin/sales/customers/create', [CustomersController::class, 'create'])
+            ->middleware('can:add_customers')
+            ->name('customers.create');
         Route::post('/admin/sales/customers', [CustomersController::class, 'store'])->name('customers.store');
+        Route::get('/admin/sales/customers/{customer}/edit', [CustomersController::class, 'edit'])
+            ->middleware('can:edit_customers')
+            ->name('customers.edit');
         Route::put('/admin/sales/customers/{customer}', [CustomersController::class, 'update'])->name('customers.update');
         Route::delete('/admin/sales/customers/{customer}', [CustomersController::class, 'destroy'])->name('customers.destroy');
         Route::get('/admin/sales/customers/{customer}', [CustomersController::class, 'show'])->name('customers.show');

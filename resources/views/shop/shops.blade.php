@@ -102,7 +102,7 @@
             <div style="position: absolute; bottom: 10px; right: 15px;">
 
                 @can('edit_shop')
-                <button type="button" class="btn btn-light btn-sm" onclick="editMainShop('{{ $shop->id ?? 0 }}', '{{ $shop->name ?? '' }}', '{{ $shop->phone ?? '' }}', '{{ $shop->address ?? '' }}', '{{ $shop->description ?? '' }}')" style="border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                <button type="button" class="btn btn-light btn-sm" onclick="editMainShop('{{ $shop->id ?? 0 }}', '{{ $shop->name ?? '' }}', '{{ $shop->short_name ?? '' }}', '{{ $shop->registration_number ?? '' }}', '{{ $shop->license_number ?? '' }}', '{{ $shop->tin ?? '' }}', '{{ $shop->website ?? '' }}', '{{ $shop->country ?? '' }}', '{{ $shop->region ?? '' }}', '{{ $shop->district ?? '' }}', '{{ $shop->street ?? '' }}', '{{ $shop->currency ?? '' }}', '{{ $shop->logo ?? '' }}', '{{ $shop->phone ?? '' }}', '{{ $shop->address ?? '' }}', '{{ $shop->email ?? '' }}', '{{ $shop->description ?? '' }}')" style="border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
                     <i class="fas fa-edit"></i> Edit
                 </button>
                 @endcan
@@ -110,14 +110,35 @@
             <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #FFD700, transparent);"></div>
         </div>
         <div class="card-body" style="background: linear-gradient(135deg, #FFF8DC, #FAFAD2); padding: 2.5rem;">
+            <div class="text-center mb-4">
+                <img id="main_shop_logo_img_large" src="{{ $shop->logo ? asset('storage/' . $shop->logo) : '' }}" alt="Logo" style="{{ $shop->logo ? '' : 'display: none;' }} max-height: 120px; max-width: 220px; object-fit: contain; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.15); background: rgba(255,255,255,0.6); padding: 10px;">
+                <div id="main_shop_logo_placeholder_large" style="{{ $shop->logo ? 'display: none;' : '' }} color: #8B4513; font-weight: 600;">No logo uploaded</div>
+            </div>
             <div class="row">
                 <div class="col-md-6">
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Name:</strong> {{ $shop->name ?? 'N/A' }}</p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Phone:</strong> {{ $shop->phone ?? 'N/A' }}</p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Name:</strong> <span id="main_shop_name">{{ $shop->name ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Short Name:</strong> <span id="main_shop_short_name">{{ $shop->short_name ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Reg No:</strong> <span id="main_shop_registration_number">{{ $shop->registration_number ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">License No:</strong> <span id="main_shop_license_number">{{ $shop->license_number ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Phone:</strong> <span id="main_shop_phone">{{ $shop->phone ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Email:</strong> <span id="main_shop_email">{{ $shop->email ?? 'N/A' }}</span></p>
                 </div>
                 <div class="col-md-6">
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Address:</strong> {{ $shop->address ?? 'N/A' }}</p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Description:</strong> {{ $shop->description ?? 'No description available' }}</p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">TIN:</strong> <span id="main_shop_tin">{{ $shop->tin ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Website:</strong> <span id="main_shop_website">{{ $shop->website ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Country:</strong> <span id="main_shop_country">{{ $shop->country ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Region:</strong> <span id="main_shop_region">{{ $shop->region ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">District:</strong> <span id="main_shop_district">{{ $shop->district ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Street:</strong> <span id="main_shop_street">{{ $shop->street ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Currency:</strong> <span id="main_shop_currency">{{ $shop->currency ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;">
+                        <strong style="color: #8B4513;">Logo:</strong>
+                        <span id="main_shop_logo" style="display: none;">{{ $shop->logo ?? '' }}</span>
+                        <span id="main_shop_logo_placeholder" style="{{ $shop->logo ? 'display: none;' : '' }}">N/A</span>
+                        <img id="main_shop_logo_img" src="{{ $shop->logo ? asset('storage/' . $shop->logo) : '' }}" alt="Logo" style="{{ $shop->logo ? '' : 'display: none;' }} max-height: 40px; margin-left: 10px; border-radius: 6px;">
+                    </p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Address:</strong> <span id="main_shop_address">{{ $shop->address ?? 'N/A' }}</span></p>
+                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Description:</strong> <span id="main_shop_description">{{ $shop->description ?? 'No description available' }}</span></p>
                 </div> 
                         <span class="badge" style="background: linear-gradient(135deg, 
                             {{ $shop->status === 'active' ? '#28a745, #20c997' : 
@@ -403,7 +424,7 @@
     <div class="modal fade" id="editMainShopModal" tabindex="-1" role="dialog" aria-labelledby="editMainShopModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
-                <form id="editMainShopForm">
+                <form id="editMainShopForm" enctype="multipart/form-data">
                     <div class="modal-header" style="background: linear-gradient(135deg, #FFD700, #FFA500); color: white;">
                         <h5 class="modal-title" id="editMainShopModalLabel">
                             <i class="fas fa-edit"></i> Edit Main Branch Information
@@ -413,45 +434,222 @@
                         </button>
                     </div>
                     <div class="modal-body">
-                        <div class="form-group">
-                            <label for="edit_shop_name">
-                                Branch Name <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fas fa-store"></i></span>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_shop_name">
+                                        Branch Name <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-store"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_shop_name" name="shop_name"
+                                               placeholder="e.g: My Awesome Branch" required>
+                                    </div>
                                 </div>
-                                <input type="text" class="form-control" id="edit_shop_name" name="shop_name"
-                                       placeholder="e.g: My Awesome Branch" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_short_name">
+                                        Short Name
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_short_name" name="short_name"
+                                               placeholder="e.g: FIN" >
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="edit_shop_phone">
-                                Phone Number <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_shop_phone">
+                                        Phone Number <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                        </div>
+                                        <input type="tel" class="form-control" id="edit_shop_phone" name="shop_phone"
+                                               placeholder="e.g: 0712345678" required>
+                                    </div>
                                 </div>
-                                <input type="tel" class="form-control" id="edit_shop_phone" name="shop_phone"
-                                       placeholder="e.g: 0712345678" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_website">
+                                        Website
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-globe"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_website" name="website" >
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="edit_shop_address">
-                                Address <span class="text-danger">*</span>
-                            </label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_registration_number">
+                                        Registration Number
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_registration_number" name="registration_number"
+                                               placeholder="Auto-generated if empty" >
+                                    </div>
                                 </div>
-                                <input type="text" class="form-control" id="edit_shop_address" name="shop_address"
-                                       placeholder="e.g: Downtown, City Name" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_license_number">
+                                        License Number
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-certificate"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_license_number" name="license_number" >
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_tin">
+                                        TIN
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-receipt"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_tin" name="tin" >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_currency">
+                                        Currency
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-money-bill"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_currency" name="currency" >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_country">
+                                        Country
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-flag"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_country" name="country" >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_region">
+                                        Region
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-map"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_region" name="region" >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_district">
+                                        District
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-map-marked-alt"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_district" name="district" >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_street">
+                                        Street
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-road"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_street" name="street" >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_shop_address">
+                                        Address <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-map-marker-alt"></i></span>
+                                        </div>
+                                        <input type="text" class="form-control" id="edit_shop_address" name="shop_address"
+                                            placeholder="e.g: Downtown, City Name" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                             <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="edit_shop_email">
+                                        Email <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                        </div>
+                                        <input type="email" class="form-control" id="edit_shop_email" name="email"
+                                            placeholder="e.g: fintech@example.com" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                  
                         <div class="form-group">
                             <label for="edit_shop_description">
                                 Description
@@ -464,6 +662,21 @@
                                           placeholder="Brief description of your shop..." rows="3"></textarea>
                             </div>
                             <small class="form-text text-muted">Optional: Add a description for your Branch</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_logo">
+                                Logo
+                            </label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text"><i class="fas fa-image"></i></span>
+                                </div>
+                                <input type="file" class="form-control" id="edit_logo" name="logo" accept="image/*" >
+                            </div>
+                            <div class="mt-2">
+                                <img id="edit_logo_preview" src="" alt="Logo Preview" style="display: none; max-height: 60px; border-radius: 8px;">
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1036,10 +1249,28 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     // Edit Main Shop Function
-    function editMainShop(id, name, phone, address, description) {
+    function editMainShop(id, name, shortName, registrationNumber, licenseNumber, tin, website, country, region, district, street, currency, logo, phone, address, email, description) {
         $('#edit_shop_name').val(name);
+        $('#edit_short_name').val(shortName);
+        $('#edit_registration_number').val(registrationNumber);
+        $('#edit_license_number').val(licenseNumber);
+        $('#edit_tin').val(tin);
+        $('#edit_website').val(website);
+        $('#edit_country').val(country);
+        $('#edit_region').val(region);
+        $('#edit_district').val(district);
+        $('#edit_street').val(street);
+        $('#edit_currency').val(currency);
+        $('#edit_logo').val('');
+        if (logo) {
+            $('#edit_logo_preview').attr('src', `{{ asset('storage') }}/${logo}`).show();
+        } else {
+            $('#edit_logo_preview').hide();
+        }
         $('#edit_shop_phone').val(phone);
         $('#edit_shop_address').val(address);
+        $('#edit_shop_email').val(email);
+
         $('#edit_shop_description').val(description);
         
         // Show modal
@@ -1073,6 +1304,17 @@
         setTimeout(function() {
             $('.alert').fadeOut('slow');
         }, 5000);
+
+        $('#edit_logo').on('change', function(e) {
+            const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+            if (!file) {
+                $('#edit_logo_preview').hide();
+                return;
+            }
+
+            const url = URL.createObjectURL(file);
+            $('#edit_logo_preview').attr('src', url).show();
+        });
         
         // Reset form when modal is closed
         $('#addSubShopModal').on('hidden.bs.modal', function () {
@@ -1085,6 +1327,7 @@
 
         $('#editMainShopModal').on('hidden.bs.modal', function () {
             $('#editMainShopForm')[0].reset();
+            $('#edit_logo_preview').hide();
         });
         
         // Add click event listener to the Add New Branch button
@@ -1127,10 +1370,33 @@
             success: function(response) {
                 if (response.success) {
                     // Update the displayed Branch information
-                    $('.main-shop-card .card-body p:contains("Name:")').html('<strong style="color: #8B4513;">Name:</strong> ' + response.shop.name);
-                    $('.main-shop-card .card-body p:contains("Phone:")').html('<strong style="color: #8B4513;">Phone:</strong> ' + response.shop.phone);
-                    $('.main-shop-card .card-body p:contains("Address:")').html('<strong style="color: #8B4513;">Address:</strong> ' + response.shop.address);
-                    $('.main-shop-card .card-body p:contains("Description:")').html('<strong style="color: #8B4513;">Description:</strong> ' + (response.shop.description || 'No description available'));
+                    $('#main_shop_name').text(response.shop.name || 'N/A');
+                    $('#main_shop_short_name').text(response.shop.short_name || 'N/A');
+                    $('#main_shop_registration_number').text(response.shop.registration_number || 'N/A');
+                    $('#main_shop_license_number').text(response.shop.license_number || 'N/A');
+                    $('#main_shop_tin').text(response.shop.tin || 'N/A');
+                    $('#main_shop_website').text(response.shop.website || 'N/A');
+                    $('#main_shop_country').text(response.shop.country || 'N/A');
+                    $('#main_shop_region').text(response.shop.region || 'N/A');
+                    $('#main_shop_district').text(response.shop.district || 'N/A');
+                    $('#main_shop_street').text(response.shop.street || 'N/A');
+                    $('#main_shop_currency').text(response.shop.currency || 'N/A');
+                    $('#main_shop_logo').text(response.shop.logo || '');
+                    if (response.shop.logo_url) {
+                        $('#main_shop_logo_img').attr('src', response.shop.logo_url).show();
+                        $('#main_shop_logo_img_large').attr('src', response.shop.logo_url).show();
+                        $('#main_shop_logo_placeholder').hide();
+                        $('#main_shop_logo_placeholder_large').hide();
+                    } else {
+                        $('#main_shop_logo_img').hide();
+                        $('#main_shop_logo_img_large').hide();
+                        $('#main_shop_logo_placeholder').show();
+                        $('#main_shop_logo_placeholder_large').show();
+                    }
+                    $('#main_shop_phone').text(response.shop.phone || 'N/A');
+                    $('#main_shop_email').text(response.shop.email || 'N/A');
+                    $('#main_shop_address').text(response.shop.address || 'N/A');
+                    $('#main_shop_description').text(response.shop.description || 'No description available');
                     
                     // Hide modal
                     $('#editMainShopModal').modal('hide');

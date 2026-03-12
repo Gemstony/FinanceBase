@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,6 +13,18 @@ class Shop extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'short_name',
+        'registration_number',
+        'license_number',
+        'tin',
+        'website',
+        'country',
+        'region',
+        'district',
+        'street',
+        'currency',
+        'logo',
+        'email',
         'phone',
         'address',
         'description',
@@ -22,6 +33,18 @@ class Shop extends Model
         'suspension_reason',
         'max_subshops',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (self $shop) {
+            if (!empty($shop->registration_number)) {
+                return;
+            }
+
+            $shop->registration_number = 'FIN-' . str_pad((string) $shop->id, 6, '0', STR_PAD_LEFT);
+            $shop->saveQuietly();
+        });
+    }
 
     protected $casts = [
         'is_active' => 'boolean',

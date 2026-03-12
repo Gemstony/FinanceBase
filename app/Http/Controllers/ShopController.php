@@ -10,6 +10,7 @@ use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ShopController extends Controller
 {
@@ -51,6 +52,18 @@ class ShopController extends Controller
         // Validation
         $validated = $request->validate([
             'shop_name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:255',
+            'registration_number' => 'nullable|string|max:255|unique:shops,registration_number',
+            'license_number' => 'nullable|string|max:255',
+            'tin' => 'nullable|string|max:255',
+            'website' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'region' => 'nullable|string|max:255',
+            'district' => 'nullable|string|max:255',
+            'street' => 'nullable|string|max:255',
+            'currency' => 'nullable|string|max:255',
+            'logo' => 'nullable|image|max:2048',
+            'email' => 'nullable|string|max:255',
             'shop_phone' => 'required|string|max:20',
             'shop_address' => 'required|string|max:500',
             'shop_description' => 'nullable|string|max:1000',
@@ -75,10 +88,27 @@ class ShopController extends Controller
         try {
             DB::beginTransaction();
 
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('shop-logos', 'public');
+            }
+
             // Create main shop
             $shop = Shop::create([
                 'user_id' => Auth::id(),
                 'name' => $validated['shop_name'],
+                'short_name' => $validated['short_name'] ?: null,
+                'registration_number' => $validated['registration_number'] ?: null,
+                'license_number' => $validated['license_number'] ?: null,
+                'tin' => $validated['tin'] ?: null,
+                'website' => $validated['website'] ?: null,
+                'country' => $validated['country'] ?: null,
+                'region' => $validated['region'] ?: null,
+                'district' => $validated['district'] ?: null,
+                'street' => $validated['street'] ?: null,
+                'currency' => $validated['currency'] ?: null,
+                'logo' => $logoPath,
+                'email' => $validated['email'] ?: null,
                 'phone' => $validated['shop_phone'],
                 'address' => $validated['shop_address'],
                 'description' => $validated['shop_description'] ?? null,
@@ -102,7 +132,7 @@ class ShopController extends Controller
             // Assign free trial plan to the shop
             $trialPlan = Plan::where('slug', 'free-trial')->first();
             if ($trialPlan) {
-                $paymentMethod = \App\Models\PaymentMethod::first(); // Get first available payment method
+                $paymentMethod = PaymentMethod::first(); // Get first available payment method
                 
                 Subscription::create([
                     'shop_id' => $shop->id,
@@ -190,14 +220,43 @@ class ShopController extends Controller
 
         $validated = $request->validate([
             'shop_name' => 'required|string|max:255',
+            'short_name' => 'nullable|string|max:255',
+            'registration_number' => 'nullable|string|max:255|unique:shops,registration_number,' . $shop->id,
+            'license_number' => 'nullable|string|max:255',
+            'tin' => 'nullable|string|max:255',
+            'website' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'region' => 'nullable|string|max:255',
+            'district' => 'nullable|string|max:255',
+            'street' => 'nullable|string|max:255',
+            'currency' => 'nullable|string|max:255',
+            'logo' => 'nullable|image|max:2048',
+            'email' => 'nullable|string|max:255',
             'shop_phone' => 'required|string|max:20',
             'shop_address' => 'required|string|max:500',
             'shop_description' => 'nullable|string|max:1000',
         ]);
 
+
+
         try {
+            if ($request->hasFile('logo')) {
+                $shop->logo = $request->file('logo')->store('shop-logos', 'public');
+            }
+
             $shop->update([
                 'name' => $validated['shop_name'],
+                'short_name' => $validated['short_name'] ?: null,
+                'registration_number' => $request->filled('registration_number') ? $validated['registration_number'] : $shop->registration_number,
+                'license_number' => $validated['license_number'] ?: null,
+                'tin' => $validated['tin'] ?: null,
+                'website' => $validated['website'] ?: null,
+                'country' => $validated['country'] ?: null,
+                'region' => $validated['region'] ?: null,
+                'district' => $validated['district'] ?: null,
+                'street' => $validated['street'] ?: null,
+                'email' => $validated['email'] ?: null,
+                'currency' => $validated['currency'] ?: null,
                 'phone' => $validated['shop_phone'],
                 'address' => $validated['shop_address'],
                 'description' => $validated['shop_description'] ?? null,
@@ -209,6 +268,19 @@ class ShopController extends Controller
                     'message' => 'Branch information updated successfully',
                     'shop' => [
                         'name' => $shop->name,
+                        'short_name' => $shop->short_name,
+                        'registration_number' => $shop->registration_number,
+                        'license_number' => $shop->license_number,
+                        'tin' => $shop->tin,
+                        'website' => $shop->website,
+                        'country' => $shop->country,
+                        'region' => $shop->region,
+                        'district' => $shop->district,
+                        'street' => $shop->street,
+                        'currency' => $shop->currency,
+                        'logo' => $shop->logo,
+                        'logo_url' => $shop->logo ? Storage::url($shop->logo) : null,
+                        'email' => $shop->email,
                         'phone' => $shop->phone,
                         'address' => $shop->address,
                         'description' => $shop->description,

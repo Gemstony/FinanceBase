@@ -9,6 +9,7 @@ use App\Models\Loans;
 use App\Models\LoanSecurityDeposit;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
+use App\Models\BankAccounts;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
@@ -39,6 +40,7 @@ class LoansDisbursementController extends Controller
     {
         $subshopId = (int) session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
+
 
         $query = Loans::query()
             ->where('subshop_id', $subshopId)
@@ -127,7 +129,12 @@ class LoansDisbursementController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'requires_reference']);
 
-        return view('loans.disbursements.show', compact('loan', 'collateralStatus', 'guarantorStatus', 'feesStatus', 'securityDepositStatus', 'approvalDate', 'installments', 'disbursementMethods'));
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+        $bankAccounts = BankAccounts::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
+
+
+        return view('loans.disbursements.show', compact('loan', 'collateralStatus', 'guarantorStatus', 'feesStatus', 'securityDepositStatus', 'approvalDate', 'installments', 'disbursementMethods', 'bankAccounts'));
     }
 
     /**
@@ -150,17 +157,25 @@ class LoansDisbursementController extends Controller
             'disbursement_date' => 'required|date',
             'reference_number'  => 'nullable|string|max:100',
             'disbursement_method_id' => 'required|integer|exists:disbursement_methods,id',
+            'bank_account_id' => 'required|integer|exists:bank_accounts,id',
             'notes' => 'nullable|string|max:500',
         ]);
 
         $disbursementDate = Carbon::parse($request->input('disbursement_date'));
         $referenceNumber = $request->input('reference_number');
         $disbursementMethodId = (int) $request->input('disbursement_method_id');
+        $bankAccountId = (int) $request->input('bank_account_id');
+
         $notes = $request->input('notes');
 
         $method = DisbursementMethods::query()->whereKey($disbursementMethodId)->first();
         if (!$method) {
             return redirect()->back()->with('error', 'Invalid disbursement method selected.')->withInput();
+        }
+
+        $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+        if (!$bank) {
+            return redirect()->back()->with('error', 'Invalid Bank Account selected.')->withInput();
         }
 
         $subshopId = (int) session('subshop_id');
@@ -182,7 +197,7 @@ class LoansDisbursementController extends Controller
             $this->validateDisbursementEligibility($loan);
 
             // Execute disbursement in a transaction to ensure atomicity
-            DB::transaction(function () use ($loan, $disbursementDate, $referenceNumber, $disbursementMethodId, $notes) {
+            DB::transaction(function () use ($loan, $disbursementDate, $referenceNumber, $disbursementMethodId, $bankAccountId, $notes) {
                 /** @var Loans $loanLocked */
                 $loanLocked = Loans::query()->whereKey($loan->id)->lockForUpdate()->firstOrFail();
 
@@ -197,6 +212,7 @@ class LoansDisbursementController extends Controller
                     $loanLocked,
                     (float) $loanLocked->principal_amount,
                     $disbursementMethodId,
+                    $bankAccountId,
                     $referenceNumber,
                     (int) Auth::id(),
                     $notes

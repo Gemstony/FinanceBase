@@ -40,6 +40,7 @@ use App\Http\Controllers\TransactionsController;
 use App\Http\Controllers\UISettingsController;
 use App\Http\Controllers\WriteOffsController;
 use App\Http\Controllers\ExpensesController;
+use App\Http\Controllers\BankAccountsController;
 use App\Http\Controllers\BanksController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\PurchasesController;
@@ -335,6 +336,14 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{loanProduct}', [\App\Http\Controllers\LoanProductsController::class, 'destroy'])->name('destroy');
         });
 
+        // Bank Accounts Routes
+        Route::prefix('admin/accounting/bank_accounts')->name('accounting.bank_accounts.')->group(function () {
+            Route::get('/', [BankAccountsController::class, 'index'])->name('index');
+            Route::post('/', [BankAccountsController::class, 'store'])->name('store');
+            Route::put('/{bankAccount}', [BankAccountsController::class, 'update'])->name('update');
+            Route::delete('/{bankAccount}', [BankAccountsController::class, 'destroy'])->name('destroy');
+        });
+
         // Loan fees Routes
         Route::prefix('loans/loans_settings/loan_fees')->name('loans.loan_fees.')->group(function () {
             Route::get('/', [LoanFeesController::class, 'index'])->name('index');
@@ -475,13 +484,13 @@ Route::middleware(['auth'])->group(function () {
 
         // Loans for creating loan, viewing and all about loan management
         Route::prefix('loans/loans')->name('loans.loans.')->group(function () {
-            Route::get('/', [\App\Http\Controllers\LoansController::class, 'index'])->name('index');
-            Route::get('/create', [\App\Http\Controllers\LoansController::class, 'create'])->name('create');
-            Route::post('/', [\App\Http\Controllers\LoansController::class, 'store'])->name('store');
-            Route::get('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'show'])->name('show');
-            Route::get('/{loan:loan_code}/edit', [\App\Http\Controllers\LoansController::class, 'edit'])->name('edit');
-            Route::put('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'update'])->name('update');
-            Route::delete('/{loan:loan_code}', [\App\Http\Controllers\LoansController::class, 'destroy'])->name('destroy');
+            Route::get('/', [LoansController::class, 'index'])->name('index');
+            Route::get('/create', [LoansController::class, 'create'])->name('create');
+            Route::post('/', [LoansController::class, 'store'])->name('store');
+            Route::get('/{loan:loan_code}', [LoansController::class, 'show'])->name('show');
+            Route::get('/{loan:loan_code}/edit', [LoansController::class, 'edit'])->name('edit');
+            Route::put('/{loan:loan_code}', [LoansController::class, 'update'])->name('update');
+            Route::delete('/{loan:loan_code}', [LoansController::class, 'destroy'])->name('destroy');
 
             Route::post('/{loan:loan_code}/recoveries', [\App\Http\Controllers\LoanRecoveryPaymentsController::class, 'store'])->name('recoveries.store');
         });

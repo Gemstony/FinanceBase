@@ -11,6 +11,7 @@ class LoanDisbursements extends Model
     protected $fillable = [
         'loan_id',
         'disbursement_method_id',
+        'bank_account_id',
         'disbursement_date',
         'amount',
         'transaction_reference',
@@ -21,10 +22,16 @@ class LoanDisbursements extends Model
     protected $casts = [
         'loan_id' => 'integer',
         'disbursement_method_id' => 'integer',
+        'bank_account_id' => 'integer',
         'processed_by' => 'integer',
         'amount' => 'decimal:2',
         'disbursement_date' => 'date',
     ];
+
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
+    }
 
     public function loan()
     {

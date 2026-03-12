@@ -32,6 +32,7 @@ class LoanDisbursementEngine
         Loans $loan,
         float $amount,
         int $disbursementMethodId,
+        int $bankAccountId,
         ?string $transactionReference,
         int $processedBy,
         ?string $notes
@@ -42,6 +43,7 @@ class LoanDisbursementEngine
             $loan,
             $amount,
             $disbursementMethodId,
+            $bankAccountId,
             $transactionReference,
             $processedBy,
             $notes
@@ -53,6 +55,7 @@ class LoanDisbursementEngine
                 'disbursement_date' => Carbon::now()->toDateString(),
                 'amount' => $amount,
                 'disbursement_method_id' => $disbursementMethodId,
+                'bank_account_id' => $bankAccountId,
                 'transaction_reference' => $transactionReference,
                 'processed_by' => $processedBy,
                 'notes' => $notes,

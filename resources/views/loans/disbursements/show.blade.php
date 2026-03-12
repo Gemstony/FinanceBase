@@ -341,6 +341,23 @@
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="bank_account_id">Bank Account</label>
+                                    <select name="bank_account_id" id="bank_account_id" class="form-control" required>
+                                        <option value="">Select Bank Account</option>
+                                        @foreach(($bankAccounts ?? collect()) as $account)
+                                            <option value="{{ $account->id }}" @selected(old('bank_account_id') == $account->id)>
+                                                {{ $account->account_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                           
+                        </div>
+
                         <div class="form-group">
                             <button type="submit" class="btn btn-success">
                                 <i class="fas fa-check"></i> Confirm Disbursement

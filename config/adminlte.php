@@ -481,11 +481,14 @@ return [
                     'url' => '/accounting/manual-journals',
                 ], 
                 [
+                    'text' => 'Bank Accounts',
+                    'url' => 'admin/accounting/bank_accounts/',
+                ],
+                [
                     'text' => 'Accounting Settings',
                     'url' => 'accounting/accounting_settings/',
                 ],
          
-
 
                 // [
                 //     'text' => 'Loan Groups',

@@ -101,8 +101,8 @@
                                 {{ $account->is_active ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
-                        <td>
-                            <button class="btn btn-sm btn-primary edit-btn" 
+                        <td class="d-flex ">
+                            <button class="btn btn-sm btn-outline-primary edit-btn" 
                                     data-id="{{ $account->id }}"
                                     data-account-name="{{ $account->account_name }}"
                                     data-account-type="{{ $account->account_type }}"
@@ -113,10 +113,10 @@
                                     data-chart-of-account-id="{{ $account->chart_of_account_id }}"
                                     data-is-active="{{ $account->is_active }}"
                                     data-description="{{ $account->description ?? '' }}">
-                                <i class="fas fa-edit"></i>
+                                <i class="fas fa-edit"></i> Edit
                             </button>
                             <button class="btn btn-sm btn-danger delete-btn" data-id="{{ $account->id }}">
-                                <i class="fas fa-trash"></i>
+                                <i class="fas fa-trash"></i> Delete
                             </button>
                         </td>
                     </tr>

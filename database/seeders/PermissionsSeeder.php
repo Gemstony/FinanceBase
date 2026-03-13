@@ -114,6 +114,7 @@ class PermissionsSeeder extends Seeder
             'view_print_jobs',
             'retry_print_jobs',
             'debug_printer',
+            'perform_bank_reconciliation',
         ];
 
         foreach ($permissions as $permission) {

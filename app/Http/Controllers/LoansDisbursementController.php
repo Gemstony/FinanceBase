@@ -10,6 +10,7 @@ use App\Models\LoanSecurityDeposit;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
 use App\Models\BankAccounts;
+use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
@@ -27,6 +28,7 @@ class LoansDisbursementController extends Controller
         private readonly LoanDisbursementEngine $disbursementEngine,
         private readonly LoanTransactionLedger $ledger,
         private readonly FeeEngine $feeEngine,
+        private readonly JournalPostingEngine $accounting,
     ) {
     }
 
@@ -178,6 +180,14 @@ class LoansDisbursementController extends Controller
             return redirect()->back()->with('error', 'Invalid Bank Account selected.')->withInput();
         }
 
+        if (!(bool) $bank->is_active) {
+            return redirect()->back()->with('error', 'Selected Bank Account is inactive.')->withInput();
+        }
+
+        if ((int) ($bank->chart_of_account_id ?? 0) <= 0) {
+            return redirect()->back()->with('error', 'Selected Bank Account is not mapped to a GL account.')->withInput();
+        }
+
         $subshopId = (int) session('subshop_id');
         if ((int) $method->subshop_id !== $subshopId) {
             return redirect()->back()->with('error', 'Invalid disbursement method for this branch.')->withInput();
@@ -211,6 +221,7 @@ class LoansDisbursementController extends Controller
                 $disbursement = $this->disbursementEngine->disburseLoan(
                     $loanLocked,
                     (float) $loanLocked->principal_amount,
+                    $disbursementDate,
                     $disbursementMethodId,
                     $bankAccountId,
                     $referenceNumber,
@@ -218,8 +229,23 @@ class LoansDisbursementController extends Controller
                     $notes
                 );
 
+                $bank = BankAccounts::query()->whereKey($bankAccountId)->lockForUpdate()->firstOrFail();
+                if (!(bool) $bank->is_active) {
+                    throw new \RuntimeException('Selected Bank Account is inactive.');
+                }
+                $creditAccountId = (int) ($bank->chart_of_account_id ?? 0);
+                if ($creditAccountId <= 0) {
+                    throw new \RuntimeException('Selected Bank Account is not mapped to a GL account.');
+                }
+
                 // Record in the Loan Transaction Ledger
                 $this->ledger->recordDisbursement($loanLocked, (float) $loanLocked->principal_amount, (int) $disbursement->id);
+
+                $this->accounting->postLoanDisbursementFromDisbursement(
+                    loan: $loanLocked,
+                    loanDisbursement: $disbursement,
+                    creditAccountId: $creditAccountId
+                );
 
                 // Update installments: set start dates and active status based on disbursement date
                 $this->activateInstallments($loanLocked);

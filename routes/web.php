@@ -61,6 +61,7 @@ use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
 use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
 use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
+use App\Http\Controllers\BankReconciliationController;
 
 use Illuminate\Http\Request;
 
@@ -200,6 +201,30 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->middleware('can:view_dashboard')
             ->name('dashboard');
+
+        Route::prefix('bank-reconciliation')
+            ->middleware('can:perform_bank_reconciliation')
+            ->name('bank-reconciliation.')
+            ->group(function () {
+                Route::get('/', [BankReconciliationController::class, 'index'])->name('index');
+                Route::get('/create', [BankReconciliationController::class, 'create'])->name('create');
+                Route::post('/', [BankReconciliationController::class, 'store'])->name('store');
+                Route::get('/{id}', [BankReconciliationController::class, 'show'])->whereNumber('id')->name('show');
+                Route::post('/{id}/import', [BankReconciliationController::class, 'import'])->whereNumber('id')->name('import');
+                Route::get('/{id}/reconcile', [BankReconciliationController::class, 'reconcile'])->whereNumber('id')->name('reconcile');
+                Route::post('/{id}/auto-match', [BankReconciliationController::class, 'autoMatch'])->whereNumber('id')->name('auto-match');
+                Route::post('/{id}/reset-matches', [BankReconciliationController::class, 'resetMatches'])->whereNumber('id')->name('reset-matches');
+                Route::post('/match-line', [BankReconciliationController::class, 'matchLine'])->name('match-line');
+                Route::get('/{id}/lines/{lineId}/create-journal', [BankReconciliationController::class, 'createJournal'])
+                    ->whereNumber('id')
+                    ->whereNumber('lineId')
+                    ->name('lines.create-journal');
+                Route::post('/{id}/lines/{lineId}/create-journal', [BankReconciliationController::class, 'storeJournal'])
+                    ->whereNumber('id')
+                    ->whereNumber('lineId')
+                    ->name('lines.store-journal');
+                Route::post('/{id}/finalize', [BankReconciliationController::class, 'finalize'])->whereNumber('id')->name('finalize');
+            });
 
         Route::prefix('credits')->group(function () {
             Route::get('/', [CustomerCreditsController::class, 'index'])->name('credits.index');

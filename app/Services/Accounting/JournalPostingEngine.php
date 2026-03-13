@@ -6,6 +6,7 @@ namespace App\Services\Accounting;
 
 use App\Models\JournalEntries;
 use App\Models\JournalEntryLines;
+use App\Models\LoanDisbursements;
 use App\Models\Loans;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,8 @@ class JournalPostingEngine
         array $lines,
         string $referenceType,
         int $referenceId,
-        ?string $description = null
+        ?string $description = null,
+        ?string $transactionDate = null
     ): JournalEntries {
         $this->validator->validate($lines);
 
@@ -48,13 +50,14 @@ class JournalPostingEngine
             $lines,
             $referenceType,
             $referenceId,
-            $description
+            $description,
+            $transactionDate
         ) {
             $journal = JournalEntries::create([
                 'subshop_id' => (int) session('subshop_id'),
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
-                'transaction_date' => Carbon::now()->toDateString(),
+                'transaction_date' => $transactionDate ?: Carbon::now()->toDateString(),
                 'description' => $description,
                 'created_by' => auth()->id(),
             ]);
@@ -83,18 +86,38 @@ class JournalPostingEngine
      *
      * @param Loans  $loan   The loan being disbursed
      * @param float  $amount Disbursement amount
+     * @param int    $creditAccountId Chart of Accounts ID for the bank/cash account to credit
      *
      * @return JournalEntries
      */
-    public function postLoanDisbursement(Loans $loan, float $amount): JournalEntries
+    public function postLoanDisbursement(Loans $loan, float $amount, int $creditAccountId): JournalEntries
     {
-        $lines = $this->mapper->buildLoanDisbursementEntry($loan, $amount);
+        $lines = $this->mapper->buildLoanDisbursementEntry($loan, $amount, $creditAccountId);
 
         return $this->postJournalEntry(
             $lines,
             'loan_disbursement',
             (int) $loan->id,
             "Loan disbursement – {$loan->loan_code}"
+        );
+    }
+
+    /**
+     * Post a loan disbursement journal entry tied to a specific disbursement record.
+     */
+    public function postLoanDisbursementFromDisbursement(
+        Loans $loan,
+        LoanDisbursements $loanDisbursement,
+        int $creditAccountId
+    ): JournalEntries {
+        $lines = $this->mapper->buildLoanDisbursementEntry($loan, (float) $loanDisbursement->amount, $creditAccountId);
+
+        return $this->postJournalEntry(
+            $lines,
+            'loan_disbursement',
+            (int) $loanDisbursement->id,
+            'Loan disbursement for loan #' . (int) $loan->id,
+            $loanDisbursement->disbursement_date ? $loanDisbursement->disbursement_date->toDateString() : null
         );
     }
 

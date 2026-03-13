@@ -31,6 +31,7 @@ class LoanDisbursementEngine
     public function disburseLoan(
         Loans $loan,
         float $amount,
+        Carbon $disbursementDate,
         int $disbursementMethodId,
         int $bankAccountId,
         ?string $transactionReference,
@@ -42,6 +43,7 @@ class LoanDisbursementEngine
         return DB::transaction(function () use (
             $loan,
             $amount,
+            $disbursementDate,
             $disbursementMethodId,
             $bankAccountId,
             $transactionReference,
@@ -52,7 +54,7 @@ class LoanDisbursementEngine
             // This is the financial audit trail of funds released to the borrower.
             $disbursement = LoanDisbursements::create([
                 'loan_id' => $loan->id,
-                'disbursement_date' => Carbon::now()->toDateString(),
+                'disbursement_date' => $disbursementDate->toDateString(),
                 'amount' => $amount,
                 'disbursement_method_id' => $disbursementMethodId,
                 'bank_account_id' => $bankAccountId,

@@ -485,6 +485,10 @@ return [
                     'url' => 'admin/accounting/bank_accounts/',
                 ],
                 [
+                    'text' => 'Bank Reconsiliation',
+                    'url' => '/bank-reconciliation',
+                ],
+                [
                     'text' => 'Accounting Settings',
                     'url' => 'accounting/accounting_settings/',
                 ],

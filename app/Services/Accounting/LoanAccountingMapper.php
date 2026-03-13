@@ -22,10 +22,11 @@ class LoanAccountingMapper
      *
      * @param Loans  $loan   The loan being disbursed
      * @param float  $amount Disbursement amount
+     * @param int    $creditAccountId Chart of Accounts ID for the bank/cash account to credit
      *
      * @return array Journal lines ready for validation/posting
      */
-    public function buildLoanDisbursementEntry(Loans $loan, float $amount): array
+    public function buildLoanDisbursementEntry(Loans $loan, float $amount, int $creditAccountId): array
     {
         $builder = clone $this->builder;
         $builder->reset();
@@ -37,10 +38,8 @@ class LoanAccountingMapper
             "Loan disbursement – {$loan->loan_code}"
         );
 
-        // Credit: Cash or Bank account (assumed system account; replace with actual cash account ID)
-        // For now, we use the same principal_account_id as a placeholder; adjust to real cash account.
         $builder->addCredit(
-            (int) $loan->principal_account_id, // TODO: replace with actual cash/bank account ID
+            $creditAccountId,
             $amount,
             "Cash disbursement – {$loan->loan_code}"
         );

@@ -163,6 +163,10 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasPermissionTo('view_print_jobs');
         });
 
+        Gate::define('perform_bank_reconciliation', function ($user) {
+            return $user->hasPermissionTo('perform_bank_reconciliation');
+        });
+
 
 
     

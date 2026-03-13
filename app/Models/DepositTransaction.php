@@ -16,6 +16,8 @@ class DepositTransaction extends Model
     protected $fillable = [
         'deposit_account_id',
         'transaction_type',
+        'payment_method',
+        'bank_account_id',
         'amount',
         'balance_after',
         'reference',
@@ -38,5 +40,10 @@ class DepositTransaction extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
     }
 }

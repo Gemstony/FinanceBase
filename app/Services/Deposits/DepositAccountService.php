@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Deposits;
 
+use App\Models\BankAccounts;
 use App\Models\ChartsOfAccount;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
@@ -66,7 +67,7 @@ class DepositAccountService
         });
     }
 
-    public function deposit(DepositAccount $account, float $amount, string $paymentMethod, ?string $reference = null, ?string $notes = null): DepositTransaction
+    public function deposit(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, int $liabilityAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
     {
         $amount = round((float) $amount, 2);
         if ($amount <= 0) {
@@ -78,7 +79,7 @@ class DepositAccountService
             throw new InvalidArgumentException('Active subshop context is required to deposit.');
         }
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $reference, $notes) {
+        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $reference, $notes) {
             $account = DepositAccount::query()->whereKey((int) $account->id)->lockForUpdate()->firstOrFail();
 
             if ((int) $account->subshop_id !== $subshopId) {
@@ -94,10 +95,22 @@ class DepositAccountService
             $account->balance = $newBalance;
             $account->save();
 
-            $tx = $this->createTransaction($account, 'deposit', $amount, $newBalance, $reference, $notes);
+            $tx = $this->createTransaction($account, 'deposit', $amount, $newBalance, $reference, $notes, $paymentMethod, $bankAccountId);
 
-            $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
-                ->buildDepositReceivedEntry($amount, $paymentMethod, $this->resolveCustomerDepositsLiabilityAccountId($subshopId));
+            $creditAccountId = 1;
+            if ($bankAccountId) {
+                $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+                $linked = (int) ($bank?->chart_of_account_id ?? 0);
+                if ($linked > 0) {
+                    $creditAccountId = $linked;
+                }
+            }
+
+            $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
+                ->reset()
+                ->addDebit($creditAccountId, $amount, 'Customer deposit received – cash/bank in')
+                ->addCredit($liabilityAccountId, $amount, 'Customer deposits liability – credit')
+                ->getLines();
 
             $this->journalPostingEngine->postJournalEntry(
                 $lines,
@@ -111,6 +124,7 @@ class DepositAccountService
                 'amount' => (float) $amount,
                 'balance_after' => (float) $newBalance,
                 'payment_method' => (string) $paymentMethod,
+                'bank_account_id' => $bankAccountId,
                 'reference' => $reference,
                 'created_by' => auth()->id(),
             ]);
@@ -119,7 +133,7 @@ class DepositAccountService
         });
     }
 
-    public function withdraw(DepositAccount $account, float $amount, string $paymentMethod, ?string $reference = null, ?string $notes = null): DepositTransaction
+    public function withdraw(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, int $liabilityAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
     {
         $amount = round((float) $amount, 2);
         if ($amount <= 0) {
@@ -128,7 +142,7 @@ class DepositAccountService
 
         $subshopId = (int) session('subshop_id');
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $reference, $notes) {
+        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $reference, $notes) {
             $account = DepositAccount::query()
                 ->with('depositProduct')
                 ->whereKey((int) $account->id)
@@ -158,10 +172,22 @@ class DepositAccountService
             $account->balance = $newBalance;
             $account->save();
 
-            $tx = $this->createTransaction($account, 'withdrawal', $amount, $newBalance, $reference, $notes);
+            $tx = $this->createTransaction($account, 'withdrawal', $amount, $newBalance, $reference, $notes, $paymentMethod, $bankAccountId);
 
-            $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
-                ->buildDepositWithdrawalEntry($amount, $paymentMethod, $this->resolveCustomerDepositsLiabilityAccountId($subshopId));
+            $creditAccountId = 1;
+            if ($bankAccountId) {
+                $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+                $linked = (int) ($bank?->chart_of_account_id ?? 0);
+                if ($linked > 0) {
+                    $creditAccountId = $linked;
+                }
+            }
+
+            $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
+                ->reset()
+                ->addDebit($liabilityAccountId, $amount, 'Customer deposits liability – withdrawal')
+                ->addCredit($creditAccountId, $amount, 'Customer deposit withdrawal – cash/bank out')
+                ->getLines();
 
             $this->journalPostingEngine->postJournalEntry(
                 $lines,
@@ -175,6 +201,7 @@ class DepositAccountService
                 'amount' => (float) $amount,
                 'balance_after' => (float) $newBalance,
                 'payment_method' => (string) $paymentMethod,
+                'bank_account_id' => $bankAccountId,
                 'reference' => $reference,
                 'created_by' => auth()->id(),
             ]);
@@ -332,11 +359,13 @@ class DepositAccountService
             ->orderBy('opened_at', 'desc');
     }
 
-    private function createTransaction(DepositAccount $account, string $type, float $amount, float $balanceAfter, ?string $reference, ?string $notes): DepositTransaction
+    private function createTransaction(DepositAccount $account, string $type, float $amount, float $balanceAfter, ?string $reference, ?string $notes, ?string $paymentMethod = null, ?int $bankAccountId = null): DepositTransaction
     {
         return DepositTransaction::query()->create([
             'deposit_account_id' => (int) $account->id,
             'transaction_type' => $type,
+            'payment_method' => $paymentMethod,
+            'bank_account_id' => $bankAccountId,
             'amount' => $amount,
             'balance_after' => $balanceAfter,
             'reference' => $reference,

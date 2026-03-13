@@ -80,10 +80,33 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Payment Method</label>
-                                    <select name="payment_method" class="form-control" required>
+                                    <select name="payment_method" id="deposit_payment_method" class="form-control" required>
+                                        <option value="">Select Method</option>
                                         <option value="cash">Cash</option>
-                                        <option value="bank">Bank Transfer</option>
-                                        <option value="mobile">Mobile Money</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="mobile_money">Mobile Money</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="deposit_bank_account_group" style="display:none;">
+                                    <label>Bank Account</label>
+                                    <select name="bank_account_id" id="deposit_bank_account_id" class="form-control">
+                                        <option value="">Select Bank Account</option>
+                                        @foreach(($bankAccounts ?? collect()) as $account)
+                                            <option value="{{ $account->id }}" data-account-type="{{ (string) $account->account_type }}">
+                                                {{ $account->account_name }} - {{ $account->account_number }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Customer Deposits Liability Account</label>
+                                    <select name="liability_account_id" class="form-control" required>
+                                        <option value="">Select Liability Account</option>
+                                        @foreach(($liabilityAccounts ?? collect()) as $acc)
+                                            <option value="{{ $acc->id }}">
+                                                {{ $acc->account_name }} ({{ $acc->account_code }})
+                                            </option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -113,10 +136,33 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Payment Method</label>
-                                    <select name="payment_method" class="form-control" required>
+                                    <select name="payment_method" id="withdraw_payment_method" class="form-control" required>
+                                        <option value="">Select Method</option>
                                         <option value="cash">Cash</option>
-                                        <option value="bank">Bank Transfer</option>
-                                        <option value="mobile">Mobile Money</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="mobile_money">Mobile Money</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="withdraw_bank_account_group" style="display:none;">
+                                    <label>Bank Account</label>
+                                    <select name="bank_account_id" id="withdraw_bank_account_id" class="form-control">
+                                        <option value="">Select Bank Account</option>
+                                        @foreach(($bankAccounts ?? collect()) as $account)
+                                            <option value="{{ $account->id }}" data-account-type="{{ (string) $account->account_type }}">
+                                                {{ $account->account_name }} - {{ $account->account_number }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Customer Deposits Liability Account</label>
+                                    <select name="liability_account_id" class="form-control" required>
+                                        <option value="">Select Liability Account</option>
+                                        @foreach(($liabilityAccounts ?? collect()) as $acc)
+                                            <option value="{{ $acc->id }}">
+                                                {{ $acc->account_name }} ({{ $acc->account_code }})
+                                            </option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -272,6 +318,72 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    function setOptionVisibility(option, visible) {
+        option.hidden = !visible;
+        option.disabled = !visible;
+    }
+
+    function updateBankAccountOptions(methodEl, bankGroupEl, bankEl) {
+        if (!methodEl || !bankGroupEl || !bankEl) {
+            return;
+        }
+
+        const method = methodEl.value;
+        const shouldShow = method === 'cash' || method === 'bank_transfer' || method === 'mobile_money';
+        bankGroupEl.style.display = shouldShow ? '' : 'none';
+
+        const required = method === 'bank_transfer' || method === 'mobile_money';
+        bankEl.required = required;
+
+        const options = Array.from(bankEl.querySelectorAll('option'));
+        options.forEach((opt) => {
+            if (!opt.value) {
+                setOptionVisibility(opt, true);
+                return;
+            }
+
+            const accountType = (opt.dataset.accountType || '').toLowerCase();
+            let match = true;
+
+            if (method === 'cash') {
+                match = accountType === 'cash';
+            } else if (method === 'bank_transfer') {
+                match = accountType === 'bank';
+            } else if (method === 'mobile_money') {
+                match = accountType === 'mobile_money' || accountType === 'mobile' || accountType === 'wallet';
+            }
+
+            setOptionVisibility(opt, match);
+        });
+
+        const selected = bankEl.options[bankEl.selectedIndex];
+        if (selected && (selected.hidden || selected.disabled)) {
+            bankEl.value = '';
+        }
+    }
+
+    const depositMethodEl = document.getElementById('deposit_payment_method');
+    const depositBankGroupEl = document.getElementById('deposit_bank_account_group');
+    const depositBankEl = document.getElementById('deposit_bank_account_id');
+
+    if (depositMethodEl) {
+        depositMethodEl.addEventListener('change', function () {
+            updateBankAccountOptions(depositMethodEl, depositBankGroupEl, depositBankEl);
+        });
+        updateBankAccountOptions(depositMethodEl, depositBankGroupEl, depositBankEl);
+    }
+
+    const withdrawMethodEl = document.getElementById('withdraw_payment_method');
+    const withdrawBankGroupEl = document.getElementById('withdraw_bank_account_group');
+    const withdrawBankEl = document.getElementById('withdraw_bank_account_id');
+
+    if (withdrawMethodEl) {
+        withdrawMethodEl.addEventListener('change', function () {
+            updateBankAccountOptions(withdrawMethodEl, withdrawBankGroupEl, withdrawBankEl);
+        });
+        updateBankAccountOptions(withdrawMethodEl, withdrawBankGroupEl, withdrawBankEl);
+    }
+
     // Deposit form
     const depositForm = document.querySelector('form[action*="deposit"]');
     if (depositForm) {

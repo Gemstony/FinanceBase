@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Deposits;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccounts;
+use App\Models\ChartsOfAccount;
 use App\Models\Customers;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
@@ -116,7 +118,19 @@ class DepositAccountsController extends Controller
             ->where('outstanding_balance', '>', 0)
             ->get(['id', 'loan_code', 'outstanding_balance']);
 
-        return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans'));
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get();
+
+        $liabilityAccounts = ChartsOfAccount::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+
+        return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans', 'bankAccounts', 'liabilityAccounts'));
     }
 
     public function create(Request $request): View|RedirectResponse
@@ -174,9 +188,15 @@ class DepositAccountsController extends Controller
             'deposit_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
+            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'reference' => ['nullable', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        if (in_array((string) $validated['payment_method'], ['bank_transfer', 'mobile_money'], true) && empty($validated['bank_account_id'])) {
+            return redirect()->back()->with('error', 'Please select a bank account for this payment method.');
+        }
 
         try {
             DB::transaction(function () use ($validated) {
@@ -185,6 +205,8 @@ class DepositAccountsController extends Controller
                     $account,
                     (float) $validated['amount'],
                     (string) $validated['payment_method'],
+                    $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
+                    (int) $validated['liability_account_id'],
                     $validated['reference'] ?? null,
                     $validated['notes'] ?? null
                 );
@@ -205,9 +227,15 @@ class DepositAccountsController extends Controller
             'deposit_account_id' => ['required', 'integer', 'exists:deposit_accounts,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
+            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'reference' => ['nullable', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        if (in_array((string) $validated['payment_method'], ['bank_transfer', 'mobile_money'], true) && empty($validated['bank_account_id'])) {
+            return redirect()->back()->with('error', 'Please select a bank account for this payment method.');
+        }
 
         try {
             DB::transaction(function () use ($validated) {
@@ -216,6 +244,8 @@ class DepositAccountsController extends Controller
                     $account,
                     (float) $validated['amount'],
                     (string) $validated['payment_method'],
+                    $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
+                    (int) $validated['liability_account_id'],
                     $validated['reference'] ?? null,
                     $validated['notes'] ?? null
                 );

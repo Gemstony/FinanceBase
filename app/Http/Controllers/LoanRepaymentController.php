@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankAccounts;
 use App\Models\Customers;
 use App\Models\LoanInstallments;
 use App\Models\LoanPayments;
@@ -93,13 +94,20 @@ class LoanRepaymentController extends Controller
             ->where('is_active', true)
             ->values();
 
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get(['id', 'account_name', 'account_number']);
+
         return view('loans.repayments.create', compact(
             'loan',
             'summary',
             'installments',
             'installmentsByVersion',
             'latestScheduleVersion',
-            'payers'
+            'payers',
+            'bankAccounts'
         ));
     }
 
@@ -110,6 +118,7 @@ class LoanRepaymentController extends Controller
             'payment_date' => ['required', 'date'],
             'payment_amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
             'transaction_reference' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'payer_customer_id' => ['nullable', 'integer'],
@@ -134,15 +143,30 @@ class LoanRepaymentController extends Controller
             $payerCustomerId = (int) $payerValidated['payer_customer_id'];
         }
 
-        $payment = $this->paymentProcessor->processPayment(
-            $loan,
-            $payerCustomerId,
-            (float) $validated['payment_amount'],
-            (string) $validated['payment_method'],
-            $validated['transaction_reference'] ? (string) $validated['transaction_reference'] : null,
-            Carbon::parse((string) $validated['payment_date'])->startOfDay(),
-            $validated['notes'] ? (string) $validated['notes'] : null,
-        );
+        try {
+            $payment = $this->paymentProcessor->processPayment(
+                $loan,
+                $payerCustomerId,
+                (float) $validated['payment_amount'],
+                (string) $validated['payment_method'],
+                isset($validated['bank_account_id']) ? (int) $validated['bank_account_id'] : null,
+                $validated['transaction_reference'] ? (string) $validated['transaction_reference'] : null,
+                Carbon::parse((string) $validated['payment_date'])->startOfDay(),
+                $validated['notes'] ? (string) $validated['notes'] : null,
+            );
+        } catch (InvalidArgumentException $e) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['payment' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Failed to process payment. Please try again or contact support.');
+        }
 
         return redirect()
             ->route('loan.repayments.receipt', $payment)

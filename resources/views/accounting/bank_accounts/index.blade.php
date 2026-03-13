@@ -102,6 +102,9 @@
                             </span>
                         </td>
                         <td class="d-flex ">
+                            <a class="btn btn-sm btn-outline-secondary mr-1" href="{{ route('accounting.bank-accounts.show', $account->id) }}">
+                                <i class="fas fa-chart-line"></i> Dashboard
+                            </a>
                             <button class="btn btn-sm btn-outline-primary edit-btn" 
                                     data-id="{{ $account->id }}"
                                     data-account-name="{{ $account->account_name }}"

@@ -18,6 +18,7 @@ class LoanInstallmentPayments extends Model
         'customer_id',
         'total_paid',
         'payment_method',
+        'bank_account_id',
         'payment_date',
         'reference_number',
         'is_successful',
@@ -27,6 +28,7 @@ class LoanInstallmentPayments extends Model
     protected $casts = [
         'total_paid' => 'decimal:2',
         'payment_date' => 'date',
+        'bank_account_id' => 'integer',
         'is_successful' => 'boolean',
         'is_active' => 'boolean',
     ];
@@ -49,5 +51,10 @@ class LoanInstallmentPayments extends Model
     public function customer()
     {
         return $this->belongsTo(Customers::class, 'customer_id');
+    }
+
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
     }
 }

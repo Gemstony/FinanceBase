@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Loans\Repayment;
 
+use App\Models\BankAccounts;
 use App\Models\LoanInstallmentPayments;
 use App\Models\LoanInstallments;
 use App\Models\LoanPaymentAllocations;
@@ -34,6 +35,7 @@ class PaymentProcessor
         ?int $payerCustomerId,
         float $paymentAmount,
         string $paymentMethod,
+        ?int $bankAccountId,
         ?string $transactionReference,
         Carbon $paymentDate,
         ?string $notes = null,
@@ -43,17 +45,34 @@ class PaymentProcessor
 
         $this->validator->validate($loan, $payerCustomerId, $paymentAmount, $transactionReference, $paymentDate);
 
+        $bankAccountId = $bankAccountId ? (int) $bankAccountId : null;
+        $requiresBank = !in_array($paymentMethod, ['cash', 'customer_credit', 'savings'], true);
+        if ($requiresBank && !$bankAccountId) {
+            throw new InvalidArgumentException('Bank account is required for this payment method.');
+        }
+
         return DB::transaction(function () use (
             $loan,
             $payerCustomerId,
             $paymentAmount,
             $paymentMethod,
+            $bankAccountId,
             $transactionReference,
             $paymentDate,
             $notes,
             $strategy
         ) {
             $loan = Loans::query()->whereKey((int) $loan->id)->lockForUpdate()->firstOrFail();
+
+            if ($bankAccountId) {
+                $bankAccount = BankAccounts::query()
+                    ->whereKey($bankAccountId)
+                    ->firstOrFail();
+
+                if ((int) $bankAccount->subshop_id !== (int) $loan->subshop_id) {
+                    throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+                }
+            }
 
             $resolvedCustomerId = (int) ($loan->customer_id ?: $payerCustomerId);
             if ($resolvedCustomerId <= 0) {
@@ -130,6 +149,7 @@ class PaymentProcessor
                     'customer_id' => $resolvedCustomerId,
                     'total_paid' => $total,
                     'payment_method' => $paymentMethod,
+                    'bank_account_id' => $bankAccountId,
                     'payment_date' => $paymentDate->toDateString(),
                     'reference_number' => $transactionReference,
                     'is_successful' => true,
@@ -194,6 +214,8 @@ class PaymentProcessor
                 'interest_amount' => round($interestTotal, 2),
                 'penalty_amount' => round($penaltyTotal, 2),
                 'fee_amount' => round($feeTotal, 2),
+                'payment_method' => (string) $paymentMethod,
+                'bank_account_id' => $bankAccountId,
             ]);
 
             return $payment;

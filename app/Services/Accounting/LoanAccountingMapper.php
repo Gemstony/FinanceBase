@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Models\BankAccounts;
 use App\Models\Loans;
 
 class LoanAccountingMapper
@@ -71,12 +72,31 @@ class LoanAccountingMapper
         $fee = (float) ($allocation['fee_amount'] ?? 0);
         $penalty = (float) ($allocation['penalty_amount'] ?? 0);
 
+        $loanId = (int) ($allocation['loan_id'] ?? 0);
+        $loan = $loanId > 0
+            ? Loans::query()->whereKey($loanId)->first()
+            : null;
+
+        $bankAccountId = !empty($allocation['bank_account_id']) ? (int) $allocation['bank_account_id'] : null;
+        $paymentMethod = (string) ($allocation['payment_method'] ?? 'cash');
+
+        $cashAccountId = 1;
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+            $linked = (int) ($bank?->chart_of_account_id ?? 0);
+            if ($linked > 0) {
+                $cashAccountId = $linked;
+            }
+        }
+        if (!$bankAccountId) {
+            $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        }
+
         // Debit: Cash account (placeholder; replace with actual cash account ID)
         $totalCash = $principal + $interest + $fee + $penalty;
         if ($totalCash > 0) {
-            // TODO: replace with actual cash/bank account ID
             $builder->addDebit(
-                1, // placeholder cash account ID
+                $cashAccountId,
                 $totalCash,
                 'Loan repayment – cash received'
             );
@@ -84,9 +104,8 @@ class LoanAccountingMapper
 
         // Credit: Loan Portfolio (principal)
         if ($principal > 0) {
-            // TODO: retrieve principal_account_id from loan if needed
             $builder->addCredit(
-                1, // placeholder principal account ID
+                (int) ($loan?->principal_account_id ?: 1),
                 $principal,
                 'Loan repayment – principal portion'
             );
@@ -94,9 +113,8 @@ class LoanAccountingMapper
 
         // Credit: Interest Income
         if ($interest > 0) {
-            // TODO: retrieve interest_income_account_id from loan
             $builder->addCredit(
-                1, // placeholder interest income account ID
+                (int) ($loan?->interest_income_account_id ?: 1),
                 $interest,
                 'Loan repayment – interest income'
             );
@@ -104,9 +122,8 @@ class LoanAccountingMapper
 
         // Credit: Penalty Income
         if ($penalty > 0) {
-            // TODO: retrieve penalty_income_account_id from loan
             $builder->addCredit(
-                1, // placeholder penalty income account ID
+                (int) ($loan?->penalty_income_account_id ?: 1),
                 $penalty,
                 'Loan repayment – penalty income'
             );
@@ -114,9 +131,8 @@ class LoanAccountingMapper
 
         // Credit: Fee Income
         if ($fee > 0) {
-            // TODO: retrieve fee_income_account_id from loan
             $builder->addCredit(
-                1, // placeholder fee income account ID
+                (int) ($loan?->fee_income_account_id ?: 1),
                 $fee,
                 'Loan repayment – fee income'
             );

@@ -37,6 +37,9 @@
             const input = document.querySelector('input[name="payment_amount"]');
             const box = document.getElementById('overpayment_warning');
             const amountEl = document.getElementById('overpayment_amount');
+            const paymentMethodEl = document.querySelector('select[name="payment_method"]');
+            const bankAccountWrap = document.getElementById('bank_account_wrap');
+            const bankAccountSelect = document.querySelector('select[name="bank_account_id"]');
 
             function update() {
                 if (!input || !box || !amountEl) return;
@@ -50,9 +53,29 @@
                 }
             }
 
+            function updateBankAccountVisibility() {
+                if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
+                const pm = String(paymentMethodEl.value || '');
+                const requiresBank = pm !== 'cash' && pm !== 'customer_credit' && pm !== 'savings';
+
+                if (requiresBank) {
+                    bankAccountWrap.style.display = '';
+                    bankAccountSelect.required = true;
+                } else {
+                    bankAccountWrap.style.display = 'none';
+                    bankAccountSelect.required = false;
+                    bankAccountSelect.value = '';
+                }
+            }
+
             if (input) {
                 input.addEventListener('input', update);
                 update();
+            }
+
+            if (paymentMethodEl) {
+                paymentMethodEl.addEventListener('change', updateBankAccountVisibility);
+                updateBankAccountVisibility();
             }
         });
     </script>
@@ -65,6 +88,16 @@
         @endif
         @if(session('error'))
             <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+
+        @if($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
         @endif
 
         <div class="card mb-3">
@@ -174,8 +207,23 @@
                                     <option value="cash" @selected($pm === 'cash')>Cash</option>
                                     <option value="bank_transfer" @selected($pm === 'bank_transfer')>Bank Transfer</option>
                                     <option value="mobile_money" @selected($pm === 'mobile_money')>Mobile Money</option>
+                                    <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
+                                    <option value="savings" @selected($pm === 'savings')>Savings</option>
                                     <option value="other" @selected($pm === 'other')>Other</option>
                                 </select>
+                            </div>
+
+                            <div class="form-group" id="bank_account_wrap" style="display:none;">
+                                <label>Bank Account</label>
+                                <select name="bank_account_id" class="form-control">
+                                    <option value="">Select Bank Account</option>
+                                    @foreach(($bankAccounts ?? collect()) as $account)
+                                        <option value="{{ $account->id }}" @selected((string) old('bank_account_id') === (string) $account->id)>
+                                            {{ $account->account_name }} - {{ $account->account_number }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Required for non-cash payments.</small>
                             </div>
 
                             <div class="form-group">

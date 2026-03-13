@@ -369,6 +369,10 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{bankAccount}', [BankAccountsController::class, 'destroy'])->name('destroy');
         });
 
+        Route::get('/accounting/bank-accounts/{bank_account}', [BankAccountsController::class, 'show'])
+            ->whereNumber('bank_account')
+            ->name('accounting.bank-accounts.show');
+
         // Loan fees Routes
         Route::prefix('loans/loans_settings/loan_fees')->name('loans.loan_fees.')->group(function () {
             Route::get('/', [LoanFeesController::class, 'index'])->name('index');

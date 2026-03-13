@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Loans\SecurityDeposits;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccounts;
+use App\Models\ChartsOfAccount;
 use App\Models\Customers;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
@@ -111,7 +113,19 @@ class SecurityDepositsController extends Controller
             ->orderBy('loan_code')
             ->get(['id', 'loan_code', 'outstanding_balance']);
 
-        return view('deposits.loan', compact('loan', 'deposits', 'heldDeposits', 'heldTotal', 'appliedTotal', 'refundedTotal', 'forfeitedTotal', 'activeLoans'));
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get();
+
+        $liabilityAccounts = ChartsOfAccount::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+
+        return view('deposits.loan', compact('loan', 'deposits', 'heldDeposits', 'heldTotal', 'appliedTotal', 'refundedTotal', 'forfeitedTotal', 'activeLoans', 'bankAccounts', 'liabilityAccounts'));
     }
 
     public function collect(Request $request, Loans $loan): RedirectResponse
@@ -139,16 +153,28 @@ class SecurityDepositsController extends Controller
     {
         $validated = $request->validate([
             'deposit_id' => ['required', 'integer', 'exists:loan_security_deposits,id'],
-            'payment_method' => ['required', 'string', 'max:50'],
+            'refund_amount' => ['required', 'numeric', 'min:0.01'],
+            'refund_method' => ['required', 'string', 'max:50'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
+            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        if (in_array((string) $validated['refund_method'], ['bank_transfer', 'mobile_money'], true) && empty($validated['bank_account_id'])) {
+            return redirect()->back()->with('error', 'Please select a bank account for this refund method.');
+        }
 
         DB::transaction(function () use ($validated) {
             $this->service->refundDeposit(
                 (int) $validated['deposit_id'],
                 (int) auth()->id(),
-                (string) $validated['payment_method'],
-                $validated['notes'] ?? null
+                (float) $validated['refund_amount'],
+                [
+                    'refund_method' => (string) $validated['refund_method'],
+                    'bank_account_id' => $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
+                    'liability_account_id' => (int) $validated['liability_account_id'],
+                    'notes' => $validated['notes'] ?? null,
+                ]
             );
         });
 

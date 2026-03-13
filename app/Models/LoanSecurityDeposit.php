@@ -21,6 +21,8 @@ class LoanSecurityDeposit extends Model
         'released_at',
         'applied_to_loan_id',
         'refunded_by',
+        'refund_method',
+        'bank_account_id',
         'notes',
     ];
 
@@ -48,6 +50,11 @@ class LoanSecurityDeposit extends Model
     public function refundedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'refunded_by');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
     }
 
     public function isHeld(): bool

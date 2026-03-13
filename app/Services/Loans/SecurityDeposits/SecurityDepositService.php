@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Loans\SecurityDeposits;
 
+use App\Models\BankAccounts;
+use App\Models\ChartsOfAccount;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
@@ -73,9 +75,33 @@ class SecurityDepositService
         });
     }
 
-    public function refundDeposit(int $depositId, int $userId, string $paymentMethod, ?string $notes = null): LoanSecurityDeposit
+    /**
+     * @param array{refund_method:string, bank_account_id?:int|null, liability_account_id?:int, notes?:string|null} $data
+     */
+    public function refundDeposit(int $depositId, int $userId, float $refundAmount, array $data): LoanSecurityDeposit
     {
-        return DB::transaction(function () use ($depositId, $userId, $paymentMethod, $notes) {
+        $refundAmount = round((float) $refundAmount, 2);
+        if ($refundAmount <= 0) {
+            throw new InvalidArgumentException('Refund amount must be greater than 0.');
+        }
+
+        $refundMethod = (string) ($data['refund_method'] ?? '');
+        if ($refundMethod === '') {
+            throw new InvalidArgumentException('Refund method is required.');
+        }
+
+        $bankAccountId = isset($data['bank_account_id']) && $data['bank_account_id'] ? (int) $data['bank_account_id'] : null;
+        $requiresBank = in_array($refundMethod, ['bank_transfer', 'mobile_money'], true);
+        if ($requiresBank && !$bankAccountId) {
+            throw new InvalidArgumentException('Bank account is required for this refund method.');
+        }
+
+        $liabilityAccountId = !empty($data['liability_account_id']) ? (int) $data['liability_account_id'] : 0;
+        if ($liabilityAccountId <= 0) {
+            throw new InvalidArgumentException('Security deposit liability account is required.');
+        }
+
+        return DB::transaction(function () use ($depositId, $userId, $refundAmount, $refundMethod, $bankAccountId, $liabilityAccountId, $data) {
             $deposit = LoanSecurityDeposit::query()->whereKey($depositId)->lockForUpdate()->firstOrFail();
             $loan = Loans::query()->whereKey((int) $deposit->loan_id)->lockForUpdate()->firstOrFail();
 
@@ -88,14 +114,93 @@ class SecurityDepositService
                 throw new InvalidArgumentException('Only held deposits can be refunded.');
             }
 
-            $deposit->status = 'refunded';
-            $deposit->released_at = Carbon::now();
-            $deposit->refunded_by = $userId;
-            $deposit->notes = $notes;
-            $deposit->save();
+            $depositAmount = round((float) $deposit->amount, 2);
+            if ($refundAmount > $depositAmount) {
+                throw new InvalidArgumentException('Refund amount must not exceed held deposit amount.');
+            }
 
-            $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
-                ->buildSecurityDepositRefundedEntry($loan, (float) $deposit->amount, $paymentMethod);
+            if ($bankAccountId) {
+                $bankAccount = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
+                if ((int) $bankAccount->subshop_id !== $subshopId) {
+                    throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+                }
+            }
+
+            $liabilityAccount = ChartsOfAccount::query()->whereKey($liabilityAccountId)->firstOrFail();
+            if ((int) $liabilityAccount->subshop_id !== $subshopId) {
+                throw new InvalidArgumentException('Selected liability account does not belong to this branch.');
+            }
+
+            $creditAccountId = 1;
+            if ($bankAccountId) {
+                $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+                $linked = (int) ($bank?->chart_of_account_id ?? 0);
+                if ($linked > 0) {
+                    $creditAccountId = $linked;
+                }
+            }
+
+            $now = Carbon::now();
+
+            $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
+                ->reset()
+                ->addDebit($liabilityAccountId, $refundAmount, 'Security deposit refunded – liability reduction')
+                ->addCredit($creditAccountId, $refundAmount, 'Security deposit refunded – cash/bank outflow')
+                ->getLines();
+
+            // Partial refund
+            if ($refundAmount < $depositAmount) {
+                $remaining = round($depositAmount - $refundAmount, 2);
+                if ($remaining <= 0) {
+                    throw new InvalidArgumentException('Invalid remaining deposit after refund.');
+                }
+
+                $deposit->amount = $remaining;
+                $deposit->save();
+
+                $refundedDeposit = LoanSecurityDeposit::query()->create([
+                    'subshop_id' => (int) $deposit->subshop_id,
+                    'customer_id' => (int) $deposit->customer_id,
+                    'loan_id' => (int) $deposit->loan_id,
+                    'amount' => $refundAmount,
+                    'status' => 'refunded',
+                    'held_at' => $deposit->held_at,
+                    'released_at' => $now,
+                    'refunded_by' => $userId,
+                    'refund_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'notes' => $data['notes'] ?? null,
+                ]);
+
+                $this->journalPostingEngine->postJournalEntry(
+                    $lines,
+                    'security_deposit_refunded',
+                    (int) $refundedDeposit->id,
+                    "Security deposit refunded – {$loan->loan_code}"
+                );
+
+                Log::info('Security deposit partially refunded', [
+                    'original_deposit_id' => (int) $deposit->id,
+                    'refunded_deposit_id' => (int) $refundedDeposit->id,
+                    'loan_id' => (int) $loan->id,
+                    'customer_id' => (int) $deposit->customer_id,
+                    'refund_amount' => (float) $refundAmount,
+                    'remaining_amount' => (float) $remaining,
+                    'refund_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'refunded_by' => $userId,
+                ]);
+
+                return $refundedDeposit;
+            }
+
+            $deposit->status = 'refunded';
+            $deposit->released_at = $now;
+            $deposit->refunded_by = $userId;
+            $deposit->refund_method = $refundMethod;
+            $deposit->bank_account_id = $bankAccountId;
+            $deposit->notes = $data['notes'] ?? null;
+            $deposit->save();
 
             $this->journalPostingEngine->postJournalEntry(
                 $lines,
@@ -108,8 +213,9 @@ class SecurityDepositService
                 'loan_id' => (int) $loan->id,
                 'deposit_id' => (int) $deposit->id,
                 'customer_id' => (int) $deposit->customer_id,
-                'amount' => (float) $deposit->amount,
-                'payment_method' => $paymentMethod,
+                'amount' => (float) $refundAmount,
+                'refund_method' => $refundMethod,
+                'bank_account_id' => $bankAccountId,
                 'refunded_by' => $userId,
             ]);
 

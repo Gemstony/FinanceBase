@@ -19,6 +19,8 @@ class CustomerCreditBalances extends Model
         'applied_at',
         'refunded_at',
         'refunded_by',
+        'refund_method',
+        'bank_account_id',
         'notes',
     ];
 
@@ -57,5 +59,10 @@ class CustomerCreditBalances extends Model
     public function refundedBy()
     {
         return $this->belongsTo(User::class, 'refunded_by');
+    }
+
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
     }
 }

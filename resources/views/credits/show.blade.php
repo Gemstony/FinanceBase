@@ -94,7 +94,43 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Refund Reason</label>
+                                <label>Refund Amount</label>
+                                <input name="refund_amount" type="number" step="0.01" min="0" class="form-control" required>
+                                <small class="text-muted">Must be less than or equal to the selected available credit amount.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Refund Method</label>
+                                <select name="refund_method" id="refund_method" class="form-control" required>
+                                    <option value="">Select Method</option>
+                                    <option value="cash">Cash</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="mobile_money">Mobile Money</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="bank_account_group" style="display:none;">
+                                <label>Bank Account</label>
+                                <select name="bank_account_id" id="bank_account_id" class="form-control">
+                                    <option value="">Select Bank Account</option>
+                                    @foreach(($bankAccounts ?? collect()) as $account)
+                                        <option value="{{ $account->id }}" data-account-type="{{ (string) $account->account_type }}">
+                                            {{ $account->account_name }} - {{ $account->account_number }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Customer Credit Liability Account</label>
+                                <select name="liability_account_id" class="form-control" required>
+                                    <option value="">Select Liability Account</option>
+                                    @foreach(($liabilityAccounts ?? collect()) as $acc)
+                                        <option value="{{ $acc->id }}">
+                                            {{ $acc->account_name }} ({{ $acc->account_code }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label></label>Refund Reason</label>
                                 <textarea name="notes" class="form-control" rows="2" placeholder="Optional"></textarea>
                             </div>
                             <button class="btn btn-outline-danger btn-block" type="submit">
@@ -159,4 +195,62 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+    (function () {
+        const refundMethodEl = document.getElementById('refund_method');
+        const bankAccountGroupEl = document.getElementById('bank_account_group');
+        const bankAccountEl = document.getElementById('bank_account_id');
+
+        if (!refundMethodEl || !bankAccountGroupEl || !bankAccountEl) {
+            return;
+        }
+
+        function setOptionVisibility(option, visible) {
+            option.hidden = !visible;
+            option.disabled = !visible;
+        }
+
+        function updateBankAccountOptions() {
+            const method = refundMethodEl.value;
+            const shouldShow = method === 'cash' || method === 'bank_transfer' || method === 'mobile_money';
+
+            bankAccountGroupEl.style.display = shouldShow ? '' : 'none';
+
+            const required = method === 'bank_transfer' || method === 'mobile_money';
+            bankAccountEl.required = required;
+
+            const options = Array.from(bankAccountEl.querySelectorAll('option'));
+            options.forEach((opt) => {
+                if (!opt.value) {
+                    setOptionVisibility(opt, true);
+                    return;
+                }
+
+                const accountType = (opt.dataset.accountType || '').toLowerCase();
+                let match = true;
+
+                if (method === 'cash') {
+                    match = accountType === 'cash';
+                } else if (method === 'bank_transfer') {
+                    match = accountType === 'bank';
+                } else if (method === 'mobile_money') {
+                    match = accountType === 'mobile_money' || accountType === 'mobile' || accountType === 'wallet';
+                }
+
+                setOptionVisibility(opt, match);
+            });
+
+            const selected = bankAccountEl.options[bankAccountEl.selectedIndex];
+            if (selected && (selected.hidden || selected.disabled)) {
+                bankAccountEl.value = '';
+            }
+        }
+
+        refundMethodEl.addEventListener('change', updateBankAccountOptions);
+        updateBankAccountOptions();
+    })();
+</script>
 @endpush

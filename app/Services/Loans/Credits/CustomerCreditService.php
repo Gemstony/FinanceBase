@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Loans\Credits;
 
+use App\Models\BankAccounts;
+use App\Models\ChartsOfAccount;
 use App\Models\CustomerCreditBalances;
 use App\Models\Loans;
+use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use Carbon\Carbon;
@@ -17,6 +20,7 @@ class CustomerCreditService
 {
     public function __construct(
         private readonly LoanAccountEngine $loanAccountEngine,
+        private readonly JournalPostingEngine $journalPostingEngine,
     ) {
     }
 
@@ -123,9 +127,33 @@ class CustomerCreditService
         return $credit;
     }
 
-    public function refundCredit(int $creditId, int $userId, ?string $notes = null): CustomerCreditBalances
+    /**
+     * @param array{refund_method:string, bank_account_id?:int|null, liability_account_id?:int, notes?:string|null} $data
+     */
+    public function refundCredit(int $creditId, int $userId, float $refundAmount, array $data): CustomerCreditBalances
     {
         $subshopId = (int) session('subshop_id');
+
+        $refundAmount = round((float) $refundAmount, 2);
+        if ($refundAmount <= 0) {
+            throw new InvalidArgumentException('Refund amount must be greater than 0.');
+        }
+
+        $refundMethod = (string) ($data['refund_method'] ?? '');
+        if ($refundMethod === '') {
+            throw new InvalidArgumentException('Refund method is required.');
+        }
+
+        $bankAccountId = isset($data['bank_account_id']) && $data['bank_account_id'] ? (int) $data['bank_account_id'] : null;
+        $requiresBank = in_array($refundMethod, ['bank_transfer', 'mobile_money'], true);
+        if ($requiresBank && !$bankAccountId) {
+            throw new InvalidArgumentException('Bank account is required for this refund method.');
+        }
+
+        $liabilityAccountId = !empty($data['liability_account_id']) ? (int) $data['liability_account_id'] : 0;
+        if ($liabilityAccountId <= 0) {
+            throw new InvalidArgumentException('Customer credit liability account is required.');
+        }
 
         $credit = CustomerCreditBalances::query()
             ->whereKey($creditId)
@@ -140,19 +168,116 @@ class CustomerCreditService
             throw new InvalidArgumentException('Only available credits can be refunded.');
         }
 
+        $creditAmount = round((float) $credit->amount, 2);
+        if ($refundAmount > $creditAmount) {
+            throw new InvalidArgumentException('Refund amount must not exceed available credit amount.');
+        }
+
+        if ($bankAccountId) {
+            $bankAccount = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
+            if ((int) $bankAccount->subshop_id !== $subshopId) {
+                throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+            }
+        }
+
+        $liabilityAccount = ChartsOfAccount::query()->whereKey($liabilityAccountId)->firstOrFail();
+        if ((int) $liabilityAccount->subshop_id !== $subshopId) {
+            throw new InvalidArgumentException('Selected liability account does not belong to this branch.');
+        }
+
+        $creditCashAccountId = $this->resolveRefundCashAccountId($refundMethod, $bankAccountId);
+
+        $now = Carbon::now();
+
+        $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
+            ->reset()
+            ->addDebit($liabilityAccountId, $refundAmount, 'Customer credit refund – liability reduction')
+            ->addCredit($creditCashAccountId, $refundAmount, 'Customer credit refund – cash/bank outflow')
+            ->getLines();
+
+        // Partial refund: keep remaining credit available and record refunded portion as its own row.
+        if ($refundAmount < $creditAmount) {
+            $remaining = round($creditAmount - $refundAmount, 2);
+            if ($remaining <= 0) {
+                throw new InvalidArgumentException('Invalid remaining credit after refund.');
+            }
+
+            $credit->amount = $remaining;
+            $credit->save();
+
+            $refundedCredit = CustomerCreditBalances::query()->create([
+                'subshop_id' => (int) $credit->subshop_id,
+                'customer_id' => (int) $credit->customer_id,
+                'loan_id' => $credit->loan_id ? (int) $credit->loan_id : null,
+                'payment_id' => $credit->payment_id ? (int) $credit->payment_id : null,
+                'amount' => $refundAmount,
+                'status' => 'refunded',
+                'refunded_at' => $now,
+                'refunded_by' => $userId,
+                'refund_method' => $refundMethod,
+                'bank_account_id' => $bankAccountId,
+                'notes' => $data['notes'] ?? null,
+            ]);
+
+            $this->journalPostingEngine->postJournalEntry(
+                $lines,
+                'customer_credit_refund',
+                (int) $refundedCredit->id,
+                'Customer credit refund #' . (int) $refundedCredit->id
+            );
+
+            Log::info('Customer credit partially refunded', [
+                'original_credit_id' => (int) $credit->id,
+                'refunded_credit_id' => (int) $refundedCredit->id,
+                'customer_id' => (int) $credit->customer_id,
+                'refund_amount' => (float) $refundAmount,
+                'remaining_amount' => (float) $remaining,
+                'refund_method' => $refundMethod,
+                'bank_account_id' => $bankAccountId,
+                'refunded_by' => $userId,
+            ]);
+
+            return $refundedCredit;
+        }
+
+        // Full refund
         $credit->status = 'refunded';
-        $credit->refunded_at = Carbon::now();
+        $credit->refunded_at = $now;
         $credit->refunded_by = $userId;
-        $credit->notes = $notes;
+        $credit->refund_method = $refundMethod;
+        $credit->bank_account_id = $bankAccountId;
+        $credit->notes = $data['notes'] ?? null;
         $credit->save();
+
+        $this->journalPostingEngine->postJournalEntry(
+            $lines,
+            'customer_credit_refund',
+            (int) $credit->id,
+            'Customer credit refund #' . (int) $credit->id
+        );
 
         Log::info('Customer credit refunded', [
             'credit_id' => (int) $credit->id,
             'customer_id' => (int) $credit->customer_id,
-            'amount' => (float) $credit->amount,
+            'amount' => (float) $refundAmount,
+            'refund_method' => $refundMethod,
+            'bank_account_id' => $bankAccountId,
             'refunded_by' => $userId,
         ]);
 
         return $credit;
+    }
+
+    private function resolveRefundCashAccountId(string $refundMethod, ?int $bankAccountId): int
+    {
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+            $linked = (int) ($bank?->chart_of_account_id ?? 0);
+            if ($linked > 0) {
+                return $linked;
+            }
+        }
+
+        return 1;
     }
 }

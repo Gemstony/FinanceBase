@@ -342,6 +342,21 @@ return [
             ],
             'classes' => 'px-3', // optional: tweak spacing
         ],
+        [
+            'type' => 'navbar-item',
+            'topnav_right' => true,
+            'text' => '',
+            'icon' => 'fas fa-calculator',
+            'url' => '#',
+            'data' => [
+                'toggle' => 'modal',
+                'target' => '#calculatorModal',
+                'toggle_tooltip' => 'tooltip',
+                'placement' => 'bottom',
+                'title' => 'Calculator',
+            ],
+            'classes' => 'px-3',
+        ],
 
         
 

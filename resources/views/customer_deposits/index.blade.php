@@ -42,6 +42,71 @@
             <div class="alert alert-danger">{{ session('error') }}</div>
         @endif
 
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Total Accounts</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($summaryTotalAccounts ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-wallet fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Active</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($summaryActiveAccounts ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Total Balance</div>
+                                <div class="h4 mb-0">{{ number_format((float) ($summaryTotalBalance ?? 0), 2) }}</div>
+                            </div>
+                            <i class="fas fa-coins fa-2x text-muted"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Other Status</div>
+                                <div class="h4 mb-0">
+                                    {{ number_format((int) ($summaryFrozenAccounts ?? 0) + (int) ($summaryDormantAccounts ?? 0) + (int) ($summaryClosedAccounts ?? 0)) }}
+                                </div>
+                            </div>
+                            <i class="fas fa-layer-group fa-2x text-muted"></i>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Frozen: {{ number_format((int) ($summaryFrozenAccounts ?? 0)) }}
+                            | Dormant: {{ number_format((int) ($summaryDormantAccounts ?? 0)) }}
+                            | Closed: {{ number_format((int) ($summaryClosedAccounts ?? 0)) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
             <div class="card-body">
                 <form method="GET" action="{{ route('deposits.index') }}" class="mb-3">

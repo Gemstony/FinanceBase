@@ -24,6 +24,7 @@ use App\Http\Controllers\LoanProductTypesController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\LoansSettingsController;
 use App\Http\Controllers\Accounting\ManualJournalController;
+use App\Http\Controllers\Accounting\VoucherController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrdersController;
 use App\Http\Controllers\PurchaseReturnsController;
@@ -309,6 +310,13 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{id}', [ManualJournalController::class, 'show'])->whereNumber('id')->name('show');
             Route::post('/{id}/post', [ManualJournalController::class, 'post'])->whereNumber('id')->name('post');
             Route::post('/{id}/reverse', [ManualJournalController::class, 'reverse'])->whereNumber('id')->name('reverse');
+        });
+
+        Route::prefix('accounting/vouchers')->name('accounting.vouchers.')->group(function () {
+            Route::get('/', [VoucherController::class, 'index'])->name('index');
+            Route::get('/create', [VoucherController::class, 'create'])->name('create');
+            Route::post('/', [VoucherController::class, 'store'])->name('store');
+            Route::get('/{id}', [VoucherController::class, 'show'])->whereNumber('id')->name('show');
         });
 
 

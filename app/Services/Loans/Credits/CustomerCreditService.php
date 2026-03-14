@@ -9,6 +9,7 @@ use App\Models\ChartsOfAccount;
 use App\Models\CustomerCreditBalances;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use Carbon\Carbon;
@@ -21,6 +22,7 @@ class CustomerCreditService
     public function __construct(
         private readonly LoanAccountEngine $loanAccountEngine,
         private readonly JournalPostingEngine $journalPostingEngine,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -105,6 +107,7 @@ class CustomerCreditService
             (int) $credit->customer_id,
             $amount,
             'customer_credit',
+            null,
             null,
             Carbon::now()->startOfDay(),
             'Applied customer credit #' . (int) $credit->id,
@@ -219,11 +222,21 @@ class CustomerCreditService
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            $this->journalPostingEngine->postJournalEntry(
+            $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'customer_credit_refund',
                 (int) $refundedCredit->id,
                 'Customer credit refund #' . (int) $refundedCredit->id
+            );
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'payment',
+                [
+                    'payment_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Customer credit refund payment voucher #' . (int) $refundedCredit->id,
+                ]
             );
 
             Log::info('Customer credit partially refunded', [
@@ -249,11 +262,21 @@ class CustomerCreditService
         $credit->notes = $data['notes'] ?? null;
         $credit->save();
 
-        $this->journalPostingEngine->postJournalEntry(
+        $journal = $this->journalPostingEngine->postJournalEntry(
             $lines,
             'customer_credit_refund',
             (int) $credit->id,
             'Customer credit refund #' . (int) $credit->id
+        );
+
+        $this->voucherService->createVoucherFromJournalEntry(
+            $journal,
+            'payment',
+            [
+                'payment_method' => $refundMethod,
+                'bank_account_id' => $bankAccountId,
+                'description' => 'Customer credit refund payment voucher #' . (int) $credit->id,
+            ]
         );
 
         Log::info('Customer credit refunded', [

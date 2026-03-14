@@ -11,6 +11,7 @@ use App\Models\DepositProduct;
 use App\Models\DepositTransaction;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ class DepositAccountService
     public function __construct(
         private readonly JournalPostingEngine $journalPostingEngine,
         private readonly PaymentProcessor $paymentProcessor,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -112,11 +114,21 @@ class DepositAccountService
                 ->addCredit($liabilityAccountId, $amount, 'Customer deposits liability – credit')
                 ->getLines();
 
-            $this->journalPostingEngine->postJournalEntry(
+            $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'deposit_received',
                 (int) $tx->id,
                 'Customer deposit received – ' . $account->account_number
+            );
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'receipt',
+                [
+                    'payment_method' => $paymentMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Customer deposit received – ' . $account->account_number,
+                ]
             );
 
             Log::info('Deposit made', [
@@ -189,11 +201,21 @@ class DepositAccountService
                 ->addCredit($creditAccountId, $amount, 'Customer deposit withdrawal – cash/bank out')
                 ->getLines();
 
-            $this->journalPostingEngine->postJournalEntry(
+            $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'deposit_withdrawal',
                 (int) $tx->id,
                 'Customer deposit withdrawal – ' . $account->account_number
+            );
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'payment',
+                [
+                    'payment_method' => $paymentMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Customer deposit withdrawal – ' . $account->account_number,
+                ]
             );
 
             Log::info('Withdrawal made', [
@@ -317,6 +339,7 @@ class DepositAccountService
                 (int) $account->customer_id,
                 $amount,
                 'savings',
+                null,
                 $reference,
                 Carbon::now()->startOfDay(),
                 $notes ? ('Paid from savings account ' . $account->account_number . "\n" . $notes) : ('Paid from savings account ' . $account->account_number),

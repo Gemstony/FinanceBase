@@ -31,6 +31,11 @@ class BankAccountsController extends Controller
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
             $bankAccounts = BankAccounts::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
+            $summaryTotalAccounts = (int) $bankAccounts->count();
+            $summaryActiveAccounts = (int) $bankAccounts->where('is_active', true)->count();
+            $summaryInactiveAccounts = (int) $bankAccounts->where('is_active', false)->count();
+            $summaryTotalOpeningBalance = (float) $bankAccounts->sum('opening_balance');
+
             $chartAccounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)
                 ->where('is_active', true)
                 ->orderBy('account_name')
@@ -40,7 +45,15 @@ class BankAccountsController extends Controller
                 return redirect()->back()->with('info', 'No chart of accounts found for this Branch. Please create accounts first before adding bank accounts.');
             }
 
-            return view('accounting.bank_accounts.index', compact('subshop', 'bankAccounts', 'chartAccounts'));
+            return view('accounting.bank_accounts.index', compact(
+                'subshop',
+                'bankAccounts',
+                'chartAccounts',
+                'summaryTotalAccounts',
+                'summaryActiveAccounts',
+                'summaryInactiveAccounts',
+                'summaryTotalOpeningBalance',
+            ));
             
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to load bank accounts: ' . $e->getMessage());

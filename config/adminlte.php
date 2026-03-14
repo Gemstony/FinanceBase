@@ -488,16 +488,18 @@ return [
                     'text' => 'Bank Reconsiliation',
                     'url' => '/bank-reconciliation',
                 ],
+
+                [
+                    'text' => 'Vouchers',
+                    'url' => '/accounting/vouchers',
+                ], 
                 [
                     'text' => 'Accounting Settings',
                     'url' => 'accounting/accounting_settings/',
                 ],
          
 
-                // [
-                //     'text' => 'Loan Groups',
-                //     'url' => '/loans/loans_group',
-                // ], 
+
              
              
             ],

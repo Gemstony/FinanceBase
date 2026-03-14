@@ -38,6 +38,73 @@
             <div class="alert alert-danger">{{ session('error') }}</div>
         @endif
 
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="card-title mb-0">{{ $loans->count() }}</h4>
+                                <p class="card-text">Total Loans</p>
+                            </div>
+                            <div class="fa-2x">
+                                <i class="fas fa-hand-holding-usd"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="card-title mb-0">{{ $loans->where('status', 'disbursed')->count() }}</h4>
+                                <p class="card-text">Disbursed</p>
+                            </div>
+                            <div class="fa-2x">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="card-title mb-0">{{ $loans->where('status', 'partially_paid')->count() }}</h4>
+                                <p class="card-text">Partially Paid</p>
+                            </div>
+                            <div class="fa-2x">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                @php
+                                    $uniqueBorrowers = $loans->pluck('loanGroup.name')->merge($loans->pluck('customer.name'))->filter()->unique()->count();
+                                @endphp
+                                <h4 class="card-title mb-0">{{ $uniqueBorrowers }}</h4>
+                                <p class="card-text">Unique Borrowers</p>
+                            </div>
+                            <div class="fa-2x">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
             <div class="card-body">
 

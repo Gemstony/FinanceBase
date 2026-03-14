@@ -9,6 +9,7 @@ use App\Models\ChartsOfAccount;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -21,6 +22,7 @@ class SecurityDepositService
     public function __construct(
         private readonly JournalPostingEngine $journalPostingEngine,
         private readonly PaymentProcessor $paymentProcessor,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -56,11 +58,21 @@ class SecurityDepositService
             $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
                 ->buildSecurityDepositCollectedEntry($loan, $amount, $paymentMethod);
 
-            $this->journalPostingEngine->postJournalEntry(
+            $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'security_deposit_collected',
                 (int) $deposit->id,
                 "Security deposit collected – {$loan->loan_code}"
+            );
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'receipt',
+                [
+                    'payment_method' => $paymentMethod,
+                    'bank_account_id' => null,
+                    'description' => "Security deposit collected – {$loan->loan_code}",
+                ]
             );
 
             Log::info('Security deposit collected', [
@@ -172,11 +184,21 @@ class SecurityDepositService
                     'notes' => $data['notes'] ?? null,
                 ]);
 
-                $this->journalPostingEngine->postJournalEntry(
+                $journal = $this->journalPostingEngine->postJournalEntry(
                     $lines,
                     'security_deposit_refunded',
                     (int) $refundedDeposit->id,
                     "Security deposit refunded – {$loan->loan_code}"
+                );
+
+                $this->voucherService->createVoucherFromJournalEntry(
+                    $journal,
+                    'payment',
+                    [
+                        'payment_method' => $refundMethod,
+                        'bank_account_id' => $bankAccountId,
+                        'description' => "Security deposit refunded – {$loan->loan_code}",
+                    ]
                 );
 
                 Log::info('Security deposit partially refunded', [
@@ -202,11 +224,21 @@ class SecurityDepositService
             $deposit->notes = $data['notes'] ?? null;
             $deposit->save();
 
-            $this->journalPostingEngine->postJournalEntry(
+            $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'security_deposit_refunded',
                 (int) $deposit->id,
                 "Security deposit refunded – {$loan->loan_code}"
+            );
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'payment',
+                [
+                    'payment_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => "Security deposit refunded – {$loan->loan_code}",
+                ]
             );
 
             Log::info('Security deposit refunded', [
@@ -255,7 +287,8 @@ class SecurityDepositService
                 (int) $deposit->customer_id,
                 (float) $deposit->amount,
                 'other',
-                null, // no transaction reference
+                null,
+                null,
                 Carbon::now(),
                 'Applied from security deposit – source loan: ' . $sourceLoan->loan_code
             );

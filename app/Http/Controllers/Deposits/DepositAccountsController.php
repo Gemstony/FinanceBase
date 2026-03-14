@@ -89,9 +89,24 @@ class DepositAccountsController extends Controller
             });
         }
 
+        $summaryTotalAccounts = (clone $query)->count();
+        $summaryTotalBalance = (float) (clone $query)->sum('balance');
+        $summaryActiveAccounts = (clone $query)->where('status', 'active')->count();
+        $summaryFrozenAccounts = (clone $query)->where('status', 'frozen')->count();
+        $summaryDormantAccounts = (clone $query)->where('status', 'dormant')->count();
+        $summaryClosedAccounts = (clone $query)->where('status', 'closed')->count();
+
         $accounts = $query->paginate(20)->withQueryString();
 
-        return view('customer_deposits.index', compact('accounts'));
+        return view('customer_deposits.index', compact(
+            'accounts',
+            'summaryTotalAccounts',
+            'summaryTotalBalance',
+            'summaryActiveAccounts',
+            'summaryFrozenAccounts',
+            'summaryDormantAccounts',
+            'summaryClosedAccounts',
+        ));
     }
 
     public function show(Customers $customer, Request $request): View

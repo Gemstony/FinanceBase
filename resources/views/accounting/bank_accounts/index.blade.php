@@ -61,6 +61,64 @@
     </div>
 @endif
 
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-uppercase small">Total Accounts</div>
+                        <div class="h4 mb-0">{{ number_format((int) ($summaryTotalAccounts ?? 0)) }}</div>
+                    </div>
+                    <i class="fas fa-university fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-uppercase small">Active Accounts</div>
+                        <div class="h4 mb-0">{{ number_format((int) ($summaryActiveAccounts ?? 0)) }}</div>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-uppercase small">Inactive Accounts</div>
+                        <div class="h4 mb-0">{{ number_format((int) ($summaryInactiveAccounts ?? 0)) }}</div>
+                    </div>
+                    <i class="fas fa-times-circle fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-uppercase small">Total Opening Balance</div>
+                        <div class="h4 mb-0">{{ number_format((float) ($summaryTotalOpeningBalance ?? 0), 2) }}</div>
+                    </div>
+                    <i class="fas fa-coins fa-2x text-muted"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">

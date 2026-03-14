@@ -11,6 +11,7 @@ use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPayments;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Credits\CustomerCreditService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
@@ -27,6 +28,7 @@ class PaymentProcessor
         private readonly LoanTransactionLedger $ledger,
         private readonly JournalPostingEngine $accounting,
         private readonly CustomerCreditService $customerCreditService,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -207,7 +209,7 @@ class PaymentProcessor
                 (int) $payment->id
             );
 
-            $this->accounting->postLoanRepayment([
+            $journal = $this->accounting->postLoanRepayment([
                 'payment_id' => (int) $payment->id,
                 'loan_id' => (int) $loan->id,
                 'principal_amount' => round($principalTotal, 2),
@@ -217,6 +219,16 @@ class PaymentProcessor
                 'payment_method' => (string) $paymentMethod,
                 'bank_account_id' => $bankAccountId,
             ]);
+
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'receipt',
+                [
+                    'payment_method' => (string) $paymentMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Loan repayment receipt voucher #' . (int) $payment->id,
+                ]
+            );
 
             return $payment;
         });

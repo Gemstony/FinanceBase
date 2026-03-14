@@ -11,6 +11,7 @@ use App\Models\SubShop;
 use App\Models\LoanProducts;
 use App\Models\BankAccounts;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
@@ -29,6 +30,7 @@ class LoansDisbursementController extends Controller
         private readonly LoanTransactionLedger $ledger,
         private readonly FeeEngine $feeEngine,
         private readonly JournalPostingEngine $accounting,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -241,10 +243,20 @@ class LoansDisbursementController extends Controller
                 // Record in the Loan Transaction Ledger
                 $this->ledger->recordDisbursement($loanLocked, (float) $loanLocked->principal_amount, (int) $disbursement->id);
 
-                $this->accounting->postLoanDisbursementFromDisbursement(
+                $journal = $this->accounting->postLoanDisbursementFromDisbursement(
                     loan: $loanLocked,
                     loanDisbursement: $disbursement,
                     creditAccountId: $creditAccountId
+                );
+
+                $this->voucherService->createVoucherFromJournalEntry(
+                    $journal,
+                    'payment',
+                    [
+                        'payment_method' => (string) ($method->code ?? 'bank_transfer'),
+                        'bank_account_id' => (int) $bankAccountId,
+                        'description' => 'Loan disbursement payment voucher #' . (int) $disbursement->id,
+                    ]
                 );
 
                 // Update installments: set start dates and active status based on disbursement date

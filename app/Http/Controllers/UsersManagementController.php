@@ -13,6 +13,26 @@ use App\Services\SmsService;
 
 class UsersManagementController extends Controller
 {
+    public function create(Request $request)
+    {
+        $auth = $request->user();
+        if (!$auth || !$this->isOwner($auth)) {
+            abort(403);
+        }
+
+        $shopId = $this->currentShopId($request);
+        if (!$shopId) {
+            return redirect()->route('items.subshops')->with('info', 'Please choose a shop first.');
+        }
+
+        $subshops = SubShop::where('shop_id', $shopId)->orderBy('name')->get(['id','name']);
+        $roles = Role::where(function($q) use ($shopId) {
+            $q->whereNull('shop_id')->orWhere('shop_id', $shopId);
+        })->get();
+
+        return view('users.create', compact('subshops','roles'));
+    }
+
     public function index(Request $request)
     {
         $auth = $request->user();
@@ -120,57 +140,118 @@ class UsersManagementController extends Controller
 
     public function show(Request $request, User $user)
     {
-        try {
-            $auth = $request->user();
-            if (!$auth || !$this->isOwner($auth)) {
-                return response()->json(['error' => 'Unauthorized'], 403);
-            }
+        $auth = $request->user();
+        if (!$auth || !$this->isOwner($auth)) {
+            abort(403);
+        }
 
-            $shopId = $this->currentShopId($request);
-            if (!$shopId) {
-                return response()->json(['error' => 'Please choose a shop first.'], 400);
-            }
+        $shopId = $this->currentShopId($request);
+        if (!$shopId) {
+            return redirect()->route('items.subshops')->with('info', 'Please choose a shop first.');
+        }
 
-            // Ensure user belongs to the shop
-            if (!$user->subshops()->where('sub_shops.shop_id', $shopId)->exists()) {
-                return response()->json(['error' => 'User not found in this shop.'], 404);
-            }
+        // Ensure user belongs to the shop
+        if (!$user->subshops()->where('sub_shops.shop_id', $shopId)->exists()) {
+            abort(404);
+        }
 
-            $subshops = $user->subshops()->where('sub_shops.shop_id', $shopId)->select('sub_shops.id', 'sub_shops.name')->get();
+        $subshops = SubShop::where('shop_id', $shopId)->orderBy('name')->get(['id','name']);
+        $roles = Role::where(function($q) use ($shopId) {
+            $q->whereNull('shop_id')->orWhere('shop_id', $shopId);
+        })->get();
 
-            $stats = [];
-            foreach ($subshops as $subshop) {
-                $subshopId = $subshop->id;
+        // Get performance stats for each subshop (Microfinance)
+        $stats = [];
+        $userSubshops = $user->subshops()->where('sub_shops.shop_id', $shopId)->get();
 
-                // Calculate stats for this subshop
-                $totalShopRevenue = \App\Models\SalesOrders::where('subshop_id', $subshopId)->sum('grand_total');
-                $userRevenue = \App\Models\SalesOrders::where('subshop_id', $subshopId)->where('created_by', $user->id)->sum('grand_total');
-                $participationPercentage = $totalShopRevenue > 0 ? round(($userRevenue / $totalShopRevenue) * 100, 2) : 0;
+        foreach ($userSubshops as $subshop) {
+            $subshopId = $subshop->id;
 
-                $itemsSold = \App\Models\SalesOrdersItems::whereHas('order', function($q) use ($subshopId, $user) {
-                    $q->where('subshop_id', $subshopId)->where('created_by', $user->id);
-                })->sum('quantity');
+            // Loans processed by this user at this subshop
+            $loansDisbursed = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->whereHas('disbursements', function($q) use ($user) {
+                    $q->where('processed_by', $user->id);
+                })->count();
 
-                $salesTransactions = \App\Models\SalesOrders::where('subshop_id', $subshopId)->where('created_by', $user->id)->count();
+            $disbursementAmount = \App\Models\LoanDisbursements::whereHas('loan', function($q) use ($subshopId) {
+                    $q->where('subshop_id', $subshopId);
+                })->where('processed_by', $user->id)->sum('amount');
 
-                $purchaseTransactions = \App\Models\PurchaseOrders::where('subshop_id', $subshopId)->where('created_by', $user->id)->count();
+            // Repayments collected by this user
+            $repaymentsCount = \App\Models\LoanPayments::whereHas('loan', function($q) use ($subshopId) {
+                    $q->where('subshop_id', $subshopId);
+                })->where('user_id', $user->id)->count();
 
-                $writeoffs = \App\Models\WriteOff::where('created_by', $user->id)->where('subshop_id', $subshopId)->count();
+            $repaymentsAmount = \App\Models\LoanPayments::whereHas('loan', function($q) use ($subshopId) {
+                    $q->where('subshop_id', $subshopId);
+                })->where('user_id', $user->id)->sum('amount');
 
-                $expenses = \App\Models\Expenses::where('created_by', $user->id)->where('subshop_id', $subshopId)->count();
+            // Active loans (disbursed and not fully paid)
+            $activeLoans = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->where('status', 'disbursed')
+                ->where('outstanding_balance', '>', 0)
+                ->whereHas('disbursements', function($q) use ($user) {
+                    $q->where('processed_by', $user->id);
+                })->count();
 
-                $stats[] = [
-                    'subshop_name' => $subshop->name,
-                    'participation_percentage' => $participationPercentage,
-                    'items_sold' => $itemsSold,
-                    'sales_value' => $userRevenue,
-                    'sales_transactions' => $salesTransactions,
-                    'purchase_transactions' => $purchaseTransactions,
-                    'writeoffs' => $writeoffs,
-                    'expenses' => $expenses,
-                ];
-            }
+            // Pending approvals
+            $pendingApprovals = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->where('status', 'pending')
+                ->whereHas('approvals', function($q) use ($user) {
+                    $q->where('approved_by', $user->id)->where('status', 'pending');
+                })->count();
 
+            // Write-offs processed
+            $writeOffs = \App\Models\LoanWriteoffs::whereHas('loan', function($q) use ($subshopId) {
+                    $q->where('subshop_id', $subshopId);
+                })->where('approved_by', $user->id)->count();
+
+            $writeOffAmount = \App\Models\LoanWriteoffs::whereHas('loan', function($q) use ($subshopId) {
+                    $q->where('subshop_id', $subshopId);
+                })->where('approved_by', $user->id)->sum('total_written_off');
+
+            // Overdue loans
+            $overdueLoans = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->where('status', 'disbursed')
+                ->where('outstanding_balance', '>', 0)
+                ->where('maturity_date', '<', now())
+                ->whereHas('disbursements', function($q) use ($user) {
+                    $q->where('processed_by', $user->id);
+                })->count();
+
+            $overdueAmount = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->where('status', 'disbursed')
+                ->where('outstanding_balance', '>', 0)
+                ->where('maturity_date', '<', now())
+                ->whereHas('disbursements', function($q) use ($user) {
+                    $q->where('processed_by', $user->id);
+                })->sum('outstanding_balance');
+
+            // Total portfolio value for this user at this subshop
+            $portfolioValue = \App\Models\Loans::where('subshop_id', $subshopId)
+                ->where('status', 'disbursed')
+                ->whereHas('disbursements', function($q) use ($user) {
+                    $q->where('processed_by', $user->id);
+                })->sum('outstanding_balance');
+
+            $stats[] = [
+                'subshop_name' => $subshop->name,
+                'loans_disbursed' => $loansDisbursed,
+                'disbursement_amount' => $disbursementAmount,
+                'repayments_count' => $repaymentsCount,
+                'repayments_amount' => $repaymentsAmount,
+                'active_loans' => $activeLoans,
+                'pending_approvals' => $pendingApprovals,
+                'writeoffs_count' => $writeOffs,
+                'writeoffs_amount' => $writeOffAmount,
+                'overdue_loans' => $overdueLoans,
+                'overdue_amount' => $overdueAmount,
+                'portfolio_value' => $portfolioValue,
+            ];
+        }
+
+        // For AJAX requests, return JSON
+        if ($request->expectsJson()) {
             return response()->json([
                 'user' => [
                     'id' => $user->id,
@@ -182,14 +263,9 @@ class UsersManagementController extends Controller
                 'subshops' => $user->subshops()->where('sub_shops.shop_id', $shopId)->select('sub_shops.id', 'sub_shops.name')->get(),
                 'stats' => $stats
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Error in UsersManagementController@show: ' . $e->getMessage(), [
-                'user_id' => $user->id,
-                'trace' => $e->getTraceAsString()
-            ]);
-            $errorMessage = config('app.debug') ? $e->getMessage() : 'Internal server error';
-            return response()->json(['error' => $errorMessage], 500);
         }
+
+        return view('users.show', compact('user', 'subshops', 'roles', 'stats'));
     }
 
     public function edit(Request $request, User $user)
@@ -210,16 +286,11 @@ class UsersManagementController extends Controller
         }
 
         $subshops = SubShop::where('shop_id', $shopId)->orderBy('name')->get(['id','name']);
+        $roles = Role::where(function($q) use ($shopId) {
+            $q->whereNull('shop_id')->orWhere('shop_id', $shopId);
+        })->get();
 
-        if ($request->expectsJson()) {
-            return response()->json([
-                'user' => $user->load('subshops'),
-                'subshops' => $subshops
-            ]);
-        }
-
-        // For non-AJAX, return view if needed
-        return view('users.edit', compact('user', 'subshops'));
+        return view('users.edit', compact('user', 'subshops', 'roles'));
     }
 
     public function update(Request $request, User $user)

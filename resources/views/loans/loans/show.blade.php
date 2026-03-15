@@ -11,9 +11,9 @@
                  <h1 class="d-md-none text-light"><i class="fas fa-file-invoice-dollar"></i> View Loan</h1>
                  <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
              </div>
-             <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                 <i class="fas fa-arrow-left"></i> Change Branch
-             </a>
+                <a href="{{ route('loans.loans.index') }}" class="btn btn-light btn-sm border">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
          </div>
      </div>
  </div>
@@ -26,9 +26,9 @@
              <li class="breadcrumb-item active" aria-current="page">Loan</li>
          </ol>
      </nav>
-     <a href="{{ route('loans.loans.index') }}" class="btn btn-light border">
-         <i class="fas fa-arrow-left"></i> Back
-     </a>
+    <a href="{{ route('loans.loans.index') }}" class="btn btn-light btn-sm border">
+        <i class="fas fa-arrow-left"></i> Back
+    </a>
  </div>
 @stop
 

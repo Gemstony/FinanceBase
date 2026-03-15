@@ -914,9 +914,11 @@
                                             <select name="approval_levels[{{ $i }}][role_id]" class="form-control" form="loanProductForm" required>
                                                 <option value="">-- Select Role --</option>
                                                 @foreach ($roles as $role)
-                                                    <option value="{{ $role->id }}" {{ (string)($row['role_id'] ?? '') === (string)$role->id ? 'selected' : '' }}>
-                                                        {{ strtoupper($role->name) }}
-                                                    </option>
+                                                    @if($role->name !== 'Super Admin')
+                                                        <option value="{{ $role->id }}" {{ (string)($row['role_id'] ?? '') === (string)$role->id ? 'selected' : '' }}>
+                                                            {{ strtoupper($role->name) }}
+                                                        </option>
+                                                    @endif
                                                 @endforeach
                                             </select>
                                         </div>

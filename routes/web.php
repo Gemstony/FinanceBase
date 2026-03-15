@@ -189,11 +189,14 @@ Route::middleware(['auth'])->group(function () {
 
         // Users management (owners only)
         Route::get('/admin/users', [UsersManagementController::class, 'index'])->name('users.index');
-        Route::post('/admin/users', [UsersManagementController::class, 'store'])->name('users.store');
-        Route::post('/admin/users/{user}/assign-subshops', [UsersManagementController::class, 'assignSubshops'])->name('users.assign-subshops');
+        Route::get('/admin/users/create', [UsersManagementController::class, 'create'])->name('users.create');
+        Route::get('/admin/users/{user}', [UsersManagementController::class, 'show'])->name('users.show');
         Route::get('/admin/users/{user}/edit', [UsersManagementController::class, 'edit'])->name('users.edit');
+        Route::post('/admin/users', [UsersManagementController::class, 'store'])->name('users.store');
         Route::put('/admin/users/{user}', [UsersManagementController::class, 'update'])->name('users.update');
         Route::delete('/admin/users/{user}', [UsersManagementController::class, 'destroy'])->name('users.destroy');
+        Route::post('/admin/users/{user}/assign-subshops', [UsersManagementController::class, 'assignSubshops'])->name('users.assign-subshops');
+        Route::post('/admin/users/{user}/reset-password', [UsersManagementController::class, 'resetPassword'])->name('users.reset-password');
     });
 
   
@@ -662,8 +665,12 @@ Route::middleware(['auth'])->group(function () {
             
             // Users management (owners only)
             Route::get('/admin/users', [UsersManagementController::class, 'index'])->name('users.index');
+            Route::get('/admin/users/create', [UsersManagementController::class, 'create'])->name('users.create');
             Route::get('/admin/users/{user}', [UsersManagementController::class, 'show'])->name('users.show');
+            Route::get('/admin/users/{user}/edit', [UsersManagementController::class, 'edit'])->name('users.edit');
             Route::post('/admin/users', [UsersManagementController::class, 'store'])->name('users.store');
+            Route::put('/admin/users/{user}', [UsersManagementController::class, 'update'])->name('users.update');
+            Route::delete('/admin/users/{user}', [UsersManagementController::class, 'destroy'])->name('users.destroy');
             Route::post('/admin/users/{user}/assign-subshops', [UsersManagementController::class, 'assignSubshops'])->name('users.assign-subshops');
             Route::post('/admin/users/{user}/reset-password', [UsersManagementController::class, 'resetPassword'])->name('users.reset-password');
             

@@ -19,8 +19,13 @@ use App\Models\LoanProductTypes;
 use App\Models\LoanProducts;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
-use App\Models\SubShop;
+use App\Models\BankAccounts;
 use App\Models\loanGuarantors;
+use App\Models\Messages;
+use App\Models\Permission;
+use App\Models\Role;
+use App\Models\Shop;
+use App\Models\SubShop;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\LoanScheduleEngine;
 use App\Services\Loans\Penalties\PenaltyEngine;
@@ -755,6 +760,12 @@ class LoansController extends Controller
             ->limit(10)
             ->get();
 
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', (int) $loan->subshop_id)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get();
+
         return view('loans.loans.show', compact(
             'subshop',
             'loan',
@@ -769,7 +780,8 @@ class LoansController extends Controller
             'securityDepositRequired',
             'securityDepositPaid',
             'securityDepositStatus',
-            'securityDeposits'
+            'securityDeposits',
+            'bankAccounts'
         ));
     }
 

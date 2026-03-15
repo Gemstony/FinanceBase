@@ -11,7 +11,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-plus"></i> Collect Deposit</h1>
                     <p class="mb-0 text-light">Loan: <strong>{{ $loan->loan_code }}</strong></p>
                 </div>
-                <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-light border">
+                <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-light border btn-sm">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>
@@ -54,6 +54,20 @@
                             </select>
                         </div>
                         <div class="form-group col-md-4">
+                            <label>Payment Bank Account</label>
+                            <select name="payment_bank_account_id" class="form-control" data-security-deposit-bank-select>
+                                <option value="">-- Select Bank Account --</option>
+                                @foreach(($bankAccounts ?? collect()) as $ba)
+                                    <option value="{{ $ba->id }}" @selected((string) old('payment_bank_account_id') === (string) $ba->id)>
+                                        {{ $ba->account_name }}{{ !empty($ba->account_number) ? ' - ' . $ba->account_number : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small class="text-muted">Required for Bank Transfer / Mobile Money.</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-12">
                             <label>Notes</label>
                             <input type="text" name="notes" class="form-control" value="{{ old('notes') }}" placeholder="Optional">
                         </div>
@@ -68,4 +82,26 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const methodSelect = document.querySelector('select[name="payment_method"]');
+    const bankSelect = document.querySelector('[data-security-deposit-bank-select]');
+    if (!methodSelect || !bankSelect) return;
+
+    function syncBankRequired() {
+        const method = (methodSelect.value || '').toLowerCase();
+        const requiresBank = method === 'bank_transfer' || method === 'mobile_money';
+        bankSelect.required = requiresBank;
+        if (!requiresBank) {
+            bankSelect.value = '';
+        }
+    }
+
+    methodSelect.addEventListener('change', syncBankRequired);
+    syncBankRequired();
+});
+</script>
 @endpush

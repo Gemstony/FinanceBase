@@ -27,7 +27,13 @@ class SecurityDepositsController extends Controller
             abort(403);
         }
 
-        return view('deposits.collect', compact('loan'));
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get();
+
+        return view('deposits.collect', compact('loan', 'bankAccounts'));
     }
 
     public function index(Request $request): View
@@ -133,8 +139,13 @@ class SecurityDepositsController extends Controller
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
+            'payment_bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        if (in_array((string) $validated['payment_method'], ['bank_transfer', 'mobile_money'], true) && empty($validated['payment_bank_account_id'])) {
+            return redirect()->back()->with('error', 'Please select a bank account for this payment method.');
+        }
 
         DB::transaction(function () use ($validated, $loan) {
             $this->service->collectDeposit(
@@ -142,6 +153,7 @@ class SecurityDepositsController extends Controller
                 (int) $loan->id,
                 (float) $validated['amount'],
                 (string) $validated['payment_method'],
+                $validated['payment_bank_account_id'] ? (int) $validated['payment_bank_account_id'] : null,
                 $validated['notes'] ? (string) $validated['notes'] : null
             );
         });

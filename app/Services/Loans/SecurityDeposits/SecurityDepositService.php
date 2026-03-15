@@ -26,14 +26,14 @@ class SecurityDepositService
     ) {
     }
 
-    public function collectDeposit(int $borrowerId, int $loanId, float $amount, string $paymentMethod, ?string $notes = null): LoanSecurityDeposit
+    public function collectDeposit(int $borrowerId, int $loanId, float $amount, string $paymentMethod, ?int $paymentBankAccountId = null, ?string $notes = null): LoanSecurityDeposit
     {
         $amount = round((float) $amount, 2);
         if ($amount <= 0) {
             throw new InvalidArgumentException('Deposit amount must be greater than 0.');
         }
 
-        return DB::transaction(function () use ($borrowerId, $loanId, $amount, $paymentMethod, $notes) {
+        return DB::transaction(function () use ($borrowerId, $loanId, $amount, $paymentMethod, $paymentBankAccountId, $notes) {
             $loan = Loans::query()->whereKey($loanId)->lockForUpdate()->firstOrFail();
 
             $subshopId = (int) session('subshop_id');
@@ -45,10 +45,23 @@ class SecurityDepositService
                 throw new InvalidArgumentException('Borrower does not match the loan borrower.');
             }
 
+            $requiresBank = in_array(strtolower(trim($paymentMethod)), ['bank_transfer', 'mobile_money'], true);
+            if ($requiresBank && !$paymentBankAccountId) {
+                throw new InvalidArgumentException('Bank account is required for this payment method.');
+            }
+
+            if ($paymentBankAccountId) {
+                $bankAccount = BankAccounts::query()->whereKey($paymentBankAccountId)->firstOrFail();
+                if ((int) $bankAccount->subshop_id !== $subshopId) {
+                    throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+                }
+            }
+
             $deposit = LoanSecurityDeposit::create([
                 'subshop_id' => $subshopId,
                 'customer_id' => $borrowerId,
                 'loan_id' => (int) $loan->id,
+                'payment_bank_account_id' => $paymentBankAccountId,
                 'amount' => $amount,
                 'status' => 'held',
                 'held_at' => Carbon::now(),
@@ -56,7 +69,7 @@ class SecurityDepositService
             ]);
 
             $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
-                ->buildSecurityDepositCollectedEntry($loan, $amount, $paymentMethod);
+                ->buildSecurityDepositCollectedEntry($loan, $amount, $paymentMethod, $paymentBankAccountId);
 
             $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
@@ -70,7 +83,7 @@ class SecurityDepositService
                 'receipt',
                 [
                     'payment_method' => $paymentMethod,
-                    'bank_account_id' => null,
+                    'bank_account_id' => $paymentBankAccountId,
                     'description' => "Security deposit collected – {$loan->loan_code}",
                 ]
             );
@@ -81,6 +94,7 @@ class SecurityDepositService
                 'customer_id' => $borrowerId,
                 'amount' => $amount,
                 'payment_method' => $paymentMethod,
+                'payment_bank_account_id' => $paymentBankAccountId,
             ]);
 
             return $deposit;

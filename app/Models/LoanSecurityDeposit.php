@@ -15,6 +15,7 @@ class LoanSecurityDeposit extends Model
         'subshop_id',
         'customer_id',
         'loan_id',
+        'payment_bank_account_id',
         'amount',
         'status',
         'held_at',
@@ -55,6 +56,11 @@ class LoanSecurityDeposit extends Model
     public function bankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccounts::class, 'bank_account_id');
+    }
+
+    public function paymentBankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccounts::class, 'payment_bank_account_id');
     }
 
     public function isHeld(): bool

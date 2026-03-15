@@ -110,12 +110,13 @@
                                             <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.borrower', $d->customer) }}">
                                                 <i class="fas fa-user"></i> Borrower
                                             </a>
-                                        @endif
+                                        @endif 
                                         @if($d->loan)
                                             <a class="btn btn-sm btn-outline-secondary" href="{{ route('security-deposits.loan', $d->loan) }}">
                                                 <i class="fas fa-file-invoice-dollar"></i> Loan
                                             </a>
                                         @endif
+
                                     </td>
                                 </tr>
                             @empty

@@ -121,6 +121,9 @@
                         Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
                     </div>
                     <div class="mt-2">
+                        <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.collect.form', $loan) }}">
+                            <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
+                        </a>
                         @if(!(bool) ($loan->is_written_off ?? false) && (string) $loan->status !== 'written_off')
                             <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
                                 <i class="fas fa-random"></i> Restructure Loan
@@ -223,7 +226,21 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-md-4">
-                                    <label class="small mb-1">Notes</label>
+                                    <label class="small mb-1">Payment Bank Account</label>
+                                    <select name="payment_bank_account_id" class="form-control" data-security-deposit-bank-select>
+                                        <option value="">-- Select Bank Account --</option>
+                                        @foreach(($bankAccounts ?? collect()) as $ba)
+                                            <option value="{{ $ba->id }}">
+                                                {{ $ba->account_name }}{{ !empty($ba->account_number) ? ' - ' . $ba->account_number : '' }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <small class="text-muted">Required for Bank Transfer / Mobile Money.</small>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group col-md-12 mb-2">
+                                    <label class="small mb-1"></label>Notes</label>
                                     <input type="text" name="notes" class="form-control" placeholder="Optional">
                                 </div>
                             </div>
@@ -441,4 +458,26 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const methodSelect = document.querySelector('select[name="payment_method"]');
+    const bankSelect = document.querySelector('[data-security-deposit-bank-select]');
+    if (!methodSelect || !bankSelect) return;
+
+    function syncBankRequired() {
+        const method = (methodSelect.value || '').toLowerCase();
+        const requiresBank = method === 'bank_transfer' || method === 'mobile_money';
+        bankSelect.required = requiresBank;
+        if (!requiresBank) {
+            bankSelect.value = '';
+        }
+    }
+
+    methodSelect.addEventListener('change', syncBankRequired);
+    syncBankRequired();
+});
+</script>
 @endpush

@@ -56,7 +56,7 @@
             function updateBankAccountVisibility() {
                 if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
                 const pm = String(paymentMethodEl.value || '');
-                const requiresBank = pm !== 'cash' && pm !== 'customer_credit' && pm !== 'savings';
+                const requiresBank = pm !== 'customer_credit' && pm !== 'savings';
 
                 if (requiresBank) {
                     bankAccountWrap.style.display = '';
@@ -207,8 +207,8 @@
                                     <option value="cash" @selected($pm === 'cash')>Cash</option>
                                     <option value="bank_transfer" @selected($pm === 'bank_transfer')>Bank Transfer</option>
                                     <option value="mobile_money" @selected($pm === 'mobile_money')>Mobile Money</option>
-                                    <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
-                                    <option value="savings" @selected($pm === 'savings')>Savings</option>
+                                    <!-- <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
+                                    <option value="savings" @selected($pm === 'savings')>Savings</option> -->
                                     <option value="other" @selected($pm === 'other')>Other</option>
                                 </select>
                             </div>

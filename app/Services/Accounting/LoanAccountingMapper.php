@@ -208,12 +208,19 @@ class LoanAccountingMapper
         return $builder->getLines();
     }
 
-    public function buildSecurityDepositCollectedEntry(Loans $loan, float $amount, string $paymentMethod): array
+    public function buildSecurityDepositCollectedEntry(Loans $loan, float $amount, string $paymentMethod, ?int $bankAccountId = null): array
     {
         $builder = clone $this->builder;
         $builder->reset();
 
         $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+            $linked = (int) ($bank?->chart_of_account_id ?? 0);
+            if ($linked > 0) {
+                $cashAccountId = $linked;
+            }
+        }
         $liabilityAccountId = (int) $loan->customer_security_deposit_account_id;
 
         $builder->addDebit(

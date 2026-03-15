@@ -526,6 +526,8 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('loans/loans')->name('loans.loans.')->group(function () {
             Route::get('/', [LoansController::class, 'index'])->name('index');
             Route::get('/create', [LoansController::class, 'create'])->name('create');
+            Route::get('/calculator', [LoansController::class, 'calculator'])->name('calculator.index');
+            Route::post('/calculator/calculate', [LoansController::class, 'calculateLoan'])->name('calculator.calculate');
             Route::post('/', [LoansController::class, 'store'])->name('store');
             Route::get('/{loan:loan_code}', [LoansController::class, 'show'])->name('show');
             Route::get('/{loan:loan_code}/edit', [LoansController::class, 'edit'])->name('edit');

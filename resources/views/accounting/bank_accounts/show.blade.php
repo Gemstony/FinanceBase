@@ -36,9 +36,6 @@
 
     <div class="btn-toolbar" role="toolbar">
         <div class="btn-group mr-2 mb-2" role="group">
-            <a href="#" class="btn btn-outline-primary disabled"><i class="fas fa-edit"></i> Edit Bank Account</a>
-            <a href="#" class="btn btn-outline-secondary disabled"><i class="fas fa-book"></i> View Full Ledger</a>
-            <a href="{{ route('bank-reconciliation.create') }}" class="btn btn-outline-info"><i class="fas fa-file-upload"></i> Upload Bank Statement</a>
             <a href="{{ route('bank-reconciliation.create') }}" class="btn btn-outline-success"><i class="fas fa-balance-scale"></i> Start Reconciliation</a>
             <a href="#" class="btn btn-outline-dark disabled"><i class="fas fa-file-export"></i> Export Bank Ledger</a>
         </div>

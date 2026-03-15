@@ -93,6 +93,25 @@
 
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-secondary elevation-1">
+                        <i class="fas fa-calculator"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Calculator</span>
+                        <span class="info-box-number">
+                            Simulate installments and interest
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('loans.loans.calculator.index') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-success elevation-1">
                         <i class="fas fa-user-check"></i>
                     </span>

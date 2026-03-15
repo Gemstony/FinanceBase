@@ -11,9 +11,9 @@
                  <h1 class="d-md-none text-light"><i class="fas fa-hand-holding-usd"></i> Create</h1>
                  <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
              </div>
-             <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                 <i class="fas fa-arrow-left"></i> Change Branch
-             </a>
+            <a href="{{ route('loans.loans.index') }}" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
          </div>
      </div>
  </div>
@@ -71,6 +71,8 @@
                                     data-min-rate="{{ $p->rules?->min_interest_rate ?? '' }}"
                                     data-max-rate="{{ $p->rules?->max_interest_rate ?? '' }}"
                                     data-default-installments="{{ $p->default_installments ?? '' }}"
+                                    data-repayment-frequency-code="{{ $p->repaymentFrequency?->code ?? '' }}"
+                                    data-interest-method-code="{{ $p->interestMethod?->code ?? '' }}"
                                     {{ (string)old('loan_product_id') === (string)$p->id ? 'selected' : '' }}
                                 >
                                     {{ $p->name }} ({{ $p->code }})
@@ -115,16 +117,19 @@
                         <label for="principal_amount">Principal Amount</label>
                         <input id="principal_amount" name="principal_amount" type="number" step="0.01" min="0" class="form-control" value="{{ old('principal_amount') }}" required>
                         <small class="text-muted" id="principalHint"></small>
+                        <div class="invalid-feedback" id="principalError"></div>
                     </div>
                     <div class="form-group col-md-4">
                         <label for="interest_rate">Interest Rate (%)</label>
                         <input id="interest_rate" name="interest_rate" type="number" step="0.01" min="0" max="100" class="form-control" value="{{ old('interest_rate') }}" required>
                         <small class="text-muted" id="rateHint"></small>
+                        <div class="invalid-feedback" id="rateError"></div>
                     </div>
                     <div class="form-group col-md-4">
                         <label for="installments">Installments</label>
                         <input id="installments" name="installments" type="number" min="1" class="form-control" value="{{ old('installments') }}" required>
                         <small class="text-muted" id="installmentsHint"></small>
+                        <div class="invalid-feedback" id="installmentsError"></div>
                     </div>
                 </div>
 
@@ -137,6 +142,17 @@
                         <label for="repayment_start_date">Repayment Start Date (optional)</label>
                         <input id="repayment_start_date" name="repayment_start_date" type="date" class="form-control" value="{{ old('repayment_start_date') }}">
                         <small class="text-muted">If set, schedule generation will start from this date.</small>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Repayment Frequency</label>
+                        <input id="repayment_frequency" type="text" class="form-control" readonly>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Interest Method</label>
+                        <input id="interest_method" type="text" class="form-control" readonly>
                     </div>
                 </div>
             </div>
@@ -244,6 +260,8 @@
 <script src="{{ asset('vendor/select2/js/select2.min.js') }}"></script>
 <script>
 (function () {
+    const $form = $('form[action="{{ route('loans.loans.store') }}"]');
+
     function initSelect2() {
         if (!(window.jQuery && $.fn && $.fn.select2)) {
             return;
@@ -480,6 +498,76 @@
         return opt || null;
     }
 
+    function toNumberOrNull(v) {
+        if (v === undefined || v === null) return null;
+        const s = String(v).trim();
+        if (s === '') return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function setInvalid(el, msg, errorEl) {
+        if (!el) return;
+        el.classList.add('is-invalid');
+        if (errorEl) errorEl.textContent = msg || 'Invalid value.';
+    }
+
+    function clearInvalid(el, errorEl) {
+        if (!el) return;
+        el.classList.remove('is-invalid');
+        if (errorEl) errorEl.textContent = '';
+    }
+
+    function validateAgainstRange(el, min, max, label, errorEl) {
+        if (!el) return true;
+        const raw = el.value;
+        const val = toNumberOrNull(raw);
+
+        if (raw === '' || val === null) {
+            setInvalid(el, label + ' is required.', errorEl);
+            return false;
+        }
+
+        if (min !== null && val < min) {
+            setInvalid(el, label + ' must be at least ' + min + '.', errorEl);
+            return false;
+        }
+
+        if (max !== null && val > max) {
+            setInvalid(el, label + ' must be at most ' + max + '.', errorEl);
+            return false;
+        }
+
+        clearInvalid(el, errorEl);
+        return true;
+    }
+
+    function validateFormLive() {
+        const opt = selectedProductOption();
+
+        const minLoan = opt ? toNumberOrNull(opt.getAttribute('data-min-loan')) : null;
+        const maxLoan = opt ? toNumberOrNull(opt.getAttribute('data-max-loan')) : null;
+        const minRate = opt ? toNumberOrNull(opt.getAttribute('data-min-rate')) : null;
+        const maxRate = opt ? toNumberOrNull(opt.getAttribute('data-max-rate')) : null;
+        const minInst = opt ? toNumberOrNull(opt.getAttribute('data-min-installments')) : null;
+        const maxInst = opt ? toNumberOrNull(opt.getAttribute('data-max-installments')) : null;
+
+        const principalEl = document.getElementById('principal_amount');
+        const rateEl = document.getElementById('interest_rate');
+        const instEl = document.getElementById('installments');
+
+        const principalOk = validateAgainstRange(principalEl, minLoan, maxLoan, 'Principal Amount', document.getElementById('principalError'));
+        const rateOk = validateAgainstRange(rateEl, minRate, maxRate, 'Interest Rate', document.getElementById('rateError'));
+        const instOk = validateAgainstRange(instEl, minInst, maxInst, 'Installments', document.getElementById('installmentsError'));
+
+        const allOk = principalOk && rateOk && instOk;
+        const submitBtn = $form.find('button[type="submit"]').get(0);
+        if (submitBtn) {
+            submitBtn.disabled = !allOk;
+        }
+        return allOk;
+    }
+
     function updateVisibility() {
         const loanType = document.getElementById('loan_type').value;
         const individualRow = document.getElementById('individualRow');
@@ -510,6 +598,7 @@
         }
 
         updateHints();
+        validateFormLive();
         filterCollateralOptions();
     }
 
@@ -520,12 +609,17 @@
         const principalHint = document.getElementById('principalHint');
         const rateHint = document.getElementById('rateHint');
         const installmentsHint = document.getElementById('installmentsHint');
+        const repaymentFrequency = document.getElementById('repayment_frequency');
+        const interestMethod = document.getElementById('interest_method');
 
         if (!opt) {
             // console.log('No option selected, clearing hints');
             if (principalHint) principalHint.textContent = '';
             if (rateHint) rateHint.textContent = '';
             if (installmentsHint) installmentsHint.textContent = '';
+            if (repaymentFrequency) repaymentFrequency.value = '';
+            if (interestMethod) interestMethod.value = '';
+            validateFormLive();
             return;
         }
 
@@ -537,6 +631,12 @@
         const maxInst = opt.getAttribute('data-max-installments') || '';
         const defInst = opt.getAttribute('data-default-installments') || '';
 
+        const rf = opt.getAttribute('data-repayment-frequency-code') || '';
+        const im = opt.getAttribute('data-interest-method-code') || '';
+
+        if (repaymentFrequency) repaymentFrequency.value = rf;
+        if (interestMethod) interestMethod.value = im;
+
         // console.log('Attributes found:', {minLoan, maxLoan, minRate, maxRate, minInst, maxInst, defInst});
 
         if (principalHint) principalHint.textContent = (minLoan || maxLoan) ? ('Allowed: ' + (minLoan || '-') + ' to ' + (maxLoan || '-') ) : '';
@@ -547,6 +647,8 @@
         if (installmentsInput && !installmentsInput.value && defInst) {
             installmentsInput.value = defInst;
         }
+
+        validateFormLive();
     }
 
     function filterCollateralOptions() {
@@ -582,6 +684,13 @@
 
     initSelect2();
 
+    const principalEl = document.getElementById('principal_amount');
+    const rateEl = document.getElementById('interest_rate');
+    const instEl = document.getElementById('installments');
+    if (principalEl) principalEl.addEventListener('input', validateFormLive);
+    if (rateEl) rateEl.addEventListener('input', validateFormLive);
+    if (instEl) instEl.addEventListener('input', validateFormLive);
+
     document.getElementById('loan_type').addEventListener('change', updateVisibility);
     document.getElementById('loan_product_id').addEventListener('change', updateVisibility);
     document.getElementById('customer_id').addEventListener('change', filterCollateralOptions);
@@ -596,7 +705,18 @@
     }
 
     // Run after Select2 finishes wiring and any hydration requests resolve.
-    setTimeout(updateVisibility, 0);
+    setTimeout(function () {
+        updateVisibility();
+        validateFormLive();
+    }, 0);
+
+    if ($form && $form.length) {
+        $form.on('submit', function (e) {
+            if (!validateFormLive()) {
+                e.preventDefault();
+            }
+        });
+    }
 })();
 </script>
 @stop

@@ -32,12 +32,13 @@ use App\Services\Loans\Penalties\PenaltyEngine;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Illuminate\Http\JsonResponse;
+use InvalidArgumentException;
 
 class LoansController extends Controller
 {
@@ -304,6 +305,127 @@ class LoansController extends Controller
             'loanGroups',
             'customerCollaterals'
         ));
+    }
+
+    public function calculator(): View
+    {
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $loanProducts = LoanProducts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->where('is_visible', true)
+            ->with(['rules', 'repaymentFrequency', 'interestMethod'])
+            ->orderBy('name')
+            ->get();
+
+        return view('loans.loans.calculator.loan_calculator', compact('subshop', 'loanProducts'));
+    }
+
+    public function calculateLoan(Request $request, LoanScheduleEngine $scheduleEngine): JsonResponse
+    {
+        $subshopId = (int) session('subshop_id');
+        if (!$subshopId) {
+            return response()->json(['message' => 'Branch session not found. Please login again.'], 422);
+        }
+
+        $validated = $request->validate([
+            'loan_product_id' => ['required', 'integer', 'exists:loan_products,id'],
+            'borrower_type' => ['required', Rule::in(['individual', 'group'])],
+            'principal_amount' => ['required', 'numeric', 'min:0.01'],
+            'interest_rate' => ['required', 'numeric', 'min:0', 'max:100'],
+            'installments' => ['required', 'integer', 'min:1'],
+            'disbursement_date' => ['nullable', 'date'],
+            'repayment_start_date' => ['nullable', 'date'],
+        ]);
+
+        $product = LoanProducts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->with(['rules', 'repaymentFrequency', 'interestMethod'])
+            ->find((int) $validated['loan_product_id']);
+
+        if (!$product) {
+            return response()->json(['message' => 'Invalid loan product for this branch.'], 422);
+        }
+
+        $rules = $product->rules;
+        $principal = (float) $validated['principal_amount'];
+        $installments = (int) $validated['installments'];
+        $interestRate = (float) $validated['interest_rate'];
+
+        if ($rules) {
+            if (!is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
+                return response()->json(['message' => 'Principal amount is below the product minimum.'], 422);
+            }
+            if (!is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
+                return response()->json(['message' => 'Principal amount is above the product maximum.'], 422);
+            }
+            if (!is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
+                return response()->json(['message' => 'Installments are below the product minimum.'], 422);
+            }
+            if (!is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
+                return response()->json(['message' => 'Installments are above the product maximum.'], 422);
+            }
+            if (!is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
+                return response()->json(['message' => 'Interest rate is below the product minimum.'], 422);
+            }
+            if (!is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
+                return response()->json(['message' => 'Interest rate is above the product maximum.'], 422);
+            }
+        }
+
+        $disbursementDate = $request->filled('disbursement_date')
+            ? Carbon::parse($request->input('disbursement_date'))->toDateString()
+            : now()->toDateString();
+
+        $repaymentStartDate = $request->filled('repayment_start_date')
+            ? Carbon::parse($request->input('repayment_start_date'))->toDateString()
+            : null;
+
+        $scheduleAnchorDate = $repaymentStartDate ?? $disbursementDate;
+
+        $loan = new Loans();
+        $loan->subshop_id = $subshopId;
+        $loan->loan_product_id = (int) $product->id;
+        $loan->borrower_type = (string) $validated['borrower_type'];
+        $loan->principal_amount = $principal;
+        $loan->interest_rate = $interestRate;
+        $loan->installments = $installments;
+        $loan->disbursement_date = $scheduleAnchorDate;
+        $loan->repayment_frequency_code = $product->repaymentFrequency?->code;
+        $loan->setRelation('loanProduct', $product);
+
+        try {
+            $schedule = $scheduleEngine->generate($loan);
+        } catch (InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $interestTotal = 0.0;
+        $principalTotal = 0.0;
+        $totalPayable = 0.0;
+        foreach ($schedule as $row) {
+            $interestTotal += (float) ($row['interest_amount'] ?? 0);
+            $principalTotal += (float) ($row['principal_amount'] ?? 0);
+            $totalPayable += (float) ($row['total_due'] ?? 0);
+        }
+
+        $last = collect($schedule)->last();
+        $maturity = is_array($last) && !empty($last['due_date'])
+            ? Carbon::parse((string) $last['due_date'])->toDateString()
+            : null;
+
+        return response()->json([
+            'schedule' => $schedule,
+            'maturity_date' => $maturity,
+            'totals' => [
+                'principal' => round($principalTotal, 2),
+                'interest' => round($interestTotal, 2),
+                'total_payable' => round($totalPayable, 2),
+            ],
+        ]);
     }
 
     /**

@@ -222,7 +222,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [8] },
                 { searchable: false, targets: [8] }
             ],
-            order: [[2, 'desc']]
+            order: [[3, 'desc']]
         });
     }
 });

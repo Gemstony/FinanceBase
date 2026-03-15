@@ -118,6 +118,7 @@
                 <table class="table table-hover" id="LoanProductsTable">
                     <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
                         <tr>
+                            <th>#</th>
                             <th>Name</th>
                             <th>Code</th>
                             <th>Interest</th>
@@ -131,8 +132,12 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $counter = 1;
+                        @endphp
                         @forelse($loanProducts as $p)
                         <tr>
+                            <td>{{ $counter++ }}</td>
                             <td>
                                 <div class="font-weight-bold">{{ $p->name }}</div>
                                 <div class="small text-muted">{{ $p->description ? \Illuminate\Support\Str::limit($p->description, 80) : '' }}</div>

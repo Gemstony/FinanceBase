@@ -11,8 +11,8 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-clock"></i> Cycles</h1>
                 <p class="mb-0 text-light">Managing interest cycles for: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Change Branch
+            <a href="{{ route('loans.loans_settings.index') }}" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>
     </div>

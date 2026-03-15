@@ -76,6 +76,7 @@
                     <table class="table table-striped table-hover" id="creditsTable">
                         <thead class="thead-light">
                             <tr>
+                                <th>#</th>
                                 <th>Borrower</th>
                                 <th>Loan Source</th>
                                 <th class="text-right">Amount</th>
@@ -85,8 +86,12 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $counter = 1;
+                            @endphp
                             @foreach($credits as $credit)
                                 <tr>
+                                    <td>{{ $counter++ }}</td>
                                     <td>{{ $credit->customer?->name ?? '—' }}</td>
                                     <td>{{ $credit->loan?->loan_code ?? '—' }}</td>
                                     <td class="text-right">{{ number_format((float) $credit->amount, 2) }}</td>
@@ -136,7 +141,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [5] },
                 { searchable: false, targets: [5] }
             ],
-            order: [[4, 'desc']]
+            order: [[5, 'desc']]
         });
     }
 });

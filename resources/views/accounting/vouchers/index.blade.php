@@ -135,6 +135,7 @@
                     <table class="table table-striped table-hover mb-0" id="vouchersTable">
                         <thead class="thead-light">
                             <tr>
+                                <th>#</th>
                                 <th>Voucher #</th>
                                 <th>Type</th>
                                 <th>Date</th>
@@ -147,8 +148,12 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $counter = 1;
+                            @endphp
                             @forelse($vouchers as $v)
                                 <tr>
+                                    <td>{{ $counter++ }}</td>
                                     <td><strong>{{ $v->voucher_number }}</strong></td>
                                     <td>
                                         @if($v->voucher_type === 'receipt')

@@ -50,6 +50,7 @@
                 <table class="table table-hover table-striped" id="rejectedLoansTable">
                     <thead>
                         <tr>
+                            <th>#</th>
                             <th>Loan Code</th>
                             <th>Customer/Group</th>
                             <th>Product</th>
@@ -60,8 +61,12 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $counter = 1;
+                        @endphp
                         @forelse($loans as $loan)
                             <tr>
+                                <td>{{ $counter++ }}</td>
                                 <td>
                                     <a href="{{ route('loans.loans.show', $loan) }}" class="font-weight-bold text-danger">
                                         {{ $loan->loan_code }}
@@ -123,7 +128,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [6] },
                 { searchable: false, targets: [6] }
             ],
-            order: [[0, 'desc']]
+            order: [[1, 'desc']]
         });
     }
 });

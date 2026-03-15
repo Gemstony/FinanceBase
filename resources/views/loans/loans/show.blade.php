@@ -121,9 +121,12 @@
                         Principal: <strong>{{ number_format((float)$loan->principal_amount, 2) }}</strong>
                     </div>
                     <div class="mt-2">
-                        <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.collect.form', $loan) }}">
-                            <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
-                        </a>
+                        @if((bool) ($loan->requires_security_deposit ?? false) && (string) $loan->borrower_type === 'individual')
+
+                            <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.collect.form', $loan) }}">
+                                <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
+                            </a>
+                        @endif
                         @if(!(bool) ($loan->is_written_off ?? false) && (string) $loan->status !== 'written_off')
                             <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
                                 <i class="fas fa-random"></i> Restructure Loan

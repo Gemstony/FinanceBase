@@ -60,6 +60,7 @@
                 <table class="table table-hover" id="restructuredLoansTable">
                     <thead>
                         <tr>
+                            <th>#</th>
                             <th>Loan Code</th>
                             <th>Customer</th>
                             <th>Old Term/Rate</th>
@@ -70,11 +71,15 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $counter = 1;
+                        @endphp
                         @forelse($restructures as $r)
                             @php
                                 $loan = $r->loan;
                             @endphp
                             <tr>
+                                <td>{{ $counter++ }}</td>
                                 <td>
                                     @if($loan)
                                         <a href="{{ route('loans.loans.show', $loan) }}" class="font-weight-bold">
@@ -172,7 +177,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [6] },
                 { searchable: false, targets: [6] }
             ],
-            order: [[0, 'desc']]
+            order: [[1, 'desc']]
         });
     }
 });

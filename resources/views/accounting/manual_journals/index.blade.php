@@ -141,6 +141,7 @@
                     <table class="table table-striped table-hover" id="manualJournalsTable">
                         <thead class="thead-light">
                             <tr>
+                                <th>#</th>
                                 <th>Reference</th>
                                 <th>Date</th>
                                 <th>Description</th>
@@ -152,6 +153,9 @@
                             </tr>
                         </thead>
                         <tbody>
+                            @php
+                                $counter = 1;
+                            @endphp
                             @forelse($journals as $j)
                                 @php
                                     $totalDebit = (float) $j->lines->sum('debit');
@@ -161,6 +165,7 @@
                                     $isReversed = isset($reversedDraftIds) && in_array((int) $j->id, $reversedDraftIds, true);
                                 @endphp
                                 <tr>
+                                    <td>{{ $counter++ }}</td>
                                     <td>#{{ $j->id }}</td>
                                     <td>{{ $j->transaction_date?->format('Y-m-d') ?? '—' }}</td>
                                     <td>{{ $j->description ?? '—' }}</td>
@@ -273,7 +278,7 @@ $(document).ready(function() {
     if ($.fn.DataTable) {
         $mjTable.DataTable({
             "order": [],
-            "pageLength": 15,
+            "pageLength": 16,
             "language": {
                 "search": "Search journals:",
                 "lengthMenu": "Show _MENU_ journals per page",

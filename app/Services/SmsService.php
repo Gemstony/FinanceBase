@@ -19,6 +19,11 @@ class SmsService
         $this->url = 'https://apisms.beem.africa/v1/send';
     }
 
+    public function send(string $phone, string $message): bool
+    {
+        return $this->sendSms($phone, $message);
+    }
+
     /**
      * Format phone number to international format (255...)
      * Handles numbers starting with 0 (local) or already international
@@ -54,6 +59,9 @@ class SmsService
     {
         $formattedPhone = $this->formatPhoneNumber($phone);
 
+        $sensitive = is_array($context) && ($context['sensitive'] ?? false) === true;
+        $messageForStorage = $sensitive ? '[REDACTED]' : $message;
+
         $log = null;
         try {
             // Pre-create log as queued if logging is desired
@@ -63,7 +71,7 @@ class SmsService
                     'subshop_id' => $context['subshop_id'] ?? null,
                     'owner_id' => $context['owner_id'] ?? null,
                     'phone' => $formattedPhone,
-                    'message' => $message,
+                    'message' => $messageForStorage,
                     'type' => $context['type'] ?? null,
                     'status' => 'queued',
                     'provider' => 'beem',
@@ -94,7 +102,7 @@ class SmsService
             ])->post($this->url, $postData);
 
             if ($response->successful()) {
-                Log::info('SMS sent successfully to ' . $formattedPhone . ': ' . $message);
+                Log::info('SMS sent successfully to ' . $formattedPhone);
                 if ($log) {
                     try {
                         $log->update([
@@ -137,25 +145,5 @@ class SmsService
             }
             return false;
         }
-    }
-
-    /**
-     * Send password reset SMS
-     */
-    public function sendPasswordResetSms($phone, $newPassword)
-    {
-        $message = "Your password has been reset. Your new password is: {$newPassword}. Please change it after logging in for security reasons.";
-
-        return $this->sendSms($phone, $message);
-    }
-
-    /**
-     * Send forgot password SMS with new generated password
-     */
-    public function sendForgotPasswordSms($phone, $newPassword)
-    {
-        $message = "Password reset request. Your new password is: {$newPassword}. Please login and change it immediately.";
-
-        return $this->sendSms($phone, $message);
     }
 }

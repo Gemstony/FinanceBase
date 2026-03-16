@@ -63,6 +63,7 @@ use App\Http\Controllers\Loans\Risk\CollectionsController;
 use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
 use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
 use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\Admin\AdminUsersController;
 
 use Illuminate\Http\Request;
 
@@ -78,27 +79,7 @@ Route::prefix('risk')->group(function () {
     Route::get('/delinquent/{days}', [PortfolioRiskController::class, 'delinquentByDays'])->name('risk.delinquent.by_days');
     Route::get('/collections', [CollectionsController::class, 'index'])->name('risk.collections');
 });
-// Route::middleware('auth')->group(function () {
-//     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-//     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-//     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-//    // Shop setup routes
-//     Route::get('/shop/setup', [ShopController::class, 'create'])->name('shop.create');
-//     Route::post('/shop/setup', [ShopController::class, 'store'])->name('shop.store');
-    
-//     // Protected routes - require shop setup
-//     Route::middleware(['has.shop'])->group(function () {
-        
-//         // Shop management routes
-//         Route::get('/shop', [ShopController::class, 'show'])->name('shop.show');
-//         Route::get('/shop/edit', [ShopController::class, 'edit'])->name('shop.edit');
-//         Route::put('/shop', [ShopController::class, 'update'])->name('shop.update');
-        
-
-//     });
-    
-// });
 
 
 Route::middleware(['auth'])->group(function () {
@@ -639,6 +620,16 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/security/timezone', [SecurityController::class, 'updateTimezone'])->name('admin.security.timezone.update');
 
            
+            // Admin Users Management routes
+            Route::get('/superadmin/users', [AdminUsersController::class, 'index'])->name('superadmin.users.index');
+            Route::post('/superadmin/users', [AdminUsersController::class, 'store'])->name('superadmin.users.store');
+            Route::put('/superadmin/users/{user}', [AdminUsersController::class, 'update'])->name('superadmin.users.update');
+            Route::delete('/superadmin/users/{user}', [AdminUsersController::class, 'destroy'])->name('superadmin.users.destroy');
+            Route::post('/superadmin/users/{user}/reset-password', [AdminUsersController::class, 'resetPassword'])->name('superadmin.users.reset-password');
+            Route::post('/superadmin/users/bulk-action', [AdminUsersController::class, 'bulkAction'])->name('superadmin.users.bulk-action');
+            Route::get('/superadmin/users/export', [AdminUsersController::class, 'export'])->name('superadmin.users.export');
+            
+            
         });
 
         // Payments management route (for owners and super admins)

@@ -398,6 +398,11 @@ return [
                 'text' => 'Owners',
                 'url' => '/owners',
             ],
+            [
+                'text' => 'Users Management',
+                'url' => '/superadmin/users',
+                'icon' => 'fas fa-users',
+            ],
 
             [
                 'text' => 'SMS Management',

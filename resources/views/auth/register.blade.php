@@ -42,7 +42,7 @@
         </div>
       @endif
 
-      <form action="{{ route('register') }}" method="post">
+      <form action="{{ route('register') }}" method="post" id="registerForm">
         @csrf
         <div class="input-group mb-3">
           <input type="text" class="form-control @error('name') is-invalid @enderror" placeholder="Full name" name="name" value="{{ old('name') }}" required autofocus>
@@ -102,11 +102,14 @@
         <div class="row">
           <div class="col-8">
             <div class="icheck-primary">
-              <input type="checkbox" id="agreeTerms" name="terms" value="agree" {{ old('terms') ? 'checked' : '' }}>
+              <input type="checkbox" id="agreeTerms" name="terms" value="1" {{ old('terms') ? 'checked' : '' }}>
               <label for="agreeTerms">
-               I agree to the <a href="#">terms</a>
+               I agree to the <a href="{{ route('terms') }}" target="_blank">terms</a> and <a href="{{ route('privacy') }}" target="_blank">privacy policy</a>
               </label>
             </div>
+            @error('terms')
+              <div class="invalid-feedback d-block">{{ $message }}</div>
+            @enderror
           </div>
           <!-- /.col -->
           <div class="col-4">
@@ -129,5 +132,51 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- AdminLTE App -->
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+<script>
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+    const termsCheckbox = document.getElementById('agreeTerms');
+    const termsError = document.querySelector('.invalid-feedback.d-block');
+    
+    // Remove existing error message if checkbox is now checked
+    if (termsCheckbox.checked && termsError) {
+        termsError.style.display = 'none';
+    }
+    
+    // Prevent submission if terms are not accepted
+    if (!termsCheckbox.checked) {
+        e.preventDefault();
+        
+        // Show error message if not already visible
+        if (!termsError || termsError.style.display === 'none') {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback d-block';
+            errorDiv.textContent = 'You must agree to the terms and privacy policy to register.';
+            
+            const checkboxContainer = termsCheckbox.closest('.col-8');
+            const existingError = checkboxContainer.querySelector('.invalid-feedback.d-block');
+            
+            if (!existingError) {
+                checkboxContainer.appendChild(errorDiv);
+            } else {
+                existingError.style.display = 'block';
+            }
+        }
+        
+        // Focus on the checkbox
+        termsCheckbox.focus();
+        
+        return false;
+    }
+});
+
+// Remove error when checkbox is checked
+document.getElementById('agreeTerms').addEventListener('change', function() {
+    const termsError = this.closest('.col-8').querySelector('.invalid-feedback.d-block');
+    if (termsError && this.checked) {
+        termsError.style.display = 'none';
+    }
+});
+</script>
 </body>
 </html>

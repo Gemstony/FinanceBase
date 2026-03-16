@@ -116,6 +116,6 @@ class EnsureSubshopAccess
 
         // Redirect to unified chooser with intended URL
         return redirect()->route('subshops.choose', ['intended' => $request->fullUrl()])
-            ->with('info', 'Please choose a shop to continue.');
+            ->with('info', 'Please choose a branch to continue.');
     }
 }

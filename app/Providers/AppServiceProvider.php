@@ -147,6 +147,10 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasPermissionTo('view_profit_and_loss_report');
         }); 
 
+        Gate::define('view_loan_portfolio_report', function ($user) {
+            return $user->hasPermissionTo('view_loan_portfolio_report');
+        }); 
+
         Gate::define('view_items_transfers', function ($user) {
             return $user->hasPermissionTo('view_items_transfers');
         }); 

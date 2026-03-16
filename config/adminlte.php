@@ -575,111 +575,111 @@ return [
         // Products & Inventory
         
 
-        [
-            'text' => 'Inventory',
-            'icon' => 'fas fa-warehouse',
-            'can' => 'view_inventory',
-            'submenu' => [
-                [
-                    'text' => 'Items | Products',
-                    'url' => '/admin/inventory/items',
-                    'can' => 'view_items',
-                ],
+        // [
+        //     'text' => 'Inventory',
+        //     'icon' => 'fas fa-warehouse',
+        //     'can' => 'view_inventory',
+        //     'submenu' => [
+        //         [
+        //             'text' => 'Items | Products',
+        //             'url' => '/admin/inventory/items',
+        //             'can' => 'view_items',
+        //         ],
          
-                [
-                    'text' => 'Categories',
-                    'url' => '/admin/inventory/categories',
-                    'can' => 'view_categories',
-                ], 
+        //         [
+        //             'text' => 'Categories',
+        //             'url' => '/admin/inventory/categories',
+        //             'can' => 'view_categories',
+        //         ], 
 
-                [
-                    'text' => 'Items Transfer',
-                    'url' => '/admin/inventory/transfers',
-                    'can' => 'view_items_transfers',
-                ], 
+        //         [
+        //             'text' => 'Items Transfer',
+        //             'url' => '/admin/inventory/transfers',
+        //             'can' => 'view_items_transfers',
+        //         ], 
              
              
-            ],
-        ],
+        //     ],
+        // ],
 
         // Orders & Sales
       
-        [
-            'text' => 'Sales',
-            'icon' => 'fas fa-dollar-sign',
-            'can' => 'view_sales',
-            'submenu' => [
-                [
-                    'text' => 'POS',
-                    'url' => '/admin/sales/pos',
-                    'can' => 'view_pos'
-                ],
-                [
-                    'text' => 'Invoice History',
-                    'url' => '/admin/sales/invoices',
-                    'can'=> 'view_invoice_history',
-                ],
-                [
-                    'text' => 'Sales Returns',
-                    'url' => '/admin/sales/returns',
-                    'can' => 'view_sales_returns',
-                ],
-                [
-                    'text' => 'Sales Transactions',
-                    'url' => '/admin/sales/transactions',
-                    'can' => 'view_sales_transactions',
-                ],
+        // [
+        //     'text' => 'Sales',
+        //     'icon' => 'fas fa-dollar-sign',
+        //     'can' => 'view_sales',
+        //     'submenu' => [
+        //         [
+        //             'text' => 'POS',
+        //             'url' => '/admin/sales/pos',
+        //             'can' => 'view_pos'
+        //         ],
+        //         [
+        //             'text' => 'Invoice History',
+        //             'url' => '/admin/sales/invoices',
+        //             'can'=> 'view_invoice_history',
+        //         ],
+        //         [
+        //             'text' => 'Sales Returns',
+        //             'url' => '/admin/sales/returns',
+        //             'can' => 'view_sales_returns',
+        //         ],
+        //         [
+        //             'text' => 'Sales Transactions',
+        //             'url' => '/admin/sales/transactions',
+        //             'can' => 'view_sales_transactions',
+        //         ],
            
-            ],
-        ],
+        //     ],
+        // ],
 
         // Purchases
-        [
-            'text' => 'Purchases',
-            'icon' => 'fas fa-shopping-basket',
-            'can' => 'view_purchases',
-            'submenu' => [
-                [
-                    'text' => 'New Purchase',
-                    'url' => '/admin/purchases/purchase',
-                    'can' => 'view_new_purchases',
-                ],
-                [
-                    'text' => 'Purchase History',
-                    'url' => '/admin/purchases/purchase-orders',
-                    'can' => 'view_purchase_history',
-                ],
-                  [
-                    'text' => 'Purchase Returns',
-                    'url' => '/admin/purchases/returns',
-                    'can' => 'view_purchase_returns',
-                ], 
-                [
-                    'text' => 'Purchases Transactions',
-                    'url' => '/admin/purchases/transactions',
-                    'can' => 'view_purchase_transactions',
-                ],
+        // [
+        //     'text' => 'Purchases',
+        //     'icon' => 'fas fa-shopping-basket',
+        //     'can' => 'view_purchases',
+        //     'submenu' => [
+        //         [
+        //             'text' => 'New Purchase',
+        //             'url' => '/admin/purchases/purchase',
+        //             'can' => 'view_new_purchases',
+        //         ],
+        //         [
+        //             'text' => 'Purchase History',
+        //             'url' => '/admin/purchases/purchase-orders',
+        //             'can' => 'view_purchase_history',
+        //         ],
+        //           [
+        //             'text' => 'Purchase Returns',
+        //             'url' => '/admin/purchases/returns',
+        //             'can' => 'view_purchase_returns',
+        //         ], 
+        //         [
+        //             'text' => 'Purchases Transactions',
+        //             'url' => '/admin/purchases/transactions',
+        //             'can' => 'view_purchase_transactions',
+        //         ],
            
              
-            ],
-        ],
-        [
-            'text' => 'Expenses',
-            'url' => '/admin/finance/expenses',
-            'icon' => 'fas fa-receipt',
-            'can' => 'view_expenses',
-            'label' => 'pending_expenses_count',
-            'label_color' => 'warning',
-        ],
-        [
-            'text' => 'Write Offs',
-            'url' => '/admin/inventory/writeoffs',
-            'icon' => 'fa fa-minus-circle',
-            'can' => 'view_writeoffs',
-            'label' => 'pending_writeoffs_count',
-            'label_color' => 'warning',
+        //     ],
+        // ],
+        // [
+        //     'text' => 'Expenses',
+        //     'url' => '/admin/finance/expenses',
+        //     'icon' => 'fas fa-receipt',
+        //     'can' => 'view_expenses',
+        //     'label' => 'pending_expenses_count',
+        //     'label_color' => 'warning',
+        // ],
+        // [
+        //     'text' => 'Write Offs',
+        //     'url' => '/admin/inventory/writeoffs',
+        //     'icon' => 'fa fa-minus-circle',
+        //     'can' => 'view_writeoffs',
+        //     'label' => 'pending_writeoffs_count',
+        //     'label_color' => 'warning',
        
-        ],
+        // ],
         [
             'text' => 'Customers',
             'url' => '/admin/sales/customers',
@@ -687,22 +687,22 @@ return [
             'can' => 'view_customers',
         ],
 
-        [
-            'text' => 'Suppliers',
-            'url' => '/admin/inventory/suppliers',
-            'icon' => 'fas fa-truck',
-            'can' => 'view_suppliers',
-        ],
+        // [
+        //     'text' => 'Suppliers',
+        //     'url' => '/admin/inventory/suppliers',
+        //     'icon' => 'fas fa-truck',
+        //     'can' => 'view_suppliers',
+        // ],
 
         ['header' => 'Managements'],
 
         //banks
-           [
-            'text' => 'Banks',
-            'url' => '/admin/finance/banks',
-            'icon' => 'fas fa-university',
-            'can' => 'view_banks'
-        ],
+        //    [
+        //     'text' => 'Banks',
+        //     'url' => '/admin/finance/banks',
+        //     'icon' => 'fas fa-university',
+        //     'can' => 'view_banks'
+        // ],
 
         // Reports
         [
@@ -710,32 +710,38 @@ return [
             'icon' => 'fas fa-chart-line',
             'can' => 'view_reports',
             'submenu' => [
+                
                 [
-                    'text' => 'Inventory Report',
-                    'url' => '/admin/reports/inventory',
-                    'can' => 'view_inventory_report',
+                    'text' => 'Loans Reports',
+                    'url' => '/admin/reports/loan-reports',
+
                 ],
-                [
-                    'text' => 'Inventory Ledger',
-                    'url' => '/admin/reports/inventory/ledger',
-                    'can' => 'view_inventory_ledger',
+                // [
+                //     'text' => 'Inventory Report',
+                //     'url' => '/admin/reports/inventory',
+                //     'can' => 'view_inventory_report',
+                // ],
+                // [
+                //     'text' => 'Inventory Ledger',
+                //     'url' => '/admin/reports/inventory/ledger',
+                //     'can' => 'view_inventory_ledger',
                     
-                ],
-                [
-                    'text' => 'Sales Report',
-                    'url' => '/admin/reports/sales',
-                    'can' => 'view_sales_report',
-                ],
-                [
-                    'text' => 'Purchase Report',
-                    'url' => '/admin/reports/purchases',
-                    'can' => 'view_purchases_report',
-                ],
-                [
-                    'text' => 'Profit & Loss Report',
-                    'url' => '/admin/reports/profit-and-loss',
-                    'can' => 'view_profit_and_loss_report',
-                ],
+                // ],
+                // [
+                //     'text' => 'Sales Report',
+                //     'url' => '/admin/reports/sales',
+                //     'can' => 'view_sales_report',
+                // ],
+                // [
+                //     'text' => 'Purchase Report',
+                //     'url' => '/admin/reports/purchases',
+                //     'can' => 'view_purchases_report',
+                // ],
+                // [
+                //     'text' => 'Profit & Loss Report',
+                //     'url' => '/admin/reports/profit-and-loss',
+                //     'can' => 'view_profit_and_loss_report',
+                // ],
          
             ],
         ],

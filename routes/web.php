@@ -743,6 +743,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_loan_performance_report')
             ->name('reports.loan_performance.export');
 
+        // Loan Disbursement Report
+        Route::get('/admin/reports/loan-disbursement', [\App\Http\Controllers\Reports\LoanDisbursementReportController::class, 'index'])
+            ->middleware('can:view_loan_disbursement_report')
+            ->name('reports.loan_disbursement.index');
+        Route::get('/admin/reports/loan-disbursement/export/{format}', [\App\Http\Controllers\Reports\LoanDisbursementReportController::class, 'export'])
+            ->middleware('can:view_loan_disbursement_report')
+            ->name('reports.loan_disbursement.export');
+
         // Delinquency Report
         Route::get('/admin/reports/delinquency', [\App\Http\Controllers\Reports\DelinquencyReportController::class, 'index'])
             ->middleware('can:view_delinquency_report')

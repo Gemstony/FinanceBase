@@ -118,6 +118,7 @@ class PermissionsSeeder extends Seeder
             'view_loan_portfolio_report',
             'view_loan_performance_report',
             'view_delinquency_report',
+            'view_loan_disbursement_report',
         ];
 
         foreach ($permissions as $permission) {

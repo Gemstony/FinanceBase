@@ -110,6 +110,27 @@
                 </div>
             </div>
 
+            <!-- Loan Disbursement Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Disbursement Report</span>
+                        <span class="info-box-number">
+                            Issuance KPIs, trends, officer performance, methods, top borrowers
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_disbursement.index') }}" 
+                               class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Branch Settings Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

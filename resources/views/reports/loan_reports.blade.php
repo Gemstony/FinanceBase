@@ -68,6 +68,27 @@
                 </div>
             </div>
 
+            <!-- Loan Performance Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-chart-line"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Performance Report</span>
+                        <span class="info-box-number">
+                            Collection efficiency, on-time vs late, trends, write-offs
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_performance.index') }}" 
+                               class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Branch Settings Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

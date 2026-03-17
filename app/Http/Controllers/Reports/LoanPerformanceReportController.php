@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers\Reports;
 
-use App\Exports\Reports\LoanPortfolioExport;
+use App\Exports\Reports\LoanPerformanceExport;
 use App\Models\LoanProducts;
 use App\Models\SubShop;
 use App\Models\User;
-use App\Services\Reports\LoanPortfolioReportService;
+use App\Services\Reports\LoanPerformanceReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
-class LoanPortfolioReportController extends \App\Http\Controllers\Controller
+class LoanPerformanceReportController extends \App\Http\Controllers\Controller
 {
     public function __construct(
-        private readonly LoanPortfolioReportService $service,
+        private readonly LoanPerformanceReportService $service,
     ) {
     }
 
@@ -56,7 +56,6 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
 
         $data = $this->service->build($filters, $accessibleSubshopIds);
 
-        // Filter dropdown data
         $productQ = LoanProducts::query()->orderBy('name');
         if ($subshopId) {
             $productQ->where('subshop_id', $subshopId);
@@ -80,7 +79,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
             ->distinct()
             ->get(['id', 'name']);
 
-        return view('reports.loan_portfolio', [
+        return view('reports.loan_performance', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -89,7 +88,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
             'officers' => $officers,
             'filters' => $filters,
             'report' => $data,
-            'exportUrl' => route('reports.loan_portfolio.export', array_filter([
+            'exportUrl' => route('reports.loan_performance.export', array_filter([
                 'format' => 'xlsx',
                 'date_from' => $dateFrom->toDateString(),
                 'date_to' => $dateTo->toDateString(),
@@ -98,7 +97,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
                 'loan_officer_id' => $filters['loan_officer_id'],
                 'loan_status' => $filters['loan_status'],
             ], fn ($v) => !is_null($v) && $v !== '')),
-            'pdfUrl' => route('reports.loan_portfolio.export', array_filter([
+            'pdfUrl' => route('reports.loan_performance.export', array_filter([
                 'format' => 'pdf',
                 'date_from' => $dateFrom->toDateString(),
                 'date_to' => $dateTo->toDateString(),
@@ -146,14 +145,13 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
 
         $data = $this->service->build($filters, $accessibleSubshopIds);
 
-        $filenameBase = 'loan-portfolio-report-' . now()->format('Y-m-d-His');
+        $filenameBase = 'loan-performance-report-' . now()->format('Y-m-d-His');
 
         if (strtolower($format) === 'pdf') {
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
-
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_portfolio', [
+            $pdf = Pdf::loadView('reports.pdf.loan_performance', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),
@@ -166,7 +164,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
             return $pdf->download($filenameBase . '.pdf');
         }
 
-        $export = new LoanPortfolioExport($data);
+        $export = new LoanPerformanceExport($data);
 
         $ext = strtolower($format) === 'csv' ? 'csv' : 'xlsx';
 

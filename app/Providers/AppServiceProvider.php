@@ -155,6 +155,10 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasPermissionTo('view_loan_aging_report');
         }); 
 
+        Gate::define('view_loan_aging_installment_report', function ($user) {
+            return $user->hasPermissionTo('view_loan_aging_installment_report');
+        }); 
+
         Gate::define('view_loan_performance_report', function ($user) {
             return $user->hasPermissionTo('view_loan_performance_report');
         }); 

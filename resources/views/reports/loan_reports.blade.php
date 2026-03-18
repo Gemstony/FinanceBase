@@ -89,6 +89,27 @@
                 </div>
             </div>
 
+            <!-- Loan Aging Installment Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-dark elevation-1">
+                        <i class="fas fa-list"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Installment Aging Report</span>
+                        <span class="info-box-number">
+                            Installment DPD aging, missed/partial analysis, allocation validation
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.installment_aging.index') }}" 
+                               class="btn btn-sm btn-outline-dark">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Loan Performance Report Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

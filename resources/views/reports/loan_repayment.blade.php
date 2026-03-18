@@ -138,6 +138,35 @@
         </div>
       </div>
 
+            @php
+        $trendGranularity = request('trend_granularity', 'auto');
+        $tAll = $report['trends'] ?? [];
+        $t = $tAll[$trendGranularity] ?? ($tAll['auto'] ?? []);
+      @endphp
+
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <strong>Repayment Trends</strong>
+              <form method="get" action="{{ route('reports.loan_repayment.index') }}" class="m-0">
+                @foreach(request()->except('trend_granularity','page','installments_page') as $k => $v)
+                  <input type="hidden" name="{{ $k }}" value="{{ $v }}">
+                @endforeach
+                <select name="trend_granularity" class="form-control form-control-sm" onchange="this.form.submit()" style="width: 160px;">
+                  @foreach(['auto' => 'Auto', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $k => $lbl)
+                    <option value="{{ $k }}" {{ $trendGranularity === $k ? 'selected' : '' }}>{{ $lbl }}</option>
+                  @endforeach
+                </select>
+              </form>
+            </div>
+            <div class="card-body">
+              <canvas id="repaymentTrendsChart" height="120"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         <div class="col-12 col-lg-6">
           <div class="card">
@@ -198,34 +227,7 @@
         </div>
       </div>
 
-      @php
-        $trendGranularity = request('trend_granularity', 'auto');
-        $tAll = $report['trends'] ?? [];
-        $t = $tAll[$trendGranularity] ?? ($tAll['auto'] ?? []);
-      @endphp
 
-      <div class="row">
-        <div class="col-12">
-          <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-              <strong>Repayment Trends</strong>
-              <form method="get" action="{{ route('reports.loan_repayment.index') }}" class="m-0">
-                @foreach(request()->except('trend_granularity','page','installments_page') as $k => $v)
-                  <input type="hidden" name="{{ $k }}" value="{{ $v }}">
-                @endforeach
-                <select name="trend_granularity" class="form-control form-control-sm" onchange="this.form.submit()" style="width: 160px;">
-                  @foreach(['auto' => 'Auto', 'daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'] as $k => $lbl)
-                    <option value="{{ $k }}" {{ $trendGranularity === $k ? 'selected' : '' }}>{{ $lbl }}</option>
-                  @endforeach
-                </select>
-              </form>
-            </div>
-            <div class="card-body">
-              <canvas id="repaymentTrendsChart" height="120"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="row">
         <div class="col-12 col-lg-6">

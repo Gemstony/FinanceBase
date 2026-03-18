@@ -194,6 +194,47 @@
                 </div>
             </div>
 
+            <!-- Loan Outstanding Balance Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-balance-scale"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Outstanding Balance Report</span>
+                        <span class="info-box-number">
+                            Principal, interest, and fees outstanding as-at a date
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_outstanding.index') }}" 
+                               class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loan Arrears Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Arrears Report</span>
+                        <span class="info-box-number">
+                            Overdue installments, arrears aging, top defaulters and trend
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_arrears.index') }}" 
+                               class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>

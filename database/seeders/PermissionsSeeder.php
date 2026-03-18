@@ -115,6 +115,7 @@ class PermissionsSeeder extends Seeder
             'retry_print_jobs',
             'debug_printer',
             'perform_bank_reconciliation',
+            'view_loan_reports',
             'view_loan_portfolio_report',
             'view_loan_aging_report',
             'view_loan_aging_installment_report',
@@ -122,13 +123,12 @@ class PermissionsSeeder extends Seeder
             'view_delinquency_report',
             'view_loan_disbursement_report',
             'view_loan_repayment_report',
+            'view_loan_outstanding_report',
+            'view_loan_arrears_report',
         ];
 
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(
-                ['name' => $permission],
-                ['guard_name' => 'web']
-            );
+            Permission::firstOrCreate(['name' => $permission], ['guard_name' => 'web']);
         }
     }
 }

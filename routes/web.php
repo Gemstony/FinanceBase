@@ -735,6 +735,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_loan_portfolio_report')
             ->name('reports.loan_portfolio.export');
 
+        // Loan Outstanding Balance Report
+        Route::get('/admin/reports/loan-outstanding', [\App\Http\Controllers\Reports\LoanOutstandingReportController::class, 'index'])
+            ->middleware('can:view_loan_outstanding_report')
+            ->name('reports.loan_outstanding.index');
+        Route::get('/admin/reports/loan-outstanding/export/{format}', [\App\Http\Controllers\Reports\LoanOutstandingReportController::class, 'export'])
+            ->middleware('can:view_loan_outstanding_report')
+            ->name('reports.loan_outstanding.export');
+
         // Loan Aging Report
         Route::get('/admin/reports/loan-aging', [\App\Http\Controllers\Reports\LoanAgingReportController::class, 'index'])
             ->middleware('can:view_loan_aging_report')
@@ -783,9 +791,17 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_delinquency_report')
             ->name('reports.delinquency.export');
 
+        // Loan Arrears Report
+        Route::get('/admin/reports/loan-arrears', [\App\Http\Controllers\Reports\LoanArrearsReportController::class, 'index'])
+            ->middleware('can:view_loan_arrears_report')
+            ->name('reports.loan_arrears.index');
+        Route::get('/admin/reports/loan-arrears/export/{format}', [\App\Http\Controllers\Reports\LoanArrearsReportController::class, 'export'])
+            ->middleware('can:view_loan_arrears_report')
+            ->name('reports.loan_arrears.export');
+
         // Loan Reports Hub
         Route::get('/admin/reports/loan-reports', [\App\Http\Controllers\Reports\LoanReportsController::class, 'index'])
-            ->middleware('can:view_loan_portfolio_report')
+            ->middleware('can:view_loan_reports')
             ->name('reports.loan_reports.index');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])

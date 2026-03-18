@@ -68,6 +68,27 @@
                 </div>
             </div>
 
+            <!-- Loan Aging Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-secondary elevation-1">
+                        <i class="fas fa-hourglass-half"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Aging Report</span>
+                        <span class="info-box-number">
+                            DPD buckets, PAR trends, high-risk and write-off candidates
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_aging.index') }}" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Loan Performance Report Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
@@ -146,26 +167,6 @@
                             <a href="{{ route('reports.loan_repayment.index') }}" 
                                class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-arrow-right mr-1"></i> Open Report
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Branch Settings Card -->
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-success elevation-1">
-                        <i class="fas fa-code-branch"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Account Groups</span>
-                        <span class="info-box-number">
-                            Manage Account Groups
-                        </span>
-                        <div class="mt-2">
-                            <a href="{{ Route('accounting.account_groups.index') }}" class="btn btn-sm btn-outline-success">
-                                <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>
                     </div>

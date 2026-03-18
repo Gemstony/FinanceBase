@@ -58,7 +58,7 @@ class PortfolioRiskController extends Controller
         $loans = $this->delinquencyEngine->getDelinquentLoans(1);
         
         // Apply eager loading to avoid N+1
-        $loans->load(['customer', 'loanGroup', 'loanProduct', 'loanOfficer']);
+        $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
         // Manual sorting by days overdue if needed, or handle in view with DataTables
         // For simplicity, we'll let DataTables handle the UI sorting.
@@ -76,7 +76,7 @@ class PortfolioRiskController extends Controller
     public function delinquentByDays(int $days): View
     {
         $loans = $this->delinquencyEngine->getDelinquentLoans($days);
-        $loans->load(['customer', 'loanGroup', 'loanProduct', 'loanOfficer']);
+        $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
         return view('risk.delinquent', [
             'loans' => $loans,

@@ -131,6 +131,27 @@
                 </div>
             </div>
 
+            <!-- Loan Repayments Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-primary elevation-1">
+                        <i class="fas fa-money-check-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Repayments Report</span>
+                        <span class="info-box-number">
+                            Repayment KPIs, trends, on-time vs late, officer & product breakdowns
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.loan_repayment.index') }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Branch Settings Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

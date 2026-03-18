@@ -79,7 +79,7 @@
                                             {{ strtoupper($loan->risk_category) }}
                                         </span>
                                     </td>
-                                    <td>{{ $loan->loanOfficer?->name ?? 'Unassigned' }}</td>
+                                    <td>{{ $loan->latestDisbursement?->processor?->name ?? 'Unassigned' }}</td>
                                     <td class="text-right">
                                         <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-sm btn-primary">
                                             <i class="fas fa-eye"></i> View Loan

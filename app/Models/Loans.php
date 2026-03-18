@@ -178,6 +178,16 @@ class Loans extends Model
         return $this->hasMany(LoanDisbursements::class, 'loan_id');
     }
 
+    public function latestDisbursement()
+    {
+        return $this->hasOne(LoanDisbursements::class, 'loan_id')->latestOfMany();
+    }
+
+    public function repayments()
+    {
+        return $this->hasMany(LoanPayments::class, 'loan_id');
+    }
+
     public function approvals()
     {
         return $this->hasMany(LoanApprovals::class, 'loan_id');

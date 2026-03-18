@@ -24,7 +24,7 @@ class CollectionsController extends Controller
         // For collections, we typically look at everything 1+ days overdue
         $loans = $this->delinquencyEngine->getDelinquentLoans(1);
         
-        $loans->load(['customer', 'loanGroup', 'loanOfficer']);
+        $loans->load(['customer', 'loanGroup', 'latestDisbursement.processor']);
 
         // Enrich with outstanding balance and risk category for the view.
         // Also exclude any loans with 0 outstanding (safety filter).

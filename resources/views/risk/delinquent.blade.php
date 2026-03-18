@@ -76,7 +76,7 @@
                                             <i class="fas fa-user text-muted mr-1"></i> {{ $loan->customer?->name }}
                                         @endif
                                     </td>
-                                    <td>{{ $loan->loanOfficer?->name ?? 'N/A' }}</td>
+                                    <td>{{ $loan->latestDisbursement?->processor?->name ?? 'N/A' }}</td>
                                     <td>{{ $maxOverdue }}</td>
                                     <td>{{ number_format($outstanding, 2) }}</td>
                                     <td>

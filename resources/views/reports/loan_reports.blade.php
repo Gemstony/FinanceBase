@@ -152,6 +152,27 @@
                 </div>
             </div>
 
+            <!-- NPL Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-ban"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">NPL Report</span>
+                        <span class="info-box-number">
+                            Non-performing loans, NPL ratio, aging, exposure and recovery tracking
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.npl.index') }}" 
+                               class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-purple elevation-1">

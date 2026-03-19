@@ -121,6 +121,7 @@ class PermissionsSeeder extends Seeder
             'view_loan_aging_installment_report',
             'view_loan_performance_report',
             'view_delinquency_report',
+            'view_npl_report',
             'view_par_report',
             'view_internal_portfolio_analysis',
             'view_loan_disbursement_report',

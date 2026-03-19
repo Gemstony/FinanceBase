@@ -805,6 +805,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_delinquency_report')
             ->name('reports.delinquency.export');
 
+        // NPL Report
+        Route::get('/admin/reports/npl', [\App\Http\Controllers\Reports\NplReportController::class, 'index'])
+            ->middleware('can:view_npl_report')
+            ->name('reports.npl.index');
+        Route::get('/admin/reports/npl/export/{format}', [\App\Http\Controllers\Reports\NplReportController::class, 'export'])
+            ->middleware('can:view_npl_report')
+            ->name('reports.npl.export');
+
         // Loan Arrears Report
         Route::get('/admin/reports/loan-arrears', [\App\Http\Controllers\Reports\LoanArrearsReportController::class, 'index'])
             ->middleware('can:view_loan_arrears_report')

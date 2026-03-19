@@ -872,6 +872,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.general_ledger.journal_entry');
 
+        // Journal Report (Accounting)
+        Route::get('/admin/reports/accounting/journal-report', [\App\Http\Controllers\Reports\Accounting\JournalReportController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.journal_report.index');
+        Route::get('/admin/reports/accounting/journal-report/export/{format}', [\App\Http\Controllers\Reports\Accounting\JournalReportController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.journal_report.export');
+
         // Cash Flow Report (Accounting)
         Route::get('/admin/reports/accounting/cash-flow', [\App\Http\Controllers\Reports\Accounting\CashFlowController::class, 'index'])
             ->middleware('can:view_accounting_reports')

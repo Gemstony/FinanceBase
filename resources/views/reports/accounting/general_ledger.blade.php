@@ -126,28 +126,68 @@
                 <div class="card mb-3">
                     <div class="card-header"><strong>Account Summary</strong></div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
+                        <div class="row mb-3">
+                            <div class="col-md-12">
                                 <div class="small text-muted">Account</div>
                                 <div><strong>{{ $account['account_code'] ?? '' }} - {{ $account['account_name'] ?? '' }}</strong></div>
                             </div>
-                            <div class="col-md-2">
-                                <div class="small text-muted">Opening Balance</div>
-                                <div><strong>{{ $fmt($opening['balance'] ?? 0) }}</strong></div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="small text-muted">Period Debit</div>
-                                <div><strong>{{ $fmt($totals['period_debit'] ?? 0) }}</strong></div>
-                            </div>
-                            <div class="col-md-2">
-                                <div class="small text-muted">Period Credit</div>
-                                <div><strong>{{ $fmt($totals['period_credit'] ?? 0) }}</strong></div>
-                            </div>
                         </div>
-                        <div class="row mt-2">
-                            <div class="col-md-12">
-                                <div class="small text-muted">Closing Balance</div>
-                                <div><strong>{{ $fmt($totals['closing_balance'] ?? 0) }}</strong></div>
+
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="card text-white bg-info">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="text-uppercase small">Opening Balance</div>
+                                                <div class="h5 mb-0">{{ $fmt($opening['balance'] ?? 0) }}</div>
+                                            </div>
+                                            <i class="fas fa-door-open fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <div class="card text-white bg-success">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="text-uppercase small">Period Debit</div>
+                                                <div class="h5 mb-0">{{ $fmt($totals['period_debit'] ?? 0) }}</div>
+                                            </div>
+                                            <i class="fas fa-arrow-circle-down fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <div class="card text-white bg-danger">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="text-uppercase small">Period Credit</div>
+                                                <div class="h5 mb-0">{{ $fmt($totals['period_credit'] ?? 0) }}</div>
+                                            </div>
+                                            <i class="fas fa-arrow-circle-up fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-3 mb-3">
+                                <div class="card text-white bg-dark">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <div class="text-uppercase small">Closing Balance</div>
+                                                <div class="h5 mb-0">{{ $fmt($totals['closing_balance'] ?? 0) }}</div>
+                                            </div>
+                                            <i class="fas fa-flag-checkered fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

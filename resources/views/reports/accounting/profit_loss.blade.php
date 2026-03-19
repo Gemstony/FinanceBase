@@ -138,17 +138,46 @@
                         <div class="card-header"><strong>Totals</strong></div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-md-4">
-                                    <div class="small text-muted">Total Income</div>
-                                    <div><strong>{{ $fmt($totals['total_income'] ?? 0) }}</strong></div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card text-white bg-success">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div class="text-uppercase small">Total Income</div>
+                                                    <div class="h4 mb-0">{{ $fmt($totals['total_income'] ?? 0) }}</div>
+                                                </div>
+                                                <i class="fas fa-arrow-circle-up fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="small text-muted">Total Expenses</div>
-                                    <div><strong>{{ $fmt($totals['total_expenses'] ?? 0) }}</strong></div>
+
+                                <div class="col-md-4 mb-3">
+                                    <div class="card text-white bg-danger">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div class="text-uppercase small">Total Expenses</div>
+                                                    <div class="h4 mb-0">{{ $fmt($totals['total_expenses'] ?? 0) }}</div>
+                                                </div>
+                                                <i class="fas fa-arrow-circle-down fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="small text-muted">{{ $totals['net_label'] ?? 'Net Profit' }}</div>
-                                    <div><strong>{{ $fmt($totals['net_profit'] ?? 0) }}</strong></div>
+
+                                <div class="col-md-4 mb-3">
+                                    <div class="card text-white bg-info">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <div class="text-uppercase small">{{ $totals['net_label'] ?? 'Net Profit' }}</div>
+                                                    <div class="h4 mb-0">{{ $fmt($totals['net_profit'] ?? 0) }}</div>
+                                                </div>
+                                                <i class="fas fa-balance-scale fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

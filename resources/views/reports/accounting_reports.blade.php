@@ -158,8 +158,8 @@
                             Journal entries listing and summaries
                         </span>
                         <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-danger disabled" aria-disabled="true">
-                                <i class="fas fa-clock mr-1"></i> Coming Soon
+                            <a href="{{ route('reports.accounting.journal_report.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>

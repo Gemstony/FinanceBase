@@ -833,6 +833,22 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/loan-reports', [\App\Http\Controllers\Reports\LoanReportsController::class, 'index'])
             ->middleware('can:view_loan_reports')
             ->name('reports.loan_reports.index');
+
+        // Accounting Reports Hub
+        Route::get('/admin/reports/accounting-reports', [\App\Http\Controllers\Reports\AccountingReportsController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting_reports.index');
+
+        // Balance Sheet Report (Accounting)
+        Route::get('/admin/reports/accounting/balance-sheet', [\App\Http\Controllers\Reports\Accounting\BalanceSheetController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.balance_sheet.index');
+        Route::get('/admin/reports/accounting/balance-sheet/export/{format}', [\App\Http\Controllers\Reports\Accounting\BalanceSheetController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.balance_sheet.export');
+        Route::get('/admin/reports/accounting/balance-sheet/account/{accountId}/lines', [\App\Http\Controllers\Reports\Accounting\BalanceSheetController::class, 'accountLines'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.balance_sheet.account_lines');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

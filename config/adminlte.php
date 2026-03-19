@@ -716,6 +716,14 @@ return [
                     'url' => '/admin/reports/loan-reports',
 
                 ],
+
+                [
+                    'text' => 'Accounting Reports',
+                    'url' => '/admin/reports/accounting-reports',
+
+                ],
+
+                
                 // [
                 //     'text' => 'Inventory Report',
                 //     'url' => '/admin/reports/inventory',

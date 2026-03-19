@@ -871,6 +871,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/general-ledger/journal-entry/{journalEntryId}', [\App\Http\Controllers\Reports\Accounting\GeneralLedgerController::class, 'journalEntry'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.general_ledger.journal_entry');
+
+        // Cash Flow Report (Accounting)
+        Route::get('/admin/reports/accounting/cash-flow', [\App\Http\Controllers\Reports\Accounting\CashFlowController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.cash_flow.index');
+        Route::get('/admin/reports/accounting/cash-flow/export/{format}', [\App\Http\Controllers\Reports\Accounting\CashFlowController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.cash_flow.export');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

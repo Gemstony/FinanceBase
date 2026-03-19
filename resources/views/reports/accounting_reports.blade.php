@@ -22,7 +22,6 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i>
                     Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('categories.subshops') }}">Choose Shop</a></li>
             <li class="breadcrumb-item active text-dark" aria-current="page">{{ $subshop->name }} - Accounting Reports
             </li>
         </ol>
@@ -54,13 +53,13 @@
                         <i class="fas fa-balance-scale"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Trial Balance</span>
+                        <span class="info-box-text">Trial Balance Report</span>
                         <span class="info-box-number">
                             Summary of debit and credit balances
                         </span>
                         <div class="mt-2">
                             <a href="{{ route('reports.accounting.trial_balance.index') }}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-arrow-right mr-1"></i> Open
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>
@@ -74,13 +73,13 @@
                         <i class="fas fa-book"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">General Ledger</span>
+                        <span class="info-box-text">General Ledger Report</span>
                         <span class="info-box-number">
                             Account transactions and running balances
                         </span>
                         <div class="mt-2">
                             <a href="{{ route('reports.accounting.general_ledger.index') }}" class="btn btn-sm btn-outline-success">
-                                <i class="fas fa-arrow-right mr-1"></i> Open
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>
@@ -94,7 +93,7 @@
                         <i class="fas fa-chart-line"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Profit &amp; Loss</span>
+                        <span class="info-box-text">Profit &amp; Loss Report</span>
                         <span class="info-box-number">
                             Income, expenses and net profit
                         </span>
@@ -114,13 +113,13 @@
                         <i class="fas fa-file-invoice-dollar"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Balance Sheet</span>
+                        <span class="info-box-text">Balance Sheet Report</span>
                         <span class="info-box-number">
                             Assets, liabilities and equity
                         </span>
                         <div class="mt-2">
                             <a href="{{ route('reports.accounting.balance_sheet.index') }}" class="btn btn-sm btn-outline-dark">
-                                <i class="fas fa-arrow-right mr-1"></i> Open
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>
@@ -134,13 +133,13 @@
                         <i class="fas fa-coins"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Cash Flow</span>
+                        <span class="info-box-text">Cash Flow Report</span>
                         <span class="info-box-number">
                             Cash inflows and outflows
                         </span>
                         <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-warning disabled" aria-disabled="true">
-                                <i class="fas fa-clock mr-1"></i> Coming Soon
+                            <a href="{{ route('reports.accounting.cash_flow.index') }}" class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>

@@ -879,6 +879,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/cash-flow/export/{format}', [\App\Http\Controllers\Reports\Accounting\CashFlowController::class, 'export'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.cash_flow.export');
+
+        // Profit & Loss Report (Accounting)
+        Route::get('/admin/reports/accounting/profit-loss', [\App\Http\Controllers\Reports\Accounting\ProfitLossController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.profit_loss.index');
+        Route::get('/admin/reports/accounting/profit-loss/export/{format}', [\App\Http\Controllers\Reports\Accounting\ProfitLossController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.profit_loss.export');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

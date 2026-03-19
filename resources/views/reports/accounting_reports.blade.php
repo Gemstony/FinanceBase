@@ -98,8 +98,8 @@
                             Income, expenses and net profit
                         </span>
                         <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-info disabled" aria-disabled="true">
-                                <i class="fas fa-clock mr-1"></i> Coming Soon
+                            <a href="{{ route('reports.accounting.profit_loss.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>

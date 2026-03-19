@@ -860,6 +860,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/trial-balance/account/{accountId}/lines', [\App\Http\Controllers\Reports\Accounting\TrialBalanceController::class, 'accountLines'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.trial_balance.account_lines');
+
+        // General Ledger Report (Accounting)
+        Route::get('/admin/reports/accounting/general-ledger', [\App\Http\Controllers\Reports\Accounting\GeneralLedgerController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.general_ledger.index');
+        Route::get('/admin/reports/accounting/general-ledger/export/{format}', [\App\Http\Controllers\Reports\Accounting\GeneralLedgerController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.general_ledger.export');
+        Route::get('/admin/reports/accounting/general-ledger/journal-entry/{journalEntryId}', [\App\Http\Controllers\Reports\Accounting\GeneralLedgerController::class, 'journalEntry'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.general_ledger.journal_entry');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

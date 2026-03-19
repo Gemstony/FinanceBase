@@ -79,8 +79,8 @@
                             Account transactions and running balances
                         </span>
                         <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-success disabled" aria-disabled="true">
-                                <i class="fas fa-clock mr-1"></i> Coming Soon
+                            <a href="{{ route('reports.accounting.general_ledger.index') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
                             </a>
                         </div>
                     </div>

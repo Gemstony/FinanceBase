@@ -80,7 +80,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
             ->distinct()
             ->get(['id', 'name']);
 
-        return view('reports.loan_portfolio', [
+        return view('reports.loans.loan_portfolio', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -153,7 +153,7 @@ class LoanPortfolioReportController extends \App\Http\Controllers\Controller
 
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_portfolio', [
+            $pdf = Pdf::loadView('reports.pdf.loans.loan_portfolio', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

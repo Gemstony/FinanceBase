@@ -94,7 +94,7 @@ class DelinquencyReportController extends \App\Http\Controllers\Controller
             'dpd_max' => $filters['dpd_max'],
         ], fn ($v) => $v !== null && $v !== '');
 
-        return view('reports.delinquency', [
+        return view('reports.loans.delinquency', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -153,7 +153,7 @@ class DelinquencyReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.delinquency', [
+            $pdf = Pdf::loadView('reports.pdf.loans.delinquency', [
                 'report' => $report,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

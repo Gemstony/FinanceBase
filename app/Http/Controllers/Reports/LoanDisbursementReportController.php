@@ -109,7 +109,7 @@ class LoanDisbursementReportController extends \App\Http\Controllers\Controller
             'dd_officer_id' => $filters['drilldown']['officer_id'] ?? null,
         ], fn ($v) => !is_null($v) && $v !== '');
 
-        return view('reports.disbursement', [
+        return view('reports.loans.disbursement', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -173,7 +173,7 @@ class LoanDisbursementReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.disbursement', [
+            $pdf = Pdf::loadView('reports.pdf.loans.disbursement', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

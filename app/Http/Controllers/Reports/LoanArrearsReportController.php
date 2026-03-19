@@ -111,7 +111,7 @@ class LoanArrearsReportController extends \App\Http\Controllers\Controller
             'loan_id' => $filters['loan_id'],
         ], fn ($v) => !is_null($v) && $v !== '');
 
-        return view('reports.loan_arrears', [
+        return view('reports.loans.loan_arrears', [
             'asAtDate' => $asAtDate->toDateString(),
             'subshops' => $allSubshops,
             'selectedSubshopId' => $subshopId,
@@ -175,7 +175,7 @@ class LoanArrearsReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_arrears', [
+            $pdf = Pdf::loadView('reports.pdf.loans.loan_arrears', [
                 'report' => $report,
                 'asAtDate' => $asAtDate->toDateString(),
                 'subshopName' => $subshopName,

@@ -110,7 +110,7 @@ class LoanRepaymentReportController extends \App\Http\Controllers\Controller
             'customer_id' => $filters['customer_id'],
         ], fn ($v) => !is_null($v) && $v !== '');
 
-        return view('reports.loan_repayment', [
+        return view('reports.loans.loan_repayment', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -172,7 +172,7 @@ class LoanRepaymentReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_repayment', [
+            $pdf = Pdf::loadView('reports.pdf.loans.loan_repayment', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

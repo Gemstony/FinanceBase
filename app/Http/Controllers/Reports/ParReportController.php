@@ -91,7 +91,7 @@ class ParReportController extends \App\Http\Controllers\Controller
             'dpd_max' => $filters['dpd_max'],
         ], fn ($v) => $v !== null && $v !== '');
 
-        return view('reports.par', [
+        return view('reports.loans.par', [
             'asAtDate' => $asAtDate->toDateString(),
             'subshops' => $allSubshops,
             'selectedSubshopId' => $subshopId,
@@ -147,7 +147,7 @@ class ParReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.par', [
+            $pdf = Pdf::loadView('reports.pdf.loans.par', [
                 'report' => $report,
                 'asAtDate' => $asAtDate->toDateString(),
                 'subshopName' => $subshopName,

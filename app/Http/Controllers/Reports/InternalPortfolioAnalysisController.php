@@ -80,7 +80,7 @@ class InternalPortfolioAnalysisController extends \App\Http\Controllers\Controll
             ->distinct()
             ->get(['id', 'name']);
 
-        return view('reports.internal_portfolio_analysis', [
+        return view('reports.loans.internal_portfolio_analysis', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -155,7 +155,7 @@ class InternalPortfolioAnalysisController extends \App\Http\Controllers\Controll
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.internal_portfolio_analysis', [
+            $pdf = Pdf::loadView('reports.pdf.loans.internal_portfolio_analysis', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

@@ -93,7 +93,7 @@ class NplReportController extends \App\Http\Controllers\Controller
             'dpd_max' => $filters['dpd_max'],
         ], fn ($v) => $v !== null && $v !== '');
 
-        return view('reports.npl', [
+        return view('reports.loans.npl', [
             'asOf' => $asOf->toDateString(),
             'subshops' => $allSubshops,
             'selectedSubshopId' => $subshopId,
@@ -150,7 +150,7 @@ class NplReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.npl', [
+            $pdf = Pdf::loadView('reports.pdf.loans.npl', [
                 'report' => $report,
                 'asOf' => $asOf->toDateString(),
                 'subshopName' => $subshopName,

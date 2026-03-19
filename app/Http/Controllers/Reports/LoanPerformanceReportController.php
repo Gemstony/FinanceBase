@@ -79,7 +79,7 @@ class LoanPerformanceReportController extends \App\Http\Controllers\Controller
             ->distinct()
             ->get(['id', 'name']);
 
-        return view('reports.loan_performance', [
+        return view('reports.loans.loan_performance', [
             'dateFrom' => $dateFrom->toDateString(),
             'dateTo' => $dateTo->toDateString(),
             'subshops' => $allSubshops,
@@ -151,7 +151,7 @@ class LoanPerformanceReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_performance', [
+            $pdf = Pdf::loadView('reports.pdf.loans.loan_performance', [
                 'report' => $data,
                 'dateFrom' => $dateFrom->toDateString(),
                 'dateTo' => $dateTo->toDateString(),

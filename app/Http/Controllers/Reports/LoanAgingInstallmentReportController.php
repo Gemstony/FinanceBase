@@ -104,7 +104,7 @@ class LoanAgingInstallmentReportController extends \App\Http\Controllers\Control
             'customer' => $filters['customer'],
         ], fn ($v) => $v !== null && $v !== '');
 
-        return view('reports.installment_aging', [
+        return view('reports.loans.installment_aging', [
             'asAtDate' => $asAtDate->toDateString(),
             'subshops' => $allSubshops,
             'selectedSubshopId' => $subshopId,
@@ -165,7 +165,7 @@ class LoanAgingInstallmentReportController extends \App\Http\Controllers\Control
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.installment_aging', [
+            $pdf = Pdf::loadView('reports.pdf.loans.installment_aging', [
                 'report' => $report,
                 'asAtDate' => $asAtDate->toDateString(),
                 'subshopName' => $subshopName,

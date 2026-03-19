@@ -114,7 +114,7 @@ class ExpectedVsCollectedReportController extends \App\Http\Controllers\Controll
             'loan_id' => $filters['loan_id'],
         ], fn ($v) => !is_null($v) && $v !== '');
 
-        return view('reports.expected_vs_collected', [
+        return view('reports.loans.expected_vs_collected', [
             'startDate' => $startDate->toDateString(),
             'endDate' => $endDate->toDateString(),
             'subshops' => $allSubshops,
@@ -180,7 +180,7 @@ class ExpectedVsCollectedReportController extends \App\Http\Controllers\Controll
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.expected_vs_collected', [
+            $pdf = Pdf::loadView('reports.pdf.loans.expected_vs_collected', [
                 'report' => $report,
                 'startDate' => $startDate->toDateString(),
                 'endDate' => $endDate->toDateString(),

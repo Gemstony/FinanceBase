@@ -93,7 +93,7 @@ class LoanOutstandingReportController extends \App\Http\Controllers\Controller
             $customer = $custQ->first(['id', 'name']);
         }
 
-        return view('reports.loan_outstanding', [
+        return view('reports.loans.loan_outstanding', [
             'asAtDate' => $asAtDate->toDateString(),
             'subshops' => $allSubshops,
             'selectedSubshopId' => $subshopId,
@@ -168,7 +168,7 @@ class LoanOutstandingReportController extends \App\Http\Controllers\Controller
             $subshopName = $subshopId ? (optional($allSubshops->firstWhere('id', $subshopId))->name) : null;
             $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
 
-            $pdf = Pdf::loadView('reports.pdf.loan_outstanding', [
+            $pdf = Pdf::loadView('reports.pdf.loans.loan_outstanding', [
                 'report' => $data,
                 'asAtDate' => $asAtDate->toDateString(),
                 'subshopName' => $subshopName,

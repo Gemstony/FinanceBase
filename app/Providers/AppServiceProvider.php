@@ -183,6 +183,10 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasPermissionTo('view_loan_arrears_report');
         });
 
+        Gate::define('view_expected_vs_collected_report', function ($user) {
+            return $user->hasPermissionTo('view_expected_vs_collected_report');
+        });
+
         Gate::define('view_items_transfers', function ($user) {
             return $user->hasPermissionTo('view_items_transfers');
         }); 

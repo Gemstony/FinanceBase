@@ -799,6 +799,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_loan_arrears_report')
             ->name('reports.loan_arrears.export');
 
+        // Expected vs Collected Report
+        Route::get('/admin/reports/expected-vs-collected', [\App\Http\Controllers\Reports\ExpectedVsCollectedReportController::class, 'index'])
+            ->middleware('can:view_expected_vs_collected_report')
+            ->name('reports.expected_vs_collected.index');
+        Route::get('/admin/reports/expected-vs-collected/export/{format}', [\App\Http\Controllers\Reports\ExpectedVsCollectedReportController::class, 'export'])
+            ->middleware('can:view_expected_vs_collected_report')
+            ->name('reports.expected_vs_collected.export');
+
         // Loan Reports Hub
         Route::get('/admin/reports/loan-reports', [\App\Http\Controllers\Reports\LoanReportsController::class, 'index'])
             ->middleware('can:view_loan_reports')

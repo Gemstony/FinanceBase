@@ -125,6 +125,7 @@ class PermissionsSeeder extends Seeder
             'view_loan_repayment_report',
             'view_loan_outstanding_report',
             'view_loan_arrears_report',
+            'view_expected_vs_collected_report',
         ];
 
         foreach ($permissions as $permission) {

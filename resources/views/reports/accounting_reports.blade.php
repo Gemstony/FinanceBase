@@ -59,8 +59,8 @@
                             Summary of debit and credit balances
                         </span>
                         <div class="mt-2">
-                            <a href="#" class="btn btn-sm btn-outline-primary disabled" aria-disabled="true">
-                                <i class="fas fa-clock mr-1"></i> Coming Soon
+                            <a href="{{ route('reports.accounting.trial_balance.index') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open
                             </a>
                         </div>
                     </div>

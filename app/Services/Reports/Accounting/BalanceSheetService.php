@@ -47,6 +47,21 @@ class BalanceSheetService
                 'account_class_id' => $accountClassId,
             ],
             'tree' => $tree,
+            'debug' => [
+                'rows' => array_map(function (array $r) {
+                    return [
+                        'account_id' => (int) ($r['account_id'] ?? 0),
+                        'account_code' => (string) ($r['account_code'] ?? ''),
+                        'account_name' => (string) ($r['account_name'] ?? ''),
+                        'class' => (string) ($r['account_class_name'] ?? ''),
+                        'class_code' => (string) ($r['account_class_code'] ?? ''),
+                        'category' => (string) ($r['category'] ?? ''),
+                        'total_debit' => (float) ($r['total_debit'] ?? 0),
+                        'total_credit' => (float) ($r['total_credit'] ?? 0),
+                        'balance' => (float) ($r['balance'] ?? 0),
+                    ];
+                }, $rowsCurrent),
+            ],
             'totals' => $totals,
             'validation' => [
                 'balanced' => $balanced,
@@ -66,7 +81,11 @@ class BalanceSheetService
     }
 
     /**
-     * @return array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,balance:float}>
+     * Balance is returned in its natural sign for Balance Sheet display:
+     * - assets: debit - credit
+     * - liabilities/equity: credit - debit
+     *
+     * @return array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,total_debit:float,total_credit:float,balance:float,category:string}>
      */
     private function accountBalances(array $subshopIds, Carbon $asOf, ?int $accountClassId): array
     {
@@ -90,23 +109,44 @@ class BalanceSheetService
             ->selectRaw('ag.id as group_id')
             ->selectRaw('ag.name as group_name')
             ->selectRaw('ag.code as group_code')
-            ->selectRaw('SUM(jel.debit) - SUM(jel.credit) as balance')
+            ->selectRaw('SUM(jel.debit) as total_debit')
+            ->selectRaw('SUM(jel.credit) as total_credit')
             ->orderBy('ac.code')
             ->orderBy('ag.code')
             ->orderBy('coa.account_code');
 
         return $q->get()->map(function ($r) {
+            $classCode = (string) ($r->account_class_code ?? '');
+            $className = (string) ($r->account_class_name ?? '');
+            $category = $this->classifyAccountClass($classCode, $className);
+
+            $totalDebit = round((float) ($r->total_debit ?? 0), 2);
+            $totalCredit = round((float) ($r->total_credit ?? 0), 2);
+
+            // Natural Balance Sheet sign conventions
+            if ($category === 'assets') {
+                $balance = $totalDebit - $totalCredit;
+            } elseif ($category === 'liabilities' || $category === 'equity') {
+                $balance = $totalCredit - $totalDebit;
+            } else {
+                // For non-balance-sheet categories (income/expense/unclassified), keep debit-credit as neutral
+                $balance = $totalDebit - $totalCredit;
+            }
+
             return [
                 'account_id' => (int) ($r->account_id ?? 0),
                 'account_code' => (string) ($r->account_code ?? ''),
                 'account_name' => (string) ($r->account_name ?? ''),
                 'account_class_id' => (int) ($r->account_class_id ?? 0),
-                'account_class_name' => (string) ($r->account_class_name ?? ''),
-                'account_class_code' => (string) ($r->account_class_code ?? ''),
+                'account_class_name' => $className,
+                'account_class_code' => $classCode,
                 'group_id' => (int) ($r->group_id ?? 0),
                 'group_name' => (string) ($r->group_name ?? ''),
                 'group_code' => (string) ($r->group_code ?? ''),
-                'balance' => round((float) ($r->balance ?? 0), 2),
+                'total_debit' => $totalDebit,
+                'total_credit' => $totalCredit,
+                'balance' => round((float) $balance, 2),
+                'category' => $category,
             ];
         })->all();
     }
@@ -125,7 +165,7 @@ class BalanceSheetService
         ];
 
         foreach ($rows as $r) {
-            $category = $this->classifyAccountClass($r['account_class_code'], $r['account_class_name']);
+            $category = (string) ($r['category'] ?? $this->classifyAccountClass($r['account_class_code'], $r['account_class_name']));
             $bucket = $this->classifyCurrentNonCurrent($category, $r['group_name'], $r['account_name']);
 
             $accountId = (int) $r['account_id'];
@@ -326,7 +366,7 @@ class BalanceSheetService
         $yearStart = $asOf->copy()->startOfYear();
         $priorYearEnd = $yearStart->copy()->subDay();
 
-        $retained = $this->netIncome($subshopIds, $priorYearEnd);
+        $retained = $this->netIncomeAsOf($subshopIds, $priorYearEnd);
         $currentYear = $this->netIncomeBetween($subshopIds, $yearStart, $asOf);
 
         $retainedPrev = null;
@@ -334,7 +374,7 @@ class BalanceSheetService
         if ($compareAsOf) {
             $yearStartPrev = $compareAsOf->copy()->startOfYear();
             $priorYearEndPrev = $yearStartPrev->copy()->subDay();
-            $retainedPrev = $this->netIncome($subshopIds, $priorYearEndPrev);
+            $retainedPrev = $this->netIncomeAsOf($subshopIds, $priorYearEndPrev);
             $currentYearPrev = $this->netIncomeBetween($subshopIds, $yearStartPrev, $compareAsOf);
         }
 
@@ -362,7 +402,7 @@ class BalanceSheetService
         ];
     }
 
-    private function netIncome(array $subshopIds, Carbon $asOf): float
+    private function netIncomeAsOf(array $subshopIds, Carbon $asOf): float
     {
         $asOfDate = $asOf->toDateString();
 
@@ -373,22 +413,21 @@ class BalanceSheetService
             ->whereIn('je.subshop_id', $subshopIds)
             ->whereDate('je.transaction_date', '<=', $asOfDate)
             ->groupBy('ac.id', 'ac.code', 'ac.name')
-            ->selectRaw('ac.code as class_code, ac.name as class_name, SUM(jel.debit) - SUM(jel.credit) as balance')
+            ->selectRaw('ac.code as class_code, ac.name as class_name, SUM(jel.debit) as total_debit, SUM(jel.credit) as total_credit')
             ->get();
 
-        $income = 0.0;
-        $expense = 0.0;
+        $income = 0.0;   // Revenue + Income
+        $expense = 0.0;  // Expenses
         foreach ($rows as $r) {
             $cat = $this->classifyAccountClass((string) ($r->class_code ?? ''), (string) ($r->class_name ?? ''));
-            $bal = (float) ($r->balance ?? 0);
             if ($cat === 'income') {
-                $income += $bal;
+                $income += ((float) ($r->total_credit ?? 0)) - ((float) ($r->total_debit ?? 0));
             } elseif ($cat === 'expense') {
-                $expense += $bal;
+                $expense += ((float) ($r->total_debit ?? 0)) - ((float) ($r->total_credit ?? 0));
             }
         }
 
-        return ($income + $expense) * -1;
+        return $income - $expense;
     }
 
     private function netIncomeBetween(array $subshopIds, Carbon $from, Carbon $to): float
@@ -404,22 +443,21 @@ class BalanceSheetService
             ->whereDate('je.transaction_date', '>=', $fromDate)
             ->whereDate('je.transaction_date', '<=', $toDate)
             ->groupBy('ac.id', 'ac.code', 'ac.name')
-            ->selectRaw('ac.code as class_code, ac.name as class_name, SUM(jel.debit) - SUM(jel.credit) as balance')
+            ->selectRaw('ac.code as class_code, ac.name as class_name, SUM(jel.debit) as total_debit, SUM(jel.credit) as total_credit')
             ->get();
 
         $income = 0.0;
         $expense = 0.0;
         foreach ($rows as $r) {
             $cat = $this->classifyAccountClass((string) ($r->class_code ?? ''), (string) ($r->class_name ?? ''));
-            $bal = (float) ($r->balance ?? 0);
             if ($cat === 'income') {
-                $income += $bal;
+                $income += ((float) ($r->total_credit ?? 0)) - ((float) ($r->total_debit ?? 0));
             } elseif ($cat === 'expense') {
-                $expense += $bal;
+                $expense += ((float) ($r->total_debit ?? 0)) - ((float) ($r->total_credit ?? 0));
             }
         }
 
-        return ($income + $expense) * -1;
+        return $income - $expense;
     }
 
     /**

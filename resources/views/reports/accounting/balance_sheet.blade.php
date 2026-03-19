@@ -194,6 +194,45 @@
 
             </div>
 
+            @if(request()->boolean('debug'))
+                <div class="card mt-3">
+                    <div class="card-header"><strong>Debug: GL Account Totals &amp; Computed Balance</strong></div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Account</th>
+                                        <th>Class</th>
+                                        <th>Category</th>
+                                        <th class="text-right">Total Debit</th>
+                                        <th class="text-right">Total Credit</th>
+                                        <th class="text-right">Computed Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach(($report['debug']['rows'] ?? []) as $r)
+                                        <tr>
+                                            <td>{{ $r['account_code'] ?? '' }} - {{ $r['account_name'] ?? '' }}</td>
+                                            <td>{{ $r['class_code'] ?? '' }} {{ $r['class'] ?? '' }}</td>
+                                            <td>{{ $r['category'] ?? '' }}</td>
+                                            <td class="text-right">{{ number_format((float) ($r['total_debit'] ?? 0), 2) }}</td>
+                                            <td class="text-right">{{ number_format((float) ($r['total_credit'] ?? 0), 2) }}</td>
+                                            <td class="text-right">{{ $fmt($r['balance'] ?? 0) }}</td>
+                                        </tr>
+                                    @endforeach
+                                    @if(empty($report['debug']['rows'] ?? []))
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted p-3">No debug data</td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
         </div>
     </div>
 </div>

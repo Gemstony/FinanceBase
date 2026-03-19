@@ -751,6 +751,13 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_loan_aging_report')
             ->name('reports.loan_aging.export');
 
+        Route::get('/admin/reports/par', [\App\Http\Controllers\Reports\ParReportController::class, 'index'])
+            ->middleware('can:view_par_report')
+            ->name('reports.par.index');
+        Route::get('/admin/reports/par/export/{format}', [\App\Http\Controllers\Reports\ParReportController::class, 'export'])
+            ->middleware('can:view_par_report')
+            ->name('reports.par.export');
+
         // Loan Aging Installment Report
         Route::get('/admin/reports/installment-aging', [\App\Http\Controllers\Reports\LoanAgingInstallmentReportController::class, 'index'])
             ->middleware('can:view_loan_aging_installment_report')

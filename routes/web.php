@@ -758,6 +758,13 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_par_report')
             ->name('reports.par.export');
 
+        Route::get('/admin/reports/internal-portfolio-analysis', [\App\Http\Controllers\Reports\InternalPortfolioAnalysisController::class, 'index'])
+            ->middleware('can:view_internal_portfolio_analysis')
+            ->name('reports.internal_portfolio_analysis.index');
+        Route::get('/admin/reports/internal-portfolio-analysis/export/{format}', [\App\Http\Controllers\Reports\InternalPortfolioAnalysisController::class, 'export'])
+            ->middleware('can:view_internal_portfolio_analysis')
+            ->name('reports.internal_portfolio_analysis.export');
+
         // Loan Aging Installment Report
         Route::get('/admin/reports/installment-aging', [\App\Http\Controllers\Reports\LoanAgingInstallmentReportController::class, 'index'])
             ->middleware('can:view_loan_aging_installment_report')

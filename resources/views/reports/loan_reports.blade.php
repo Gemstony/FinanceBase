@@ -172,6 +172,26 @@
                 </div>
             </div>
 
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-chart-line"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Internal Portfolio Analysis</span>
+                        <span class="info-box-number">
+                            Profitability, risk vs return, officer performance, segments, growth vs risk and warnings
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.internal_portfolio_analysis.index') }}" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Loan Disbursement Report Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

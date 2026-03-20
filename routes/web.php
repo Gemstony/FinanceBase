@@ -935,6 +935,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/income-summary/export/{format}', [\App\Http\Controllers\Reports\Accounting\IncomeSummaryController::class, 'export'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.income_summary.export');
+
+        // Fees Report (Accounting)
+        Route::get('/admin/reports/accounting/fees', [\App\Http\Controllers\Reports\Accounting\FeesReportController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.fees.index');
+        Route::get('/admin/reports/accounting/fees/export/{format}', [\App\Http\Controllers\Reports\Accounting\FeesReportController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.fees.export');
+
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

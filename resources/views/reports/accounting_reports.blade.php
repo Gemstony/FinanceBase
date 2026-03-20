@@ -226,6 +226,26 @@
                 </div>
             </div>
 
+            <!-- Fees Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Fees Report</span>
+                        <span class="info-box-number">
+                            Loan fees analytics and collection efficiency
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.accounting.fees.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
              <!-- Change in equity report -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

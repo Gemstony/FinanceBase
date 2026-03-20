@@ -187,6 +187,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_dashboard')
             ->name('dashboard');
 
+        // Financial Dashboard (Executive View)
+        Route::get('/dashboard/financial', [\App\Http\Controllers\Dashboard\FinancialDashboardController::class, 'index'])
+            ->middleware('can:view_dashboard')
+            ->name('dashboard.financial');
+        Route::get('/dashboard/financial/data', [\App\Http\Controllers\Dashboard\FinancialDashboardController::class, 'data'])
+            ->middleware('can:view_dashboard')
+            ->name('dashboard.financial.data');
+
         Route::prefix('bank-reconciliation')
             ->middleware('can:perform_bank_reconciliation')
             ->name('bank-reconciliation.')
@@ -903,6 +911,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/profit-loss/export/{format}', [\App\Http\Controllers\Reports\Accounting\ProfitLossController::class, 'export'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.profit_loss.export');
+
+        // Changes in Equity Report (Accounting)
+        Route::get('/admin/reports/accounting/changes-in-equity', [\App\Http\Controllers\Reports\Accounting\ChangesInEquityController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.changes_in_equity.index');
+        Route::get('/admin/reports/accounting/changes-in-equity/export/{format}', [\App\Http\Controllers\Reports\Accounting\ChangesInEquityController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.changes_in_equity.export');
 
         // Expenses Summary Report (Accounting)
         Route::get('/admin/reports/accounting/expenses-summary', [\App\Http\Controllers\Reports\Accounting\ExpensesSummaryController::class, 'index'])

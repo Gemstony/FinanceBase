@@ -226,6 +226,26 @@
                 </div>
             </div>
 
+             <!-- Change in equity report -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-primary elevation-1">
+                        <i class="fas fa-exchange-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Change in Equity Report</span>
+                        <span class="info-box-number">
+                            Changes in equity over a period
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.accounting.changes_in_equity.index') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
         </div>
     </div>

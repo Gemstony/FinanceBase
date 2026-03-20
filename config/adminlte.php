@@ -376,6 +376,13 @@ return [
             'can' => 'view_dashboard',
         ],
 
+        // Financial Dashboard
+        [
+            'text' => 'Financial Dashboard',
+            'url' => '/dashboard/financial',
+            'icon' => 'fas fa-chart-line',
+        ],
+
         // Messages
         [
             'text' => 'Messages',

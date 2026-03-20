@@ -126,6 +126,26 @@
                 </div>
             </div>
 
+            <!-- Income Summary Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-success elevation-1">
+                        <i class="fas fa-chart-pie"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Income Summary</span>
+                        <span class="info-box-number">
+                            Income breakdown and analytics
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.accounting.income_summary.index') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Balance Sheet Report Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

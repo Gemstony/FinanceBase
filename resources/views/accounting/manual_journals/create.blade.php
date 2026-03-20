@@ -9,7 +9,7 @@
                 <div>
                     <h1 class="d-none d-md-block text-light"><i class="fas fa-plus"></i> Create Manual Journal</h1>
                     <h1 class="d-md-none text-light"><i class="fas fa-plus"></i> Create Manual Journal</h1>
-                    <p class="mb-0 text-light">Draft a balanced journal entry</p>
+                    <p class="mb-0 text-light">Post a balanced journal entry to the General Ledger</p>
                 </div>
                 <a href="{{ route('accounting.manual-journals.index') }}" class="btn btn-light border">
                     <i class="fas fa-arrow-left"></i> Back
@@ -97,7 +97,7 @@
 
                     <div class="mt-3">
                         <button type="submit" class="btn btn-success" id="saveBtn">
-                            <i class="fas fa-save"></i> Save Draft
+                            <i class="fas fa-check"></i> Post Journal
                         </button>
                         <a href="{{ route('accounting.manual-journals.index') }}" class="btn btn-light ml-2">
                             Cancel
@@ -121,6 +121,7 @@
 @endpush
 
 @push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function () {
     const accounts = @json($accounts);
@@ -231,8 +232,31 @@
             const totalCredit = $('#totalCredit').text();
             if (totalDebit !== totalCredit || $('#journalLinesTable tbody tr').length < 2) {
                 e.preventDefault();
-                alert('Journal must have at least 2 lines and total debit must equal total credit.');
+                const msg = 'Journal must have at least 2 lines and total debit must equal total credit.';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid Journal',
+                    text: msg,
+                });
+                return;
             }
+
+            e.preventDefault();
+
+            const postMsg = 'This journal will be posted to the accounting engine (General Ledger) immediately. Continue?';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Post Manual Journal?',
+                text: postMsg,
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Post',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#28a745',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $('#manualJournalForm')[0].submit();
+                }
+            });
         });
 
         addRow();

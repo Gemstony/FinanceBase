@@ -17,6 +17,7 @@ class Vouchers extends Model
         'source_type',
         'reference_type',
         'reference_id',
+        'journal_entry_id',
         'total_amount',
         'payment_method',
         'bank_account_id',
@@ -30,6 +31,7 @@ class Vouchers extends Model
 
     protected $casts = [
         'reference_id' => 'integer',
+        'journal_entry_id' => 'integer',
         'total_amount' => 'decimal:2',
         'bank_account_id' => 'integer',
         'subshop_id' => 'integer',

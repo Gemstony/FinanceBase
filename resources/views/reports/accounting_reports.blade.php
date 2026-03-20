@@ -106,6 +106,26 @@
                 </div>
             </div>
 
+            <!-- Expenses Summary Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-maroon elevation-1">
+                        <i class="fas fa-receipt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Expenses Summary</span>
+                        <span class="info-box-number">
+                            Expense breakdown and analytics
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.accounting.expenses_summary.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Balance Sheet Report Card -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

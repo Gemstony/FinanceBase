@@ -119,15 +119,6 @@
                 </div>
 
                 <div class="mt-3">
-                    @if($isDraft)
-                        <form method="POST" action="{{ route('accounting.manual-journals.post', $journal->id) }}" class="d-inline js-post-manual-journal">
-                            @csrf
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-check"></i> POST JOURNAL
-                            </button>
-                        </form>
-                    @endif
-
                     @if($isPosted)
                         @if(!$isReversed)
                             <form method="POST" action="{{ route('accounting.manual-journals.reverse', $journal->id) }}" class="d-inline js-reverse-manual-journal">
@@ -160,25 +151,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(document).ready(function() {
-    $('.js-post-manual-journal').on('submit', function (e) {
-        e.preventDefault();
-        const form = this;
-
-        Swal.fire({
-            title: 'Post this journal?'
-            , text: 'This will post the journal to the ledger. Posted journals cannot be edited.'
-            , icon: 'warning'
-            , showCancelButton: true
-            , confirmButtonColor: '#28a745'
-            , cancelButtonColor: '#6c757d'
-            , confirmButtonText: 'Yes, post'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                form.submit();
-            }
-        });
-    });
-
     $('.js-reverse-manual-journal').on('submit', function (e) {
         e.preventDefault();
         const form = this;

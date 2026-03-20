@@ -903,6 +903,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/accounting/profit-loss/export/{format}', [\App\Http\Controllers\Reports\Accounting\ProfitLossController::class, 'export'])
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.profit_loss.export');
+
+        // Expenses Summary Report (Accounting)
+        Route::get('/admin/reports/accounting/expenses-summary', [\App\Http\Controllers\Reports\Accounting\ExpensesSummaryController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.expenses_summary.index');
+        Route::get('/admin/reports/accounting/expenses-summary/export/{format}', [\App\Http\Controllers\Reports\Accounting\ExpensesSummaryController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.expenses_summary.export');
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

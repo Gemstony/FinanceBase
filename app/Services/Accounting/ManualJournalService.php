@@ -113,33 +113,12 @@ class ManualJournalService
 
         return DB::transaction(function () use ($draft) {
             $draft = JournalEntries::query()->lockForUpdate()->findOrFail((int) $draft->id);
-            $draft->loadMissing('lines');
 
-            $lines = [];
-            foreach ($draft->lines as $line) {
-                $lines[] = [
-                    'account_id' => (int) $line->account_id,
-                    'debit' => (float) $line->debit,
-                    'credit' => (float) $line->credit,
-                    'description' => $line->description,
-                ];
+            if ((int) $draft->reference_id > 0) {
+                throw new InvalidArgumentException('This manual journal has already been posted.');
             }
 
-            $txDate = Carbon::parse((string) $draft->transaction_date);
-            $prevNow = Carbon::getTestNow();
-            Carbon::setTestNow($txDate);
-            try {
-                $posted = $this->postingEngine->postJournalEntry(
-                    $lines,
-                    'manual_posted',
-                    (int) $draft->id,
-                    (string) $draft->description
-                );
-            } finally {
-                Carbon::setTestNow($prevNow);
-            }
-
-            $draft->reference_id = (int) $posted->id;
+            $draft->reference_id = 1;
             $draft->save();
 
             return $draft;

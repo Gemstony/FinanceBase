@@ -162,8 +162,10 @@ class ManualJournalController extends Controller
             $this->service->addJournalLines($draft, $validated['lines']);
             $this->service->validateJournal($draft);
 
+            $this->service->postJournal($draft);
+
             return redirect()->route('accounting.manual-journals.show', (int) $draft->id)
-                ->with('success', 'Manual journal draft created successfully.');
+                ->with('success', 'Manual journal posted successfully.');
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (Throwable $e) {

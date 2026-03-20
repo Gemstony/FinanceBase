@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Accounting;
 
+use App\Models\ChartsOfAccount;
 use App\Models\JournalEntries;
+use App\Models\JournalEntryLines;
 use App\Models\Vouchers;
 use App\Models\VoucherLines;
 use Carbon\Carbon;
@@ -170,6 +172,15 @@ class VoucherService
         return DB::transaction(function () use ($data, $voucherType, $sourceType, $voucherDate, $voucherNumber, $normalizedLines, $totalAmount) {
             $subshopId = isset($data['subshop_id']) && $data['subshop_id'] ? (int) $data['subshop_id'] : (int) session('subshop_id');
 
+            $accountIds = array_values(array_unique(array_map(static fn ($l) => (int) ($l['account_id'] ?? 0), $normalizedLines)));
+            $validAccountCount = ChartsOfAccount::query()
+                ->where('subshop_id', $subshopId)
+                ->whereIn('id', $accountIds ?: [-1])
+                ->count();
+            if ($validAccountCount !== count($accountIds)) {
+                throw new InvalidArgumentException('One or more selected accounts are not valid for this branch.');
+            }
+
             $voucher = Vouchers::query()->create([
                 'voucher_number' => $voucherNumber,
                 'voucher_type' => $voucherType,
@@ -200,6 +211,34 @@ class VoucherService
                 ];
             }
             VoucherLines::query()->insert($insert);
+
+            $status = (string) ($data['status'] ?? 'posted');
+            if ($status === 'posted') {
+                $journal = JournalEntries::query()->create([
+                    'subshop_id' => $subshopId,
+                    'reference_type' => 'manual_voucher',
+                    'reference_id' => (int) $voucher->id,
+                    'transaction_date' => $voucherDate->toDateString(),
+                    'description' => $data['description'] ?? null,
+                    'created_by' => !empty($data['created_by']) ? (int) $data['created_by'] : auth()->id(),
+                ]);
+
+                $voucher->update(['journal_entry_id' => (int) $journal->id]);
+
+                $jInsert = [];
+                foreach ($normalizedLines as $line) {
+                    $jInsert[] = [
+                        'journal_entry_id' => (int) $journal->id,
+                        'account_id' => (int) $line['account_id'],
+                        'debit' => (float) $line['debit'],
+                        'credit' => (float) $line['credit'],
+                        'description' => $line['description'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                JournalEntryLines::query()->insert($jInsert);
+            }
 
             return $voucher->load(['lines']);
         });

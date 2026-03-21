@@ -80,12 +80,32 @@
                         </span>
                         <div class="mt-2">
                             <a href="" class="btn btn-sm btn-outline-success disabled">
-                                 Comming Soon
+                                 <i class="fas fa-arrow-right mr-1"></i> Comming soon
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
+
+                        <!-- Customer Risk Report -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text"> Customer Risk Report</span>
+                        <span class="info-box-number">
+                            View  Customer Risk Report metrics
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.customers.customer_risk.index') }}" class="btn btn-sm btn-outline-danger">
+                                 <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div> 
 
 
         </div>

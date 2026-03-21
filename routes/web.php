@@ -988,6 +988,14 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('can:view_customers_reports')
         ->name('reports.customers.customer_list.export');
 
+    // Customer Risk Report
+    Route::get('/admin/reports/customers/customer-risk', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'index'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_risk.index');
+    Route::get('/admin/reports/customers/customer-risk/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'export'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_risk.export');
+
         ///////////////////////////
         ///    inventory        //
         /////////////////////////

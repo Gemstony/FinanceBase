@@ -71,16 +71,16 @@
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-success elevation-1">
-                        <i class="fas fa-code-branch"></i>
+                        <i class="fas fa-chart-line"></i>
                     </span>
                     <div class="info-box-content">
                         <span class="info-box-text">Customer Performance</span>
                         <span class="info-box-number">
-                            View customer performance metrics
+                            View customer performance scoring and analysis
                         </span>
                         <div class="mt-2">
-                            <a href="" class="btn btn-sm btn-outline-success disabled">
-                                 <i class="fas fa-arrow-right mr-1"></i> Comming soon
+                            <a href="{{ route('reports.customers.customer_performance.index') }}" class="btn btn-sm btn-outline-success">
+                                 <i class="fas fa-arrow-right mr-1"></i> Open Report
                             </a>
                         </div>
                     </div>

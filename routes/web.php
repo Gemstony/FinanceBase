@@ -1010,6 +1010,14 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('can:view_customers_reports')
         ->name('reports.customers.customer_demographics.by_gender');
 
+    // Customer Performance Report
+    Route::get('/admin/reports/customers/customer-performance', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'index'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_performance.index');
+    Route::get('/admin/reports/customers/customer-performance/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'export'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_performance.export');
+
         ///////////////////////////
         ///    inventory        //
         /////////////////////////

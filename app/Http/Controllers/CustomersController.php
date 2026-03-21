@@ -249,29 +249,91 @@ class CustomersController extends Controller
             return response()->json($customer);
         }
 
-        // Calculate outstanding for active loans only using PortfolioRiskCalculator
-        $activeLoans = $this->portfolioRisk->activeLoansQuery()
-            ->where('subshop_id', $subshopId)
-            ->where('customer_id', $customer->id)
-            ->get(['id']);
+        // Get all loans for this customer (not just active)
+        $allLoans = Loans::where('customer_id', $customer->id)
+            ->with(['loanProduct', 'latestDisbursement'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-        $outstandingBalance = 0.0;
-        foreach ($activeLoans as $loan) {
-            $outstandingBalance += $this->portfolioRisk->calculateLoanOutstanding($loan);
+        // Calculate loan statistics
+        $totalLoans = $allLoans->count();
+        $activeLoans = $allLoans->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])->where('is_active', true);
+        $closedLoans = $allLoans->filter(function($loan) {
+            return in_array($loan->status, ['paid', 'closed']) || 
+                   ($loan->status === 'disbursed' && $loan->installments_paid >= $loan->installments && $loan->installments > 0);
+        });
+        $writtenOffLoans = $allLoans->where('is_written_off', true);
+        
+        // Calculate financial totals using actual outstanding from installments
+        $totalDisbursed = 0;
+        $totalRepaid = 0;
+        $totalOutstanding = 0;
+        $overdueLoansCount = 0;
+        $overdueAmount = 0;
+        $maxDaysPastDue = 0;
+
+        foreach ($allLoans as $loan) {
+            $totalDisbursed += (float) $loan->principal_amount;
+            
+            // Calculate actual outstanding from installments
+            $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
+            
+            // Calculate repaid (disbursed - outstanding)
+            $repaid = (float) $loan->principal_amount - $loan->calculated_outstanding;
+            $totalRepaid += $repaid;
+            $totalOutstanding += $loan->calculated_outstanding;
+            
+            // Check for overdue installments to get days past due
+            $overdueInstallment = $loan->installments()
+                ->where('is_active', true)
+                ->where('status', 'overdue')
+                ->orderBy('due_date', 'asc')
+                ->first();
+            
+            if ($overdueInstallment) {
+                $daysPastDue = now()->diffInDays($overdueInstallment->due_date, false);
+                $loan->days_past_due = abs($daysPastDue);
+                
+                if ($loan->days_past_due > 0) {
+                    $overdueLoansCount++;
+                    $overdueAmount += $loan->calculated_outstanding;
+                    $maxDaysPastDue = max($maxDaysPastDue, $loan->days_past_due);
+                }
+            } else {
+                $loan->days_past_due = 0;
+            }
         }
 
+        // Loan status summary
+        $loanStatusSummary = [
+            'disbursed' => $allLoans->where('status', 'disbursed')->count(),
+            'partially_paid' => $allLoans->where('status', 'partially_paid')->count(),
+            'defaulted' => $allLoans->where('status', 'defaulted')->count(),
+            'paid' => $allLoans->where('status', 'paid')->count(),
+            'pending' => $allLoans->where('status', 'pending')->count(),
+            'rejected' => $allLoans->where('status', 'rejected')->count(),
+            'written_off' => $writtenOffLoans->count(),
+        ];
+
         $stats = [
-            'loans_count' => $activeLoans->count(),
-            'total_principal' => (float) (Loans::whereIn('id', $activeLoans->pluck('id'))->sum('principal_amount') ?? 0),
-            'outstanding_balance' => $outstandingBalance,
+            'loans_count' => $totalLoans,
             'active_loans_count' => $activeLoans->count(),
+            'closed_loans_count' => $closedLoans->count(),
+            'written_off_count' => $writtenOffLoans->count(),
+            'total_principal' => $totalDisbursed,
+            'total_repaid' => $totalRepaid,
+            'outstanding_balance' => $totalOutstanding,
+            'overdue_loans_count' => $overdueLoansCount,
+            'overdue_amount' => $overdueAmount,
+            'max_days_past_due' => $maxDaysPastDue,
+            'loan_status_summary' => $loanStatusSummary,
             'deposit_accounts_count' => (int) DepositAccount::query()
                 ->where('subshop_id', $subshopId)
                 ->where('customer_id', $customer->id)
                 ->count(),
         ];
 
-        return view('customers.show', compact('customer', 'stats'));
+        return view('customers.show', compact('customer', 'stats', 'allLoans'));
     }
 
     /**

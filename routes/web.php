@@ -847,6 +847,8 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting_reports.index');
 
+            
+
         // Balance Sheet Report (Accounting)
         Route::get('/admin/reports/accounting/balance-sheet', [\App\Http\Controllers\Reports\Accounting\BalanceSheetController::class, 'index'])
             ->middleware('can:view_accounting_reports')
@@ -972,6 +974,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/reports/profit-and-loss/analytics/sales-vs-cogs', [ProfitAndLossReportController::class, 'analyticsSalesVsCogs'])->name('reports.pl.analytics.sales_cogs');
     Route::get('/admin/reports/profit-and-loss/analytics/margin', [ProfitAndLossReportController::class, 'analyticsMargin'])->name('reports.pl.analytics.margin');
     Route::get('/admin/reports/profit-and-loss/analytics/waterfall', [ProfitAndLossReportController::class, 'analyticsWaterfall'])->name('reports.pl.analytics.waterfall');
+
+        // Customers Reports Hub
+    Route::get('/admin/reports/customers-reports', [\App\Http\Controllers\Reports\CustomersReportsController::class, 'index'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers_reports.index');
+
+    // Customer List Report
+    Route::get('/admin/reports/customers/customer-list', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'index'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_list.index');
+    Route::get('/admin/reports/customers/customer-list/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'export'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_list.export');
+
         ///////////////////////////
         ///    inventory        //
         /////////////////////////

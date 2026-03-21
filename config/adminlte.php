@@ -729,7 +729,12 @@ return [
                     'url' => '/admin/reports/accounting-reports',
 
                 ],
+                [
+                    'text' => 'Customers Reports',
+                    'url' => '/admin/reports/customers-reports',
 
+                ],
+                
                 
                 // [
                 //     'text' => 'Inventory Report',

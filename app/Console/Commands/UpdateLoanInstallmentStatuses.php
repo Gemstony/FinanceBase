@@ -40,7 +40,7 @@ class UpdateLoanInstallmentStatuses extends Command
 
         LoanInstallments::query()
             ->where('is_active', true)
-            ->whereIn('status', ['pending', 'partial', 'overdue'])
+            ->whereIn('status', ['disbursed', 'partially_paid', 'overdue'])
             ->where('outstanding_amount', '>', 0)
             ->select(['id', 'loan_id', 'due_date', 'status', 'outstanding_amount', 'principal_due', 'principal_paid', 'interest_due', 'interest_paid', 'fees_due', 'fees_paid', 'penalty_due', 'penalty_paid'])
             ->orderBy('id')

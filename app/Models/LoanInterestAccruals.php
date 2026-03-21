@@ -21,6 +21,8 @@ class LoanInterestAccruals extends Model
         'is_posted',
         'posting_id',
         'is_active',
+        'is_npl_reversal',
+        'npl_reversal_reason',
     ];
 
     protected $casts = [
@@ -33,6 +35,7 @@ class LoanInterestAccruals extends Model
         'is_posted' => 'boolean',
         'posting_id' => 'integer',
         'is_active' => 'boolean',
+        'is_npl_reversal' => 'boolean',
     ];
 
     public function loan()

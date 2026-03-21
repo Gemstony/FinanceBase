@@ -15,7 +15,28 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register loan interest services with proper dependency injection
+        $this->app->singleton(\App\Services\Loans\Interest\InterestAccrualEngine::class, function ($app) {
+            return new \App\Services\Loans\Interest\InterestAccrualEngine(
+                $app->make(\App\Services\Loans\Interest\LoanOutstandingCalculator::class),
+                $app->make(\App\Services\Loans\Interest\DailyInterestCalculator::class),
+                $app->make(\App\Services\Accounting\JournalPostingEngine::class)
+            );
+        });
+
+        $this->app->singleton(\App\Services\Loans\Interest\MonthlyInterestPostingService::class, function ($app) {
+            return new \App\Services\Loans\Interest\MonthlyInterestPostingService(
+                $app->make(\App\Services\Accounting\JournalPostingEngine::class)
+            );
+        });
+
+        $this->app->singleton(\App\Services\Loans\Interest\NPLInterestReversalService::class, function ($app) {
+            return new \App\Services\Loans\Interest\NPLInterestReversalService(
+                $app->make(\App\Services\Accounting\JournalPostingEngine::class)
+            );
+        });
+
+        $this->app->singleton(\App\Services\Loans\Interest\InterestReconciliationService::class);
     }
 
     /**

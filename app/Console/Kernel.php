@@ -20,6 +20,8 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\UpdateLoanInstallmentStatuses::class,
         \App\Console\Commands\ProcessLoanPenalties::class,
         \App\Console\Commands\ProcessLoanInterestAccrual::class,
+        \App\Console\Commands\ProcessMonthlyInterestPosting::class,
+        \App\Console\Commands\ProcessNPLInterestReversal::class,
     ];
 
     /**
@@ -45,6 +47,12 @@ class Kernel extends ConsoleKernel
 
         // Process overdue installment penalties daily at 00:10 AM server time
         $schedule->command('loans:process-penalties')->dailyAt('00:10');
+
+        // Reverse interest for NPL loans (after accrual) at 00:15 AM server time
+        $schedule->command('loans:reverse-npl-interest')->dailyAt('00:15');
+
+        // Post monthly interest at 01:00 AM on the 1st of each month
+        $schedule->command('loans:post-monthly-interest')->monthlyOn(1, '01:00');
     }
 
     /**

@@ -22,7 +22,6 @@
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i>
                     Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{{ route('categories.subshops') }}">Choose Shop</a></li>
             <li class="breadcrumb-item active text-dark" aria-current="page">{{ $subshop->name }} - Accounting Settings
             </li>
         </ol>

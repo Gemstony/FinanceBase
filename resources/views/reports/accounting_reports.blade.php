@@ -246,6 +246,26 @@
                 </div>
             </div>
 
+            <!-- Penalties Report Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Penalties Report</span>
+                        <span class="info-box-number">
+                            Loan penalties analytics and collection efficiency
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('reports.accounting.penalties.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-arrow-right mr-1"></i> Open Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
              <!-- Change in equity report -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">

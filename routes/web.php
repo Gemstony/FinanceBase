@@ -944,6 +944,14 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting.fees.export');
 
+        // Penalties Report (Accounting)
+        Route::get('/admin/reports/accounting/penalties', [\App\Http\Controllers\Reports\Accounting\PenaltiesReportController::class, 'index'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.penalties.index');
+        Route::get('/admin/reports/accounting/penalties/export/{format}', [\App\Http\Controllers\Reports\Accounting\PenaltiesReportController::class, 'export'])
+            ->middleware('can:view_accounting_reports')
+            ->name('reports.accounting.penalties.export');
+
         // Purchases Analytics API
         Route::get('/admin/reports/purchases/analytics/spend', [PurchasesReportController::class, 'analyticsSpendOverTime'])
             ->name('reports.purchases.analytics.spend');

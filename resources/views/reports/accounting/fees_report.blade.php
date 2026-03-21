@@ -173,7 +173,7 @@
     <!-- Charts -->
     <div class="row mt-3">
         <!-- Pie Chart - Fee Distribution -->
-        <div class="col-md-4">
+        <div class="col-md-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
                     <h6 class="mb-0"><i class="fas fa-chart-pie"></i> Fee Distribution</h6>
@@ -189,7 +189,7 @@
         </div>
 
         <!-- Bar Chart - Top Fees -->
-        <div class="col-md-4">
+        <div class="col-md-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
                     <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Top Fees</h6>
@@ -204,8 +204,11 @@
             </div>
         </div>
 
-        <!-- Line Chart - Trend -->
-        <div class="col-md-4">
+      
+    </div>
+    <div class="row mt-3">
+      <!-- Line Chart - Trend -->
+        <div class="col-md-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
                     <h6 class="mb-0"><i class="fas fa-chart-line"></i> Monthly Trend</h6>
@@ -220,6 +223,25 @@
             </div>
         </div>
     </div>
+
+     <div class="row mt-3">
+
+            <div class="col-md-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Report Notes</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul>
+                            <li>Data is based on fee transactions recorded in the system within the selected date range.</li>
+                            <li>Collection Rate is calculated as (Total Paid / Total Charged) * 100.</li>
+                            <li>Outstanding amounts indicate fees that have been charged but not yet paid.</li>
+                            <li>GL Validation compares total paid fees against fee income recorded in the general ledger.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+     </div>
 
     <!-- Summary by Fee Type -->
     <div class="row mt-3">
@@ -504,5 +526,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
-
 @endpush

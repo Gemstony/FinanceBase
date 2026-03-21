@@ -996,6 +996,20 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('can:view_customers_reports')
         ->name('reports.customers.customer_risk.export');
 
+    // Customer Demographics Report
+    Route::get('/admin/reports/customers/customer-demographics', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'index'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_demographics.index');
+    Route::get('/admin/reports/customers/customer-demographics/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'export'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_demographics.export');
+    Route::get('/admin/reports/customers/customer-demographics/by-region/{region}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byRegion'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_demographics.by_region');
+    Route::get('/admin/reports/customers/customer-demographics/by-gender/{gender}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byGender'])
+        ->middleware('can:view_customers_reports')
+        ->name('reports.customers.customer_demographics.by_gender');
+
         ///////////////////////////
         ///    inventory        //
         /////////////////////////

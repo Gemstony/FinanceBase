@@ -259,7 +259,7 @@ class CustomersController extends Controller
         $totalLoans = $allLoans->count();
         $activeLoans = $allLoans->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])->where('is_active', true);
         $closedLoans = $allLoans->filter(function($loan) {
-            return in_array($loan->status, ['paid', 'closed']) || 
+            return in_array($loan->status, ['paid_off', 'closed']) || 
                    ($loan->status === 'disbursed' && $loan->installments_paid >= $loan->installments && $loan->installments > 0);
         });
         $writtenOffLoans = $allLoans->where('is_written_off', true);

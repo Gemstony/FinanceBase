@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Loans;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Loans\StoreLoanRecoveryRequest;
+use App\Models\BankAccounts;
 use App\Models\Loans;
 use App\Services\Loans\WriteOff\LoanRecoveryProcessor;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class LoanRecoveryController extends Controller
@@ -19,9 +21,25 @@ class LoanRecoveryController extends Controller
 
     public function create(Loans $loan): View
     {
+        $subshopId = (int) session('subshop_id');
+        if ((int) $loan->subshop_id !== $subshopId) {
+            abort(403);
+        }
+
+        if (Str::lower((string) $loan->status) !== 'written_off') {
+            abort(403, 'Recovery payments are only allowed for written-off loans.');
+        }
+
+        $bankAccounts = BankAccounts::query()
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', 1)
+            ->orderBy('account_name')
+            ->get(['id', 'account_name', 'account_number']);
+
         return view('loans.recovery.create', [
             'loan' => $loan,
             'today' => Carbon::today()->toDateString(),
+            'bankAccounts' => $bankAccounts,
         ]);
     }
 
@@ -31,13 +49,37 @@ class LoanRecoveryController extends Controller
 
         try {
             $recoveryDate = Carbon::parse((string) $data['recovery_date'])->toDateString();
+            
+            // Handle bank account validation
+            $paymentMethod = $data['payment_method'] ?? 'cash';
+            $bankAccountId = !empty($data['bank_account_id']) ? (int) $data['bank_account_id'] : null;
+            $requiresBank = !in_array($paymentMethod, ['cash', 'customer_credit', 'savings'], true);
+            
+            if ($requiresBank && !$bankAccountId) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Bank account is required for this payment method.');
+            }
+
+            // Validate bank account belongs to same subshop
+            if ($bankAccountId) {
+                $bankAccount = BankAccounts::query()->find($bankAccountId);
+                if ($bankAccount && (int) $bankAccount->subshop_id !== (int) $loan->subshop_id) {
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Selected bank account does not belong to this branch.');
+                }
+            }
 
             $this->recoveryProcessor->processAutoSplit(
                 loan: $loan,
                 recoveryDate: $recoveryDate,
                 amount: (float) $data['amount'],
                 notes: $data['notes'] ?? null,
-                recordedBy: (int) (auth()->id() ?? 0)
+                recordedBy: (int) (auth()->id() ?? 0),
+                bankAccountId: $bankAccountId,
+                paymentMethod: $paymentMethod,
+                transactionReference: $data['reference_number'] ?? null
             );
 
             return redirect()

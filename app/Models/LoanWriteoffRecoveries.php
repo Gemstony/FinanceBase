@@ -19,6 +19,9 @@ class LoanWriteoffRecoveries extends Model
         'recovered_penalties',
         'total_recovered',
         'notes',
+        'bank_account_id',
+        'payment_method',
+        'transaction_reference',
     ];
 
     protected $casts = [
@@ -43,5 +46,10 @@ class LoanWriteoffRecoveries extends Model
     public function payment()
     {
         return $this->belongsTo(LoanPayments::class, 'payment_id');
+    }
+
+    public function bankAccount()
+    {
+        return $this->belongsTo(BankAccounts::class, 'bank_account_id');
     }
 }

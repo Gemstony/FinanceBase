@@ -16,6 +16,9 @@ class StoreLoanRecoveryRequest extends FormRequest
         return [
             'recovery_date' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['nullable', 'string', 'max:255'],
+            'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
+            'reference_number' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

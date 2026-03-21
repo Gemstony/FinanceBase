@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Loans\WriteOff;
 
+use App\Models\BankAccounts;
 use App\Models\LoanInstallments;
 use App\Models\LoanPayments;
 use App\Models\LoanWriteoffRecoveries;
 use App\Models\LoanWriteoffs;
 use App\Models\Loans;
 use App\Services\Accounting\JournalPostingEngine;
+use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,7 @@ class LoanRecoveryProcessor
     public function __construct(
         private readonly LoanTransactionLedger $ledger,
         private readonly JournalPostingEngine $journalPostingEngine,
+        private readonly VoucherService $voucherService,
     ) {
     }
 
@@ -33,6 +36,9 @@ class LoanRecoveryProcessor
         float $recoveredPenalties,
         ?string $notes,
         int $recordedBy,
+        ?int $bankAccountId = null,
+        ?string $paymentMethod = null,
+        ?string $transactionReference = null,
     ): LoanWriteoffRecoveries {
         if (Str::lower((string) $loan->status) !== 'written_off') {
             throw new RuntimeException('Recovery processing is only allowed for written-off loans.');
@@ -61,7 +67,10 @@ class LoanRecoveryProcessor
             $recoveredFees,
             $recoveredPenalties,
             $notes,
-            $recordedBy
+            $recordedBy,
+            $bankAccountId,
+            $paymentMethod,
+            $transactionReference
         ) {
             $payment = LoanPayments::create([
                 'loan_id' => $loan->id,
@@ -69,8 +78,8 @@ class LoanRecoveryProcessor
                 'user_id' => $recordedBy > 0 ? $recordedBy : null,
                 'amount' => $totalRecovered,
                 'payment_date' => $date,
-                'payment_method' => null,
-                'reference_number' => null,
+                'payment_method' => $paymentMethod,
+                'reference_number' => $transactionReference,
                 'notes' => $notes,
                 'status' => 'confirmed',
             ]);
@@ -86,6 +95,9 @@ class LoanRecoveryProcessor
                 'recovered_penalties' => $recoveredPenalties,
                 'total_recovered' => $totalRecovered,
                 'notes' => $notes,
+                'bank_account_id' => $bankAccountId,
+                'payment_method' => $paymentMethod,
+                'transaction_reference' => $transactionReference,
             ]);
 
             $this->ledger->recordRecovery(
@@ -94,7 +106,21 @@ class LoanRecoveryProcessor
                 referenceId: (int) $recovery->id
             );
 
-            $this->journalPostingEngine->postLoanRecovery($totalRecovered);
+            // Create journal entry for the recovery (bank account balance is tracked via journal/voucher)
+            $journal = $this->journalPostingEngine->postLoanRecovery($totalRecovered, $bankAccountId, $paymentMethod);
+
+            // Create receipt voucher for the recovery
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'receipt',
+                [
+                    'payment_method' => $paymentMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Loan write-off recovery receipt voucher # ' . $recovery->id,
+                    'reference_type' => 'loan_writeoff_recovery',
+                    'reference_id' => (int) $recovery->id,
+                ]
+            );
 
             return $recovery;
         });
@@ -106,6 +132,9 @@ class LoanRecoveryProcessor
         float $amount,
         ?string $notes,
         int $recordedBy,
+        ?int $bankAccountId = null,
+        ?string $paymentMethod = null,
+        ?string $transactionReference = null,
     ): LoanWriteoffRecoveries {
         $amount = round(max(0.0, $amount), 2);
         if ($amount <= 0.0) {
@@ -154,6 +183,9 @@ class LoanRecoveryProcessor
             recoveredPenalties: $allocPenalties,
             notes: $notes,
             recordedBy: $recordedBy,
+            bankAccountId: $bankAccountId,
+            paymentMethod: $paymentMethod,
+            transactionReference: $transactionReference,
         );
     }
 
@@ -165,7 +197,13 @@ class LoanRecoveryProcessor
      * - Track recovered amounts separately in loan_writeoff_recoveries
      * - Allocation priority is the same as normal: penalty -> fees -> interest -> principal
      */
-    public function processRecovery(Loans $loan, LoanPayments $payment): LoanWriteoffRecoveries
+    public function processRecovery(
+        Loans $loan, 
+        LoanPayments $payment,
+        ?int $bankAccountId = null,
+        ?string $paymentMethod = null,
+        ?string $transactionReference = null
+    ): LoanWriteoffRecoveries
     {
         if (Str::lower((string) $loan->status) !== 'written_off') {
             throw new RuntimeException('Recovery processing is only allowed for written-off loans.');
@@ -173,7 +211,7 @@ class LoanRecoveryProcessor
 
         $writeoff = $this->getLatestWriteoff($loan);
 
-        return DB::transaction(function () use ($loan, $payment, $writeoff) {
+        return DB::transaction(function () use ($loan, $payment, $writeoff, $bankAccountId, $paymentMethod, $transactionReference) {
             // Compute current remaining balances from (possibly frozen) installments.
             $installments = LoanInstallments::query()
                 ->where('loan_id', $loan->id)
@@ -210,7 +248,7 @@ class LoanRecoveryProcessor
 
             $totalRecovered = round($recoveredPenalties + $recoveredFees + $recoveredInterest + $recoveredPrincipal, 2);
 
-            return LoanWriteoffRecoveries::create([
+            $recovery = LoanWriteoffRecoveries::create([
                 'loan_id' => $loan->id,
                 'writeoff_id' => $writeoff->id,
                 'payment_id' => $payment->id,
@@ -221,7 +259,28 @@ class LoanRecoveryProcessor
                 'recovered_penalties' => $recoveredPenalties,
                 'total_recovered' => $totalRecovered,
                 'notes' => null,
+                'bank_account_id' => $bankAccountId,
+                'payment_method' => $paymentMethod ?? $payment->payment_method,
+                'transaction_reference' => $transactionReference ?? $payment->reference_number,
             ]);
+
+            // Create journal entry for the recovery (bank account balance is tracked via journal/voucher)
+            $journal = $this->journalPostingEngine->postLoanRecovery($totalRecovered, $bankAccountId, $paymentMethod ?? $payment->payment_method);
+
+            // Create receipt voucher for the recovery
+            $this->voucherService->createVoucherFromJournalEntry(
+                $journal,
+                'receipt',
+                [
+                    'payment_method' => $paymentMethod ?? $payment->payment_method,
+                    'bank_account_id' => $bankAccountId,
+                    'description' => 'Loan write-off recovery receipt voucher # ' . $recovery->id,
+                    'reference_type' => 'loan_writeoff_recovery',
+                    'reference_id' => (int) $recovery->id,
+                ]
+            );
+
+            return $recovery;
         });
     }
 

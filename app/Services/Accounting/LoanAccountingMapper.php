@@ -179,28 +179,42 @@ class LoanAccountingMapper
      * Build journal entry lines for a loan recovery (post-write-off collection).
      *
      * Financial meaning:
-     * - Debit: Increase Cash (asset) because cash is received.
+     * - Debit: Increase Cash/Bank (asset) because cash is received.
      * - Credit: Recognize Recovery Income (income) because it offsets previous loss.
      *
      * @param float $amount Recovery amount received
+     * @param int|null $bankAccountId Bank account ID for the payment
+     * @param string|null $paymentMethod Payment method used
      *
      * @return array Journal lines ready for validation/posting
      */
-    public function buildLoanRecoveryEntry(float $amount): array
+    public function buildLoanRecoveryEntry(float $amount, ?int $bankAccountId = null, ?string $paymentMethod = null): array
     {
         $builder = clone $this->builder;
         $builder->reset();
 
-        // Debit: Cash account (placeholder; replace with actual cash account ID)
+        // Determine the cash/bank account to debit based on bank account or payment method
+        $cashAccountId = 1; // default placeholder
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+            $linked = (int) ($bank?->chart_of_account_id ?? 0);
+            if ($linked > 0) {
+                $cashAccountId = $linked;
+            }
+        } elseif ($paymentMethod) {
+            $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        }
+
+        // Debit: Cash/Bank account (money coming IN)
         $builder->addDebit(
-            1, // placeholder cash account ID
+            $cashAccountId,
             $amount,
             'Loan recovery – cash received'
         );
 
-        // Credit: Recovery Income account (placeholder; replace with actual recovery income account ID)
+        // Credit: Recovery Income account (income recognized)
         $builder->addCredit(
-            1, // placeholder recovery income account ID
+            1, // placeholder recovery income account ID - should be configured
             $amount,
             'Loan recovery – income recognized'
         );

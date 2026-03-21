@@ -200,12 +200,14 @@ class JournalPostingEngine
      * Convenience method: post a loan recovery journal entry.
      *
      * @param float $amount Recovery amount received
+     * @param int|null $bankAccountId Bank account ID for the payment
+     * @param string|null $paymentMethod Payment method used
      *
      * @return JournalEntries
      */
-    public function postLoanRecovery(float $amount): JournalEntries
+    public function postLoanRecovery(float $amount, ?int $bankAccountId = null, ?string $paymentMethod = null): JournalEntries
     {
-        $lines = $this->mapper->buildLoanRecoveryEntry($amount);
+        $lines = $this->mapper->buildLoanRecoveryEntry($amount, $bankAccountId, $paymentMethod);
 
         return $this->postJournalEntry(
             $lines,

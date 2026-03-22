@@ -438,61 +438,40 @@ return [
 
         ],
     ],
-        [
-            'text' => 'Finance Branches',
-            'url' => '/shop',
-            'icon' => 'fas fa-network-wired',
-            'can' => 'view_shop', // Only show for Super Admin role and owner
-
-        ],
 
 
-        [
-            'text' => 'Risk Monitoring',
-            'icon' => 'fas fa-shield-alt',
+        //Loan management
+
+         [
+            'text' => 'Loan Management',
+            'icon' => 'fas fa-university',
             'submenu' => [
                 [
-                    'text' => 'Portfolio Risk',
-                    'url' => 'risk/portfolio',
-                    'icon' => 'fas fa-chart-line',
+                    'text' => 'Loan Products',
+                    'url' => '/loans/loan_products',
                 ],
+         
                 [
-                    'text' => 'Delinquent Loans',
-                    'url' => 'risk/delinquent',
-                    'icon' => 'fas fa-exclamation-triangle',
-                ],
+                    'text' => 'Loans',
+                    'url' => 'loans',
+                ], 
+
                 [
-                    'text' => 'Collections',
-                    'url' => 'risk/collections',
-                    'icon' => 'fas fa-hand-holding-usd',
-                ],
+                    'text' => 'Loan Groups',
+                    'url' => 'loans/loan_groups',
+                ], 
+
+             
+                [
+                    'text' => 'Loan Settings',
+                    'url' => '/loans/loans_settings',
+                ], 
+             
+             
             ],
         ],
 
-        [
-            'text' => 'Customer Credits',
-            'icon' => 'fas fa-wallet',
-            'submenu' => [
-                [
-                    'text' => 'Customer Credits',
-                    'url' => 'credits',
-                    'icon' => 'fas fa-wallet',
-                ],
-            ],
-        ],
-
-        [
-            'text' => 'Security Deposits',
-            'icon' => 'fas fa-shield-alt',
-            'submenu' => [
-                [
-                    'text' => 'Security Deposits',
-                    'url' => 'security-deposits',
-                    'icon' => 'fas fa-shield-alt',
-                ],
-            ],
-        ],
-        //Accounting
+        //Accounting Management
 
          [
             'text' => 'Accounting',
@@ -532,6 +511,49 @@ return [
             ],
         ],
 
+        //customers management
+
+        [
+            'text' => 'Customers',
+            'url' => '/admin/sales/customers',
+            'icon' => 'fas fa-users',
+            'can' => 'view_customers',
+        ],
+
+        // [
+        //     'text' => 'Finance Branches',
+        //     'url' => '/shop',
+        //     'icon' => 'fas fa-network-wired',
+        //     'can' => 'view_shop', // Only show for Super Admin role and owner
+
+        // ],
+
+
+        [
+            'text' => 'Customer Credits',
+            'icon' => 'fas fa-wallet',
+            'submenu' => [
+                [
+                    'text' => 'Customer Credits',
+                    'url' => 'credits',
+                    'icon' => 'fas fa-wallet',
+                ],
+            ],
+        ],
+
+        [
+            'text' => 'Security Deposits',
+            'icon' => 'fas fa-shield-alt',
+            'submenu' => [
+                [
+                    'text' => 'Security Deposits',
+                    'url' => 'security-deposits',
+                    'icon' => 'fas fa-shield-alt',
+                ],
+            ],
+        ],
+
+
         [
             'text' => 'Customer Deposits',
             'icon' => 'fas fa-piggy-bank',
@@ -547,37 +569,27 @@ return [
             ]
         ],
 
-        //Loan management
-
-         [
-            'text' => 'Loan Management',
-            'icon' => 'fas fa-university',
+        [
+            'text' => 'Risk Monitoring',
+            'icon' => 'fas fa-shield-alt',
             'submenu' => [
                 [
-                    'text' => 'Loan Products',
-                    'url' => '/loans/loan_products',
+                    'text' => 'Portfolio Risk',
+                    'url' => 'risk/portfolio',
+                    'icon' => 'fas fa-chart-line',
                 ],
-         
                 [
-                    'text' => 'Loans',
-                    'url' => 'loans',
-                ], 
-
+                    'text' => 'Delinquent Loans',
+                    'url' => 'risk/delinquent',
+                    'icon' => 'fas fa-exclamation-triangle',
+                ],
                 [
-                    'text' => 'Loan Groups',
-                    'url' => 'loans/loan_groups',
-                ], 
-
-             
-                [
-                    'text' => 'Loan Settings',
-                    'url' => '/loans/loans_settings',
-                ], 
-             
-             
+                    'text' => 'Collections',
+                    'url' => 'risk/collections',
+                    'icon' => 'fas fa-hand-holding-usd',
+                ],
             ],
         ],
-    
 
         // Products & Inventory
         
@@ -687,12 +699,7 @@ return [
         //     'label_color' => 'warning',
        
         // ],
-        [
-            'text' => 'Customers',
-            'url' => '/admin/sales/customers',
-            'icon' => 'fas fa-users',
-            'can' => 'view_customers',
-        ],
+
 
         // [
         //     'text' => 'Suppliers',
@@ -767,18 +774,18 @@ return [
         ],
 
         // Users & Roles
-        [
-            'text' => 'Users',
-            'url' => '/admin/users',
-            'icon' => 'fas fa-users',
-            'can' => 'admin-or-owner', // Only show for Super Admin role and owner
-        ],
-        [
-            'text' => 'Roles & Permissions',
-            'url' => 'settings/roles-permissions',
-            'icon' => 'fas fa-user-shield',
-            'can' => 'admin-or-owner', // Only show for Super Admin role and owner
-        ],
+        // [
+        //     'text' => 'Users',
+        //     'url' => '/admin/users',
+        //     'icon' => 'fas fa-users',
+        //     'can' => 'admin-or-owner', // Only show for Super Admin role and owner
+        // ],
+        // [
+        //     'text' => 'Roles & Permissions',
+        //     'url' => 'settings/roles-permissions',
+        //     'icon' => 'fas fa-user-shield',
+        //     'can' => 'admin-or-owner', // Only show for Super Admin role and owner
+        // ],
 
 
         // Account settings
@@ -789,41 +796,48 @@ return [
             'icon' => 'fas fa-user',
         ],
         [
-            'text' => 'Change Password',
-            'url' => 'settings/password',
-            'icon' => 'fas fa-lock',
+            'text' => 'Settings',
+            'url' => '/settings/general_settings',
+            'icon' => 'fas fa-cog',
         ],
-        [
-            'text' => 'UI settings',
-            'url' => 'settings/ui-settings',
-            'icon' => 'fas fa-lock',
-            'can' => 'admin-or-owner', // Only show for Super Admin role and owner
 
-        ],
+        
+        // [
+        //     'text' => 'Change Password',
+        //     'url' => 'settings/password',
+        //     'icon' => 'fas fa-lock',
+        // ],
+        // [
+        //     'text' => 'UI settings',
+        //     'url' => 'settings/ui-settings',
+        //     'icon' => 'fas fa-lock',
+        //     'can' => 'admin-or-owner', // Only show for Super Admin role and owner
+
+        // ],
 
 
 
           // Printer settings
-        [
-            'text' => 'Printer Settings',
-            'icon' => 'fas fa-print',
-             'can' => 'view_printer_settings',
-            'submenu' => [
-                [
-                    'text' => 'Configure Printer',
-                    'url' => '/settings/printers',
-                     'can' => 'view_configure_printer',
-                ],
-                [
-                    'text' => 'Print Jobs',
-                    'url' => '/settings/printers/jobs',
-                     'can' => 'view_print_jobs',
+        // [
+        //     'text' => 'Printer Settings',
+        //     'icon' => 'fas fa-print',
+        //      'can' => 'view_printer_settings',
+        //     'submenu' => [
+        //         [
+        //             'text' => 'Configure Printer',
+        //             'url' => '/settings/printers',
+        //              'can' => 'view_configure_printer',
+        //         ],
+        //         [
+        //             'text' => 'Print Jobs',
+        //             'url' => '/settings/printers/jobs',
+        //              'can' => 'view_print_jobs',
                     
-                ],
+        //         ],
                 
          
-            ],
-        ],
+        //     ],
+        // ],
 
 
         // Labels / Important Info

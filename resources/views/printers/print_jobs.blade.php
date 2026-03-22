@@ -15,6 +15,17 @@
             @endcan
         </div>
     </div>
+     <div class="d-flex justify-content-between align-items-center">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('settings.general_settings.index') }}">General Settings</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('printers.settings.index') }}">Printer Settings</a></li>
+                <li class="breadcrumb-item active text-dark" aria-current="page">Print Jobs</li>
+            </ol>
+        </nav>
+        <a href="{{ route('printers.settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
 @stop
 
 @section('content')

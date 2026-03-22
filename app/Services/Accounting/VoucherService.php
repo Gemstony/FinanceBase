@@ -36,12 +36,12 @@ class VoucherService
 
         $next = 1;
         if ($latest) {
-            if (preg_match('/^(?:RV|PV)-(\d{6})$/', (string) $latest, $m)) {
+            if (preg_match('/^(?:RV|PV)-(\d{8})$/', (string) $latest, $m)) {
                 $next = ((int) $m[1]) + 1;
             }
         }
 
-        return $prefix . '-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+        return $prefix . '-' . str_pad((string) $next, 8, '0', STR_PAD_LEFT);
     }
 
     /**

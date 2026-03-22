@@ -21,6 +21,7 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('settings.general_settings.index') }}">General Settings</a></li>
                 <li class="breadcrumb-item"><a href="{{ route('users.index') }}">Users</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Edit User</li>
             </ol>

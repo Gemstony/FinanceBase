@@ -91,6 +91,11 @@ Route::middleware(['auth'])->group(function () {
     // Shop setup routes
     Route::get('/shop/setup', [ShopController::class, 'create'])->name('shop.create');
     Route::post('/shop/setup', [ShopController::class, 'store'])->name('shop.store');
+
+    Route::get('/settings/general_settings', [\App\Http\Controllers\Settings\GeneralSettingsController::class, 'index'])
+    ->middleware('can:view_general_settings')
+    ->name('settings.general_settings.index');
+
     
     // Profile routes
     Route::get('/settings/profile', function () {

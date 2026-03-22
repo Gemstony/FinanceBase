@@ -4,15 +4,19 @@
 
 @section('content_header')
     <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
-        <div class="card-body text-center">
+        <div class="card-body text-center justify-content-between ">
             <h1 class="d-none d-md-block text-light"><i class="fas fa-building"></i> Main Finance Branch(Branches)</h1>
             <h1 class="d-md-none text-light"><i class="fas fa-building"></i> Main Finance Branch</h1>
+            <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
         </div>
     </div>
     <div class="d-flex flex-wrap justify-content-between align-items-center">
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('settings.general_settings.index') }}">General Settings</a></li>
                 <li class="breadcrumb-item active text-dark d-none d-md-inline" aria-current="page">Main Finance Branch (Branches)</li>
                 <li class="breadcrumb-item active text-dark d-md-none" aria-current="page">Main Branch</li>
             </ol>

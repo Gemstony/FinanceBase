@@ -407,10 +407,10 @@ class UsersManagementController extends Controller
             ]);
 
             // Send SMS notification if user has phone number
-            if ($user->phone_number) {
-                $smsService = new SmsService();
-                $smsService->sendPasswordResetSms($user->phone_number, $request->password);
-            }
+            // if ($user->phone_number) {
+            //     $smsService = new SmsService();
+            //     $smsService->sendPasswordResetSms($user->phone_number, $request->password);
+            // }
 
             return redirect()->back()->with('success', 'Password reset successfully for ' . $user->name . '.');
         } catch (\Exception $e) {

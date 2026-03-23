@@ -64,7 +64,7 @@
                                 $loan = $r->loan;
                             @endphp
                             <tr>
-                                <td>{{ $counter }}</td>
+                                <td>{{ $counter++ }}</td>
                                 <td>
                                     @if($loan)
                                         <a href="{{ route('loans.loans.show', $loan) }}">{{ $loan->loan_code }}</a>

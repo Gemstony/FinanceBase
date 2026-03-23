@@ -31,6 +31,7 @@
 @stop
 
 @section('js')
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const outstanding = Number({{ (float) ($summary['total_balance'] ?? 0) }});
@@ -76,6 +77,52 @@
             if (paymentMethodEl) {
                 paymentMethodEl.addEventListener('change', updateBankAccountVisibility);
                 updateBankAccountVisibility();
+            }
+
+            // SweetAlert confirmation for Process Payment button
+            const paymentForm = document.querySelector('form[action="{{ route('loan.repayments.store') }}"]');
+            if (paymentForm) {
+                paymentForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const paymentAmount = document.querySelector('input[name="payment_amount"]').value;
+                    const paymentMethod = document.querySelector('select[name="payment_method"]').value;
+                    const paymentDate = document.querySelector('input[name="payment_date"]').value;
+                    
+                    Swal.fire({
+                        title: 'Confirm Payment',
+                        html: `
+                            <div class="text-left">
+                                <p><strong>Amount:</strong> ${parseFloat(paymentAmount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p><strong>Method:</strong> ${paymentMethod.replace('_', ' ').toUpperCase()}</p>
+                                <p><strong>Date:</strong> ${paymentDate}</p>
+                            </div>
+                            <p class="mt-3">Are you sure you want to process this payment?</p>
+                        `,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Process Payment',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Show loading state
+                            Swal.fire({
+                                title: 'Processing Payment...',
+                                text: 'Please wait while we process your payment.',
+                                allowOutsideClick: false,
+                                allowEscapeKey: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+                            
+                            // Submit the form
+                            paymentForm.submit();
+                        }
+                    });
+                });
             }
         });
     </script>

@@ -171,9 +171,12 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $counter = 1;
+                    @endphp
                     @forelse($customers as $customer)
                         <tr>
-                            <td>#{{ $customer->id }}</td>
+                            <td>{{ $counter++ }}</td>
                             <td>
                                 <a href="{{ route('customers.show', $customer->id) }}"><strong>{{ $customer->name }}</strong></a>
                                 @if($customer->email)

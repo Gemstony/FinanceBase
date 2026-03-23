@@ -22,12 +22,49 @@
 @section('content')
 <div class="container-fluid">
     @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle"></i> Error</h5>
+            <p class="mb-0">{{ session('error') }}</p>
+        </div>
+    @endif
+    @if(session('success'))
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle"></i> Success</h5>
+            <p class="mb-0">{{ session('success') }}</p>
+        </div>
+    @endif
+    @if(session('import_errors'))
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle"></i> Import Errors</h5>
+            <p class="mb-2">The following errors were found in your CSV file. Please fix them and try again:</p>
+            <ul class="mb-0">
+                @foreach(session('import_errors') as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
     @endif
 
     <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="customerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="single-tab" data-bs-toggle="tab" data-bs-target="#single" type="button" role="tab" aria-controls="single" aria-selected="true">
+                        <i class="fas fa-user-plus"></i> Single Customer
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab" aria-controls="bulk" aria-selected="false">
+                        <i class="fas fa-file-csv"></i> Bulk Import
+                    </button>
+                </li>
+            </ul>
+        </div>
         <div class="card-body">
-            <form method="POST" action="{{ route('customers.store') }}">
+            <div class="tab-content" id="customerTabsContent">
+                <!-- Single Customer Tab -->
+                <div class="tab-pane fade show active" id="single" role="tabpanel" aria-labelledby="single-tab">
+                    <form method="POST" action="{{ route('customers.store') }}">
                 @csrf
 
                 <div class="row">
@@ -154,8 +191,9 @@
                             <select name="id_type" class="form-control" required>
                                 <option value="" disabled @selected(old('id_type') === null)>Choose ID</option>
                                 <option value="NIDA" @selected(old('id_type') === 'NIDA')>NIDA Id</option>
-                                <option value="Driving Lesence" @selected(old('id_type') === 'Driving Lesence')>Driving Lesence Id</option>
+                                <option value="Driving License" @selected(old('id_type') === 'Driving License')>Driving License Id</option>
                                 <option value="Voter Id" @selected(old('id_type') === 'Voter Id')>Voter Id</option>
+                                <option value="Other" @selected(old('id_type') === 'Other')>Other</option>
                             </select>
                         </div>
                     </div>
@@ -172,7 +210,90 @@
                         <i class="fas fa-save"></i> Save Customer
                     </button>
                 </div>
-            </form>
+                    </form>
+                </div>
+
+                <!-- Bulk Import Tab -->
+                <div class="tab-pane fade" id="bulk" role="tabpanel" aria-labelledby="bulk-tab">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card border">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fas fa-upload"></i> Bulk Import Customers</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="{{ route('customers.bulk-import') }}" enctype="multipart/form-data">
+                                        @csrf
+                                        
+                                        <div class="mb-4">
+                                            <label for="csv_file" class="form-label fw-bold">Select CSV File <span class="text-danger">*</span></label>
+                                            <input type="file" class="form-control @error('csv_file') is-invalid @enderror"
+                                                   id="csv_file" name="csv_file" accept=".csv" required>
+                                            @error('csv_file')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                            <small class="text-muted">Only CSV files are allowed. Maximum file size: 2MB</small>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between align-items-center mb-4">
+                                            <a href="{{ route('customers.download-template') }}" class="btn btn-outline-success">
+                                                <i class="fas fa-download"></i> Download CSV Template
+                                            </a>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-file-import"></i> Import Customers
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Import Instructions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="fw-bold">Required Columns:</h6>
+                                    <ul class="small">
+                                        <li><strong>name</strong> - Customer full name</li>
+                                        <li><strong>gender</strong> - M (Male) or F (Female)</li>
+                                        <li><strong>birth_date</strong> - Format: YYYY-MM-DD</li>
+                                        <li><strong>phone</strong> - Phone number</li>
+                                        <li><strong>region</strong> - Region/Province</li>
+                                        <li><strong>district</strong> - District</li>
+                                        <li><strong>ward</strong> - Ward</li>
+                                        <li><strong>street</strong> - Street name</li>
+                                        <li><strong>house_no</strong> - House number</li>
+                                        <li><strong>id_type</strong> - NIDA, Driving Lesence, Voter Id, or Other</li>
+                                        <li><strong>id_number</strong> - ID number</li>
+                                        <li><strong>category</strong> - borrower or guarantor</li>
+                                    </ul>
+
+                                    <h6 class="fw-bold mt-3">Optional Columns:</h6>
+                                    <ul class="small">
+                                        <li><strong>email</strong> - Email address</li>
+                                        <li><strong>altenative_phone</strong> - Alternative phone</li>
+                                        <li><strong>work</strong> - Work/Occupation</li>
+                                        <li><strong>work_address</strong> - Work address</li>
+                                    </ul>
+
+                                    <h6 class="fw-bold mt-3">Important Rules:</h6>
+                                    <ul class="small text-danger">
+                                        <li>First row must be the header</li>
+                                        <li>All required fields must be filled</li>
+                                        <li>Gender must be M or F</li>
+                                        <li>Date format: YYYY-MM-DD</li>
+                                        <li>ID type must match allowed values</li>
+                                        <li>Category must be borrower or guarantor</li>
+                                        <li>If any row fails, all imports will be rolled back</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -180,4 +301,8 @@
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 @endpush

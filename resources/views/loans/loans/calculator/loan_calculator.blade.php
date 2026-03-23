@@ -139,6 +139,7 @@
 
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 $(function(){
     $('#calc_loan_product_id').select2({ width: '100%', placeholder: '-- Select --' });
@@ -208,7 +209,11 @@ $(function(){
     $('#btnCalculateLoan').on('click', function(){
         const loanProductId = $('#calc_loan_product_id').val();
         if (!loanProductId) {
-            alert('Please select a loan product.');
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Loan Product',
+                text: 'Please select a loan product.'
+            });
             return;
         }
 
@@ -247,7 +252,11 @@ $(function(){
                 const firstKey = Object.keys(xhr.responseJSON.errors)[0];
                 if (firstKey) msg = xhr.responseJSON.errors[firstKey][0];
             }
-            alert(msg);
+            Swal.fire({
+                icon: 'error',
+                title: 'Calculation Failed',
+                text: msg
+            });
         });
     });
 });

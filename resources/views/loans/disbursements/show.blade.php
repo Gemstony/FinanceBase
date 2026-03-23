@@ -378,3 +378,55 @@
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const disbursementForm = document.querySelector('form[action*="disburse"]');
+    if (disbursementForm) {
+        disbursementForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const disbursementDate = document.querySelector('input[name="disbursement_date"]').value;
+            const disbursementMethod = document.querySelector('select[name="disbursement_method_id"]');
+            const disbursementMethodName = disbursementMethod.options[disbursementMethod.selectedIndex]?.text || 'N/A';
+            const bankAccount = document.querySelector('select[name="bank_account_id"]');
+            const bankAccountName = bankAccount.options[bankAccount.selectedIndex]?.text || 'N/A';
+            
+            Swal.fire({
+                title: 'Confirm Disbursement',
+                html: `
+                    <div class="text-left">
+                        <p><strong>Disbursement Date:</strong> ${disbursementDate}</p>
+                        <p><strong>Disbursement Method:</strong> ${disbursementMethodName}</p>
+                        <p><strong>Bank Account:</strong> ${bankAccountName}</p>
+                    </div>
+                    <p class="mt-3">Are you sure you want to confirm this disbursement?</p>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Confirm Disbursement',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Processing Disbursement...',
+                        text: 'Please wait while we process the disbursement.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    disbursementForm.submit();
+                }
+            });
+        });
+    }
+});
+</script>
+@endpush

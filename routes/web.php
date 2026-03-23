@@ -1108,7 +1108,9 @@ Route::middleware(['auth'])->group(function () {
             ->name('customers.index');
         Route::get('/admin/sales/customers/export/{format}', [CustomersController::class, 'export'])->name('customers.export');
         Route::get('/admin/sales/customers/import/sample', [CustomersController::class, 'downloadSample'])->name('customers.import.sample');
+        Route::get('/admin/sales/customers/template', [CustomersController::class, 'downloadTemplate'])->name('customers.download-template');
         Route::post('/admin/sales/customers/import', [CustomersController::class, 'import'])->name('customers.import');
+        Route::post('/admin/sales/customers/bulk-import', [CustomersController::class, 'bulkImport'])->name('customers.bulk-import');
         Route::get('/admin/sales/customers/create', [CustomersController::class, 'create'])
             ->middleware('can:add_customers')
             ->name('customers.create');

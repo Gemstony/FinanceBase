@@ -390,7 +390,7 @@
                             </div>
                         </div>
 
-                        <hr>
+                        <!-- <hr>
                         <h6 class="mb-2">Savings Requirements</h6>
                         <div class="form-row align-items-center">
                             <div class="form-group col-md-4">
@@ -413,7 +413,7 @@
                                     value="{{ old('loan_to_savings_ratio', $loanProductRules->loan_to_savings_ratio ?? '') }}">
                                 <small class="form-text text-muted">Example: 2.00 means loan <= savings x 2.</small>
                             </div>
-                        </div>
+                        </div> -->
 
                         <hr>
                         <h6 class="mb-2">Repayment & Penalty Behavior</h6>
@@ -488,13 +488,24 @@
                         </div>
 
                         <hr>
-                        <h6 class="mb-2">Governance</h6>
+                        <!-- <h6 class="mb-2">Governance</h6>
                         <div class="form-row">
                             <div class="form-group col-md-4">
                                 <div class="custom-control custom-switch">
                                     <input type="checkbox" class="custom-control-input" id="manual_override_allowed" name="manual_override_allowed" value="1"
                                         {{ old('manual_override_allowed', ($loanProductRules->manual_override_allowed ?? false) ? '1' : '') ? 'checked' : '' }}>
                                     <label class="custom-control-label" for="manual_override_allowed">Manual Override Allowed</label>
+                                </div>
+                            </div>
+                        </div> -->
+
+                        <h6 class="mb-2">Security Deposit</h6>
+                        <div class="form-row">
+                            <div class="form-group col-md-4">
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input" id="requires_security_deposit" name="requires_security_deposit" value="1"
+                                        {{ old('requires_security_deposit', ($loanProductRules->requires_security_deposit ?? false) ? '1' : '') ? 'checked' : '' }}>
+                                    <label class="custom-control-label" for="requires_security_deposit">Requires Security Deposit</label>
                                 </div>
                             </div>
                         </div>
@@ -529,16 +540,7 @@
                             </div>
                         </div>
 
-                        <h6 class="mb-2">Security Deposit</h6>
-                        <div class="form-row">
-                            <div class="form-group col-md-4">
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="requires_security_deposit" name="requires_security_deposit" value="1"
-                                        {{ old('requires_security_deposit', ($loanProductRules->requires_security_deposit ?? false) ? '1' : '') ? 'checked' : '' }}>
-                                    <label class="custom-control-label" for="requires_security_deposit">Requires Security Deposit</label>
-                                </div>
-                            </div>
-                        </div>
+
                         <h6 class="mb-2">Collateral Coverage</h6>
                         <div class="form-row">
                             <div class="form-group col-md-4">

@@ -136,3 +136,53 @@
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // SweetAlert confirmation for Confirm Write-Off button
+        const writeoffForm = document.querySelector('form[action*="writeoff"]');
+        if (writeoffForm) {
+            writeoffForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const writeoffDate = document.querySelector('input[name="writeoff_date"]').value;
+                const reason = document.querySelector('textarea[name="reason"]').value;
+                
+                Swal.fire({
+                    title: 'Confirm Write-Off',
+                    html: `
+                        <div class="text-left">
+                            <p><strong>Write-Off Date:</strong> ${writeoffDate}</p>
+                            <p><strong>Reason:</strong> ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}</p>
+                        </div>
+                        <p class="mt-3">Are you sure you want to write off this loan? This action cannot be undone.</p>
+                    `,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Write Off',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show loading state
+                        Swal.fire({
+                            title: 'Processing Write-Off...',
+                            text: 'Please wait while we process the write-off.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        // Submit the form
+                        writeoffForm.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
+@endpush

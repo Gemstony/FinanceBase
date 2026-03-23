@@ -5,8 +5,8 @@
 @section('content_header')
     <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
         <div class="card-body text-center justify-content-between ">
-            <h1 class="d-none d-md-block text-light"><i class="fas fa-building"></i> Main Finance Branch(Branches)</h1>
-            <h1 class="d-md-none text-light"><i class="fas fa-building"></i> Main Finance Branch</h1>
+            <h1 class="d-none d-md-block text-light"><i class="fas fa-university"></i> Main Finance Branch (Branches)</h1>
+            <h1 class="d-md-none text-light"><i class="fas fa-university"></i> Main Finance Branch</h1>
             <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light btn-sm">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
@@ -97,13 +97,10 @@
     @endif
 
     <!-- Main Branch Info Card -->
-    <div class="card main-shop-card mb-4" style="border: 4px solid #FFD700; box-shadow: 0 15px 35px rgba(0,0,0,0.4), 0 0 20px rgba(255,215,0,0.3); position: relative;">
-        <div class="card-header" style="background: linear-gradient(135deg, #FFD700, #FFA500, #FF6347); color: white; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 2rem; color: #FFD700; opacity: 0.8;">
-                <i class="fas fa-crown"></i>
-            </div>
-            <h3 class="card-title text-center" style="text-shadow: 3px 3px 6px rgba(0,0,0,0.7); font-weight: bold; font-size: 1.5rem; margin-top: 20px;"><i class="fas fa-crown"></i> Main Branch Headquarters</h3>
-            <div style="position: absolute; bottom: 10px; right: 15px;">
+    <div class="card main-shop-card mb-4">
+        <div class="card-header">
+            <h3 class="card-title text-light"><i class="fas fa-university"></i> Main Branch Information</h3>
+            <div class="card-tools">
 
                 @can('edit_shop')
                 <button type="button" class="btn btn-light btn-sm" onclick="editMainShop('{{ $shop->id ?? 0 }}', '{{ $shop->name ?? '' }}', '{{ $shop->short_name ?? '' }}', '{{ $shop->registration_number ?? '' }}', '{{ $shop->license_number ?? '' }}', '{{ $shop->tin ?? '' }}', '{{ $shop->website ?? '' }}', '{{ $shop->country ?? '' }}', '{{ $shop->region ?? '' }}', '{{ $shop->district ?? '' }}', '{{ $shop->street ?? '' }}', '{{ $shop->currency ?? '' }}', '{{ $shop->logo ?? '' }}', '{{ $shop->phone ?? '' }}', '{{ $shop->address ?? '' }}', '{{ $shop->email ?? '' }}', '{{ $shop->description ?? '' }}')" style="border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
@@ -111,61 +108,51 @@
                 </button>
                 @endcan
             </div>
-            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #FFD700, transparent);"></div>
         </div>
-        <div class="card-body" style="background: linear-gradient(135deg, #FFF8DC, #FAFAD2); padding: 2.5rem;">
-            <div class="text-center mb-4">
-                <img id="main_shop_logo_img_large" src="{{ $shop->logo ? asset('storage/' . $shop->logo) : '' }}" alt="Logo" style="{{ $shop->logo ? '' : 'display: none;' }} max-height: 120px; max-width: 220px; object-fit: contain; border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.15); background: rgba(255,255,255,0.6); padding: 10px;">
-                <div id="main_shop_logo_placeholder_large" style="{{ $shop->logo ? 'display: none;' : '' }} color: #8B4513; font-weight: 600;">No logo uploaded</div>
-            </div>
+        <div class="card-body">
             <div class="row">
-                <div class="col-md-6">
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Name:</strong> <span id="main_shop_name">{{ $shop->name ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Short Name:</strong> <span id="main_shop_short_name">{{ $shop->short_name ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Reg No:</strong> <span id="main_shop_registration_number">{{ $shop->registration_number ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">License No:</strong> <span id="main_shop_license_number">{{ $shop->license_number ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Phone:</strong> <span id="main_shop_phone">{{ $shop->phone ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Email:</strong> <span id="main_shop_email">{{ $shop->email ?? 'N/A' }}</span></p>
+                <div class="col-md-4 text-center mb-4">
+                    <img id="main_shop_logo_img_large" src="{{ $shop->logo ? asset('storage/' . $shop->logo) : '' }}" alt="Logo" style="{{ $shop->logo ? '' : 'display: none;' }} max-height: 100px; max-width: 180px; object-fit: contain; border: 1px solid #dee2e6; padding: 8px; background: #fff;">
+                    <div id="main_shop_logo_placeholder_large" style="{{ $shop->logo ? 'display: none;' : '' }} color: #6c757d; font-weight: 500; padding: 20px; border: 1px dashed #dee2e6; background: #f8f9fa;">No logo uploaded</div>
                 </div>
-                <div class="col-md-6">
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">TIN:</strong> <span id="main_shop_tin">{{ $shop->tin ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Website:</strong> <span id="main_shop_website">{{ $shop->website ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Country:</strong> <span id="main_shop_country">{{ $shop->country ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Region:</strong> <span id="main_shop_region">{{ $shop->region ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">District:</strong> <span id="main_shop_district">{{ $shop->district ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Street:</strong> <span id="main_shop_street">{{ $shop->street ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Currency:</strong> <span id="main_shop_currency">{{ $shop->currency ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;">
-                        <strong style="color: #8B4513;">Logo:</strong>
-                        <span id="main_shop_logo" style="display: none;">{{ $shop->logo ?? '' }}</span>
-                        <span id="main_shop_logo_placeholder" style="{{ $shop->logo ? 'display: none;' : '' }}">N/A</span>
-                        <img id="main_shop_logo_img" src="{{ $shop->logo ? asset('storage/' . $shop->logo) : '' }}" alt="Logo" style="{{ $shop->logo ? '' : 'display: none;' }} max-height: 40px; margin-left: 10px; border-radius: 6px;">
-                    </p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Address:</strong> <span id="main_shop_address">{{ $shop->address ?? 'N/A' }}</span></p>
-                    <p style="font-size: 1.1rem; font-weight: 600;"><strong style="color: #8B4513;">Description:</strong> <span id="main_shop_description">{{ $shop->description ?? 'No description available' }}</span></p>
-                </div> 
-                        <span class="badge" style="background: linear-gradient(135deg, 
-                            {{ $shop->status === 'active' ? '#28a745, #20c997' : 
-                               ($shop->status === 'inactive' ? '#6c757d, #495057' : 
-                                ($shop->status === 'suspended' ? '#dc3545, #c82333' : '#ffc107, #e0a800')) }}); 
-                            color: {{ $shop->status === 'suspended' ? '#fff' : '#8B4513' }}; 
-                            font-weight: bold; padding: 0.5rem 1rem; border-radius: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                            <i class="fas {{ $shop->status === 'active' ? 'fa-check-circle' : 
-                                           ($shop->status === 'inactive' ? 'fa-pause-circle' : 
-                                            ($shop->status === 'suspended' ? 'fa-ban' : 'fa-clock')) }}"></i> 
-                            {{ ucfirst($shop->status) }}
-                        </span>
-                    </p>
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Name:</strong> <span id="main_shop_name">{{ $shop->name ?? 'N/A' }}</span></p>
+                            <p><strong>Short Name:</strong> <span id="main_shop_short_name">{{ $shop->short_name ?? 'N/A' }}</span></p>
+                            <p><strong>Registration No:</strong> <span id="main_shop_registration_number">{{ $shop->registration_number ?? 'N/A' }}</span></p>
+                            <p><strong>License No:</strong> <span id="main_shop_license_number">{{ $shop->license_number ?? 'N/A' }}</span></p>
+                            <p><strong>Phone:</strong> <span id="main_shop_phone">{{ $shop->phone ?? 'N/A' }}</span></p>
+                            <p><strong>Email:</strong> <span id="main_shop_email">{{ $shop->email ?? 'N/A' }}</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>TIN:</strong> <span id="main_shop_tin">{{ $shop->tin ?? 'N/A' }}</span></p>
+                            <p><strong>Website:</strong> <span id="main_shop_website">{{ $shop->website ?? 'N/A' }}</span></p>
+                            <p><strong>Country:</strong> <span id="main_shop_country">{{ $shop->country ?? 'N/A' }}</span></p>
+                            <p><strong>Region:</strong> <span id="main_shop_region">{{ $shop->region ?? 'N/A' }}</span></p>
+                            <p><strong>District:</strong> <span id="main_shop_district">{{ $shop->district ?? 'N/A' }}</span></p>
+                            <p><strong>Street:</strong> <span id="main_shop_street">{{ $shop->street ?? 'N/A' }}</span></p>
+                            <p><strong>Currency:</strong> <span id="main_shop_currency">{{ $shop->currency ?? 'N/A' }}</span></p>
+                            <p><strong>Status:</strong>
+                                <span class="badge badge-{{ $shop->status === 'active' ? 'success' : ($shop->status === 'inactive' ? 'secondary' : ($shop->status === 'suspended' ? 'danger' : 'warning')) }}">
+                                    {{ ucfirst($shop->status) }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <p><strong>Address:</strong> <span id="main_shop_address">{{ $shop->address ?? 'N/A' }}</span></p>
+                            <p><strong>Description:</strong> <span id="main_shop_description">{{ $shop->description ?? 'No description available' }}</span></p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="text-center mt-3">
-                <small style="color: #8B4513; font-style: italic;">"The heart of all operations - Leading with excellence"</small>
             </div>
         </div>
     </div>
     @can('view_subshops')
-        <div class=" mb-3">
-            <h4 class="h4"><i class="fas fa-store"></i> Branches</h4>
+        <div class="mb-3">
+            <h4 class="h4"><i class="fas fa-code-branch"></i> Branches</h4>
         </div>
          <hr>
 
@@ -212,7 +199,7 @@
                     <div class="card subshop-card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0 text-light">
-                                <i class="fas fa-home"></i> {{ $subshop->name ?? 'N/A' }}
+                                <i class="fas fa-building"></i> {{ $subshop->name ?? 'N/A' }}
                             </h5>
                             <span class="badge {{ ($subshop->is_active ?? false) ? 'badge-success' : 'badge-secondary' }}">
                                 {{ ($subshop->is_active ?? false) ? 'Active' : 'Inactive' }}
@@ -221,15 +208,15 @@
                         <div class="card-body">
                             <div class="subshop-info">
                                 <p class="info-item">
-                                    <i class="fas fa-phone text-primary"></i>
+                                    <i class="fas fa-phone"></i>
                                     <strong>Phone:</strong> {{ $subshop->phone ?? 'N/A' }}
                                 </p>
                                 <p class="info-item">
-                                    <i class="fas fa-map-marker-alt text-danger"></i>
+                                    <i class="fas fa-map-marker-alt"></i>
                                     <strong>Address:</strong> {{ $subshop->address ?? 'N/A' }}
                                 </p>
                                 <p class="info-item">
-                                    <i class="fas fa-calendar text-info"></i>
+                                    <i class="fas fa-calendar-alt"></i>
                                     <strong>Date:</strong> {{ $subshop->created_at ? $subshop->created_at->format('d/m/Y') : 'N/A' }}
                                 </p>
                             </div>
@@ -259,8 +246,8 @@
                 <div class="col-12">
                     <div class="card empty-state">
                         <div class="card-body text-center py-5">
-                            <i class="fas fa-store-slash fa-4x mb-3 text-muted"></i>
-                            <h4>No Sub Shops</h4>
+                            <i class="fas fa-building fa-4x mb-3 text-muted"></i>
+                            <h4>No Branches</h4>
                             <p class="text-muted">Click the "Add New Branch" button to get started</p>
                         </div>
                     </div>
@@ -277,7 +264,7 @@
                 <form action="{{ route('subshop.store') }}" method="POST" id="addSubShopForm">
                     @csrf
                     <div class="modal-header">
-                        <h5 class="modal-title" id="addSubShopModalLabel">
+                        <h5 class="modal-title text-light" id="addSubShopModalLabel">
                             <i class="fas fa-plus-circle"></i> Add New Branch
                         </h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -355,7 +342,7 @@
                     @csrf
                     @method('PUT')
                     <div class="modal-header">
-                        <h5 class="modal-title" id="editSubShopModalLabel">
+                        <h5 class="modal-title text-light" id="editSubShopModalLabel">
                             <i class="fas fa-edit"></i> Edit Branch
                         </h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -429,11 +416,11 @@
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <form id="editMainShopForm" enctype="multipart/form-data">
-                    <div class="modal-header" style="background: linear-gradient(135deg, #FFD700, #FFA500); color: white;">
-                        <h5 class="modal-title" id="editMainShopModalLabel">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-light" id="editMainShopModalLabel">
                             <i class="fas fa-edit"></i> Edit Main Branch Information
                         </h5>
-                        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
@@ -512,7 +499,7 @@
                                             <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                                         </div>
                                         <input type="text" class="form-control" id="edit_registration_number" name="registration_number"
-                                               placeholder="Auto-generated if empty" >
+                                               placeholder="Auto-generated if empty" readonly>
                                     </div>
                                 </div>
                             </div>
@@ -703,124 +690,104 @@
 @push('css')
 <style>
     /* ====================================
-       CSS ROOT VARIABLES - BADILISHA COLORS HAPA
+       CSS ROOT VARIABLES - MICROFINANCE SYSTEM COLORS
        ==================================== */
     :root {
-        --primary-color: #004e92;
-        --secondary-color: #000428;
-        --gradient: linear-gradient(90deg, #004e92, #000428);
-        --accent-color: #e94560;
-        --success-color: #28a745;
-        --danger-color: #dc3545;
-        --warning-color: #ffc107;
-        --info-color: #17a2b8;
-        --light-color: #f8f9fa;
-        --dark-color: #343a40;
+        --primary-color: #2c3e50;
+        --secondary-color: #34495e;
+        --gradient: linear-gradient(135deg, #2c3e50, #34495e);
+        --accent-color: #3498db;
+        --success-color: #27ae60;
+        --danger-color: #e74c3c;
+        --warning-color: #f39c12;
+        --info-color: #2980b9;
+        --light-color: #ecf0f1;
+        --dark-color: #2c3e50;
         --white: #ffffff;
-        --shadow-light: 0 2px 10px rgba(0, 78, 146, 0.1);
-        --shadow-medium: 0 4px 20px rgba(0, 78, 146, 0.15);
-        --shadow-heavy: 0 8px 32px rgba(0, 78, 146, 0.2);
-        --border-radius: 12px;
-        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.12);
+        --shadow-medium: 0 2px 6px rgba(0, 0, 0, 0.15);
+        --shadow-heavy: 0 4px 12px rgba(0, 0, 0, 0.18);
+        --border-radius: 4px;
+        --transition: all 0.2s ease;
     }
 
-    /* Main Branches Card - Professional Design */
+    /* Main Branch Card - Professional Corporate Design */
     .main-shop-card {
-        border: none;
+        border: 1px solid #dee2e6;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-light);
         overflow: hidden;
-        position: relative;
-        transition: var(--transition);
         background: var(--white);
-    }
-
-    .main-shop-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: var(--gradient);
-    }
-
-    .main-shop-card:hover {
-        transform: translateY(-8px);
-        box-shadow: var(--shadow-heavy);
     }
 
     .main-shop-card .card-header {
         background: var(--gradient);
         color: var(--white);
         font-weight: 600;
-        padding: 1.5rem;
+        padding: 1rem 1.5rem;
         border: none;
-        position: relative;
-    }
-
-    .main-shop-card .card-header::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 1px;
-        background: rgba(255, 255, 255, 0.2);
-    }
-
-    .main-shop-card .card-body {
-        padding: 2rem;
-    }
-
-    .main-shop-card .card-body p {
-        margin-bottom: 1rem;
-        font-size: 1rem;
-        color: var(--dark-color);
         display: flex;
+        justify-content: space-between;
         align-items: center;
     }
 
-    .main-shop-card .card-body p strong {
-        min-width: 100px;
-        color: var(--primary-color);
+    .main-shop-card .card-header .card-title {
+        margin: 0;
+        font-size: 1.25rem;
         font-weight: 600;
     }
 
-    .main-shop-card .card-body p i {
-        margin-right: 0.5rem;
-        color: var(--primary-color);
-        width: 20px;
+    .main-shop-card .card-header .card-tools {
+        display: flex;
+        gap: 0.5rem;
     }
 
-    /* SubShop Cards - Modern Grid Design */
+    .main-shop-card .card-body {
+        padding: 1.5rem;
+    }
+
+    .main-shop-card .card-body p {
+        margin-bottom: 0.75rem;
+        font-size: 0.95rem;
+        color: var(--dark-color);
+        line-height: 1.5;
+    }
+
+    .main-shop-card .card-body p strong {
+        color: var(--secondary-color);
+        font-weight: 600;
+        display: inline-block;
+        min-width: 120px;
+    }
+
+    /* SubShop Cards - Professional Corporate Design */
     .subshop-card {
-        border: none;
+        border: 1px solid #dee2e6;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-light);
         transition: var(--transition);
         background: var(--white);
         overflow: hidden;
-        position: relative;
         height: 100%;
     }
 
     .subshop-card:hover {
-        transform: translateY(-12px) scale(1.02);
-        box-shadow: var(--shadow-heavy);
+        box-shadow: var(--shadow-medium);
     }
 
     .subshop-card .card-header {
-        background: var(--sidebar-bg);
+        background: var(--gradient);
         color: var(--white);
-        padding: 1.25rem 1.5rem;
+        padding: 1rem 1.25rem;
         border: none;
-        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     .subshop-card .card-header h5 {
         margin: 0;
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -828,305 +795,166 @@
 
     .subshop-card .card-header h5 i {
         margin-right: 0.5rem;
-        opacity: 0.9;
     }
 
     .subshop-card .card-header .badge {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
         font-size: 0.75rem;
-        padding: 0.375rem 0.75rem;
-        border-radius: 20px;
+        padding: 0.35rem 0.65rem;
+        border-radius: 3px;
         font-weight: 500;
     }
 
     .subshop-card .card-body {
-        padding: 1.5rem;
+        padding: 1.25rem;
         flex-grow: 1;
     }
 
     .subshop-info {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.75rem;
     }
 
     .subshop-info .info-item {
         display: flex;
         align-items: center;
-        padding: 0.75rem;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 8px;
-        border-left: 3px solid var(--primary-color);
-        transition: var(--transition);
-        position: relative;
-        overflow: hidden;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #ecf0f1;
     }
 
-    .subshop-info .info-item::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: var(--sidebar-bg);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .subshop-info .info-item:hover::before {
-        opacity: 0.05;
-    }
-
-    .subshop-info .info-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 4px 12px rgba(0, 78, 146, 0.1);
+    .subshop-info .info-item:last-child {
+        border-bottom: none;
     }
 
     .subshop-info .info-item i {
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        margin-right: 1rem;
+        width: 20px;
+        margin-right: 0.75rem;
+        color: var(--secondary-color);
         font-size: 0.9rem;
-    }
-
-    .subshop-info .info-item i.fa-phone {
-        background: linear-gradient(135deg, #17a2b8, #0d7a8a);
-        color: white;
-    }
-
-    .subshop-info .info-item i.fa-map-marker-alt {
-        background: linear-gradient(135deg, #dc3545, #a0262a);
-        color: white;
-    }
-
-    .subshop-info .info-item i.fa-calendar {
-        background: linear-gradient(135deg, #ffc107, #e0a800);
-        color: white;
     }
 
     .subshop-info .info-item strong {
         font-weight: 600;
         color: var(--dark-color);
-        min-width: 80px;
+        min-width: 70px;
     }
 
     .subshop-card .card-footer {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-top: 1px solid rgba(0, 78, 146, 0.1);
-        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        padding: 0.75rem 1.25rem;
     }
 
     .subshop-card .card-footer .btn-group {
         width: 100%;
-        gap: 0.75rem;
-        padding: 0.5rem;
+        gap: 0.5rem;
     }
 
     .subshop-card .card-footer .btn {
         flex: 1;
-        border-radius: 10px;
-        font-weight: 600;
-        padding: 0.625rem 1rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        overflow: hidden;
-        border: 2px solid transparent;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        padding: 0.5rem 0.75rem;
         font-size: 0.875rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(0, 78, 146, 0.15);
+        transition: var(--transition);
     }
 
     .subshop-card .card-footer .btn i {
-        margin-right: 0.5rem;
-        font-size: 0.8rem;
-        transition: transform 0.3s ease;
+        margin-right: 0.25rem;
     }
 
-    .subshop-card .card-footer .btn::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.1), rgba(255,255,255,0.2));
-        transition: left 0.5s ease;
-        z-index: 1;
-    }
-
-    .subshop-card .card-footer .btn::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(255,255,255,0.3);
-        border-radius: 50%;
-        transition: all 0.6s ease;
-        transform: translate(-50%, -50%);
-        z-index: 1;
-    }
-
-    .subshop-card .card-footer .btn:hover::before {
-        left: 100%;
-    }
-
-    .subshop-card .card-footer .btn:active::after {
-        width: 300px;
-        height: 300px;
-    }
-
-    /* Edit Button - Primary Blue Gradient */
+    /* Edit Button - Primary */
     .subshop-card .card-footer .btn-outline-primary {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        border-color: #007bff;
-        color: #007bff;
-        position: relative;
-    }
-
-    .subshop-card .card-footer .btn-outline-primary::before {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border-color: var(--accent-color);
+        color: var(--accent-color);
     }
 
     .subshop-card .card-footer .btn-outline-primary:hover {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-        border-color: #0056b3;
+        background: var(--accent-color);
+        border-color: var(--accent-color);
         color: white;
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.3);
     }
 
-    .subshop-card .card-footer .btn-outline-primary:hover i {
-        transform: rotate(360deg);
-    }
-
-    .subshop-card .card-footer .btn-outline-primary:active {
-        transform: translateY(-1px) scale(1.01);
-        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
-    }
-
-    /* Delete Button - Danger Red Gradient */
+    /* Delete Button - Danger */
     .subshop-card .card-footer .btn-outline-danger {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-        border-color: #dc3545;
-        color: #dc3545;
-        position: relative;
-    }
-
-    .subshop-card .card-footer .btn-outline-danger::before {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-color: var(--danger-color);
+        color: var(--danger-color);
     }
 
     .subshop-card .card-footer .btn-outline-danger:hover {
-        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-        border-color: #c82333;
+        background: var(--danger-color);
+        border-color: var(--danger-color);
         color: white;
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
-    }
-
-    .subshop-card .card-footer .btn-outline-danger:hover i {
-        transform: rotate(360deg);
-    }
-
-    .subshop-card .card-footer .btn-outline-danger:active {
-        transform: translateY(-1px) scale(1.01);
-        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
-    }
-
-    /* Button Text and Content */
-    .subshop-card .card-footer .btn span {
-        position: relative;
-        z-index: 2;
-    }
-
-    .subshop-card .card-footer .btn i {
-        position: relative;
-        z-index: 2;
     }
 
     /* Empty State - Professional Design */
     .empty-state {
-        border: 2px dashed rgba(0, 78, 146, 0.3);
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        border: 1px dashed #dee2e6;
+        background: #f8f9fa;
         border-radius: var(--border-radius);
         text-align: center;
-        padding: 3rem 2rem;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .empty-state::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: var(--sidebar-bg);
-        opacity: 0.02;
-        transform: rotate(45deg);
-        pointer-events: none;
+        padding: 2.5rem 2rem;
     }
 
     .empty-state i {
-        font-size: 4rem;
-        color: rgba(0, 78, 146, 0.4);
-        margin-bottom: 1.5rem;
+        font-size: 3rem;
+        color: #bdc3c7;
+        margin-bottom: 1rem;
         display: block;
     }
 
     .empty-state h4 {
         color: var(--dark-color);
         font-weight: 600;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 
     .empty-state p {
-        color: #6c757d;
-        font-size: 1rem;
+        color: #7f8c8d;
+        font-size: 0.95rem;
         margin: 0;
     }
 
     /* Badges */
     .badge-success {
-        background: linear-gradient(135deg, #28a745, #1e7e34);
+        background: var(--success-color);
         color: white;
     }
 
     .badge-secondary {
-        background: linear-gradient(135deg, #6c757d, #495057);
+        background: #95a5a6;
+        color: white;
+    }
+
+    .badge-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .badge-warning {
+        background: var(--warning-color);
         color: white;
     }
 
     /* Modal Enhancements */
     .modal-content {
-        border: none;
+        border: 1px solid #dee2e6;
         border-radius: var(--border-radius);
         box-shadow: var(--shadow-heavy);
     }
 
     .modal-header {
-        background: var(--sidebar-bg);
+        background: var(--gradient);
         color: var(--white);
         border: none;
         border-radius: var(--border-radius) var(--border-radius) 0 0;
-        padding: 1.5rem 2rem;
+        padding: 1rem 1.5rem;
     }
 
     .modal-header .close {
         color: rgba(255, 255, 255, 0.8);
         opacity: 1;
-        font-size: 1.5rem;
+        font-size: 1.25rem;
     }
 
     .modal-header .close:hover {
@@ -1134,38 +962,18 @@
         opacity: 1;
     }
 
-    /* Animations */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .subshop-card {
-        animation: fadeInUp 0.6s ease-out;
-    }
-
-    .main-shop-card {
-        animation: fadeInUp 0.6s ease-out 0.2s both;
-    }
-
     /* Responsive Design */
     @media (max-width: 768px) {
         .main-shop-card .card-body {
-            padding: 1.5rem;
-        }
-
-        .subshop-card .card-header {
             padding: 1rem;
         }
 
+        .subshop-card .card-header {
+            padding: 0.75rem 1rem;
+        }
+
         .subshop-card .card-body {
-            padding: 1.25rem;
+            padding: 1rem;
         }
 
         .subshop-card .card-footer {
@@ -1173,7 +981,7 @@
         }
 
         .subshop-info .info-item {
-            padding: 0.5rem;
+            padding: 0.5rem 0;
         }
 
         .empty-state {
@@ -1181,62 +989,30 @@
         }
 
         .empty-state i {
-            font-size: 3rem;
+            font-size: 2.5rem;
         }
     }
 
-    /* Button Hover Effects */
+    /* Button Styles */
     .btn-primary {
-        background: var(--sidebar-bg);
+        background: var(--accent-color);
         border: none;
-        border-radius: 8px;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
+        border-radius: var(--border-radius);
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
         transition: var(--transition);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .btn-primary::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0));
-        transition: left 0.3s ease;
-    }
-
-    .btn-primary:hover::before {
-        left: 100%;
     }
 
     .btn-primary:hover {
-        transform: translateY(-3px);
+        background: #2980b9;
         box-shadow: var(--shadow-medium);
-        background: var(--sidebar-bg);
     }
 
     /* Alert Enhancements */
     .alert {
-        border: none;
+        border: 1px solid transparent;
         border-radius: var(--border-radius);
         border-left: 4px solid;
-        box-shadow: var(--shadow-light);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .alert::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: var(--sidebar-bg);
-        opacity: 0.05;
     }
 
     .alert-success {
@@ -1245,6 +1021,14 @@
 
     .alert-danger {
         border-left-color: var(--danger-color);
+    }
+
+    .alert-warning {
+        border-left-color: var(--warning-color);
+    }
+
+    .alert-info {
+        border-left-color: var(--info-color);
     }
 </style>
 @endpush

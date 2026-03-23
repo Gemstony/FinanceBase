@@ -154,3 +154,57 @@
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // SweetAlert confirmation for Submit Request button
+        const restructureForm = document.querySelector('form[action*="restructures"]');
+        if (restructureForm) {
+            restructureForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const newInterestRate = document.querySelector('input[name="new_interest_rate"]').value;
+                const newTerm = document.querySelector('input[name="new_term"]').value;
+                const gracePeriod = document.querySelector('input[name="grace_period"]').value || '0';
+                const reason = document.querySelector('textarea[name="reason"]').value;
+                
+                Swal.fire({
+                    title: 'Confirm Restructure Request',
+                    html: `
+                        <div class="text-left">
+                            <p><strong>New Interest Rate:</strong> ${newInterestRate}%</p>
+                            <p><strong>New Term:</strong> ${newTerm} installments</p>
+                            <p><strong>Grace Period:</strong> ${gracePeriod} installments</p>
+                            <p><strong>Reason:</strong> ${reason.substring(0, 100)}${reason.length > 100 ? '...' : ''}</p>
+                        </div>
+                        <p class="mt-3">Are you sure you want to submit this restructure request?</p>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#007bff',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Submit Request',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show loading state
+                        Swal.fire({
+                            title: 'Submitting Request...',
+                            text: 'Please wait while we submit your restructure request.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        // Submit the form
+                        restructureForm.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
+@endpush

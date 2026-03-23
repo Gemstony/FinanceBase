@@ -122,8 +122,10 @@
                     </div>
                     <div class="mt-2">
                         @if((bool) ($loan->requires_security_deposit ?? false) && (string) $loan->borrower_type === 'individual')
-
-                            <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.collect.form', $loan) }}">
+                            @php
+                                $isHeld = (string) ($securityDepositStatus ?? '') === 'held';
+                            @endphp
+                            <a class="btn btn-sm btn-outline-primary {{ $isHeld ? 'disabled' : '' }}" href="{{ route('security-deposits.collect.form', $loan) }}" {{ $isHeld ? 'aria-disabled="true"' : '' }}>
                                 <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
                             </a>
                         @endif
@@ -230,7 +232,7 @@
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label class="small mb-1">Payment Bank Account</label>
-                                    <select name="payment_bank_account_id" class="form-control" data-security-deposit-bank-select>
+                                    <select name="payment_bank_account_id" class="form-control" data-security-deposit-bank-select required>
                                         <option value="">-- Select Bank Account --</option>
                                         @foreach(($bankAccounts ?? collect()) as $ba)
                                             <option value="{{ $ba->id }}">
@@ -247,7 +249,7 @@
                                     <input type="text" name="notes" class="form-control" placeholder="Optional">
                                 </div>
                             </div>
-                            <button class="btn btn-sm btn-primary" type="submit">
+                            <button class="btn btn-sm btn-primary {{ $isHeld ? 'disabled' : '' }}" type="submit" {{ $isHeld ? 'disabled' : '' }}>
                                 <i class="fas fa-plus"></i> Collect Deposit
                             </button>
                             <a class="btn btn-sm btn-outline-secondary" href="{{ route('security-deposits.loan', $loan) }}">View Deposits</a>
@@ -464,6 +466,7 @@
 @endpush
 
 @push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const methodSelect = document.querySelector('select[name="payment_method"]');
@@ -472,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function syncBankRequired() {
         const method = (methodSelect.value || '').toLowerCase();
-        const requiresBank = method === 'bank_transfer' || method === 'mobile_money';
+        const requiresBank = method === 'bank_transfer' || method === 'mobile_money' || method === 'cash';
         bankSelect.required = requiresBank;
         if (!requiresBank) {
             bankSelect.value = '';
@@ -481,6 +484,55 @@ document.addEventListener('DOMContentLoaded', function () {
 
     methodSelect.addEventListener('change', syncBankRequired);
     syncBankRequired();
+
+    // SweetAlert confirmation for Collect Deposit form
+    const collectDepositButtons = document.querySelectorAll('button[type="submit"]');
+    collectDepositButtons.forEach(function(button) {
+        if (button.textContent.includes('Collect Deposit')) {
+            const collectDepositForm = button.closest('form');
+            if (collectDepositForm) {
+                collectDepositForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const amount = collectDepositForm.querySelector('input[name="amount"]').value;
+                    const paymentMethod = collectDepositForm.querySelector('select[name="payment_method"]').value;
+                    
+                    Swal.fire({
+                        title: 'Confirm Deposit Collection',
+                        html: `
+                            <div class="text-left">
+                                <p><strong>Amount:</strong> ${parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                                <p><strong>Payment Method:</strong> ${paymentMethod.replace('_', ' ').toUpperCase()}</p>
+                            </div>
+                            <p class="mt-3">Are you sure you want to collect this security deposit?</p>
+                        `,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#007bff',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Collect Deposit',
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Show loading state
+                            Swal.fire({
+                                title: 'Processing Deposit...',
+                                text: 'Please wait while we process the deposit.',
+                                allowOutsideClick: false,
+                                allowEscapeKey: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+                            
+                            // Submit the form
+                            collectDepositForm.submit();
+                        }
+                    });
+                });
+            }
+        }
+    });
 });
 </script>
 @endpush

@@ -137,7 +137,7 @@
                                 <td class="text-right">
                                     <a class="btn btn-sm btn-outline-primary" href="{{ route('loan.repayments.receipt', $p->id) }}">Receipt</a>
                                     @if((string) $p->status === 'confirmed')
-                                        <form method="POST" action="{{ route('loan.repayments.reverse', $p->id) }}" class="d-inline" onsubmit="return confirm('Reverse this payment?');">
+                                        <form method="POST" action="{{ route('loan.repayments.reverse', $p->id) }}" class="d-inline">
                                             @csrf
                                             <button class="btn btn-sm btn-outline-danger" type="submit">Reverse</button>
                                         </form>
@@ -161,5 +161,46 @@
 @stop
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Replace browser confirm with SweetAlert for Reverse button
+        const reverseForms = document.querySelectorAll('form[action*="/reverse"]');
+        reverseForms.forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                Swal.fire({
+                    title: 'Reverse Payment',
+                    text: 'Are you sure you want to reverse this payment?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Reverse',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show loading state
+                        Swal.fire({
+                            title: 'Reversing Payment...',
+                            text: 'Please wait while we reverse the payment.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        // Submit the form
+                        form.submit();
+                    }
+                });
+            });
+        });
+    });
+</script>
 @endpush
 

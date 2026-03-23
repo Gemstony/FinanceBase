@@ -48,8 +48,7 @@ class CustomersController extends Controller
             $customers->where(function($q) use ($search){
                 $q->where('customers.name', 'like', "%{$search}%")
                   ->orWhere('customers.email', 'like', "%{$search}%")
-                  ->orWhere('customers.phone', 'like', "%{$search}%")
-                  ->orWhere('customers.contact_person', 'like', "%{$search}%");
+                  ->orWhere('customers.phone', 'like', "%{$search}%");
             });
         }
 
@@ -970,180 +969,351 @@ class CustomersController extends Controller
     }
 
     /**
-     * Import customers from CSV
+     * Import customers from CSV with transaction support
      */
     public function import(Request $request)
     {
-        if (!$request->hasFile('import_file')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No file was uploaded.'
-            ], 400);
+        try {
+            $request->validate([
+                'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $e->errors(),
+                    'message' => 'Import failed: Please upload a valid CSV file. Maximum file size is 2MB.'
+                ], 422);
+            }
+            return redirect()->back()->withErrors($e->errors())->withInput();
         }
 
-        $subshopId = (int) ($request->input('subshop_id') ?: session('subshop_id'));
+        $subshopId = session('subshop_id');
         if (!$subshopId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No subshop selected. Please choose a shop first.'
-            ], 400);
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Import failed: No shop selected. Please select a shop first before importing customers.'
+                ], 400);
+            }
+            return redirect()->route('subshops.choose', ['intended' => route('customers.create')]);
         }
 
-        $hasHeaders = filter_var($request->input('has_headers', true), FILTER_VALIDATE_BOOLEAN);
-
+        $file = $request->file('csv_file');
         $imported = 0;
-        $skipped = 0;
         $errors = [];
 
         try {
-            $file = $request->file('import_file');
             if (($handle = fopen($file->getRealPath(), 'r')) === false) {
-                throw new \Exception('Unable to open uploaded file.');
+                throw new \Exception('Import failed: Unable to open the uploaded CSV file. Please ensure the file is not corrupted and try again.');
             }
 
             $rowIndex = 0;
+            $headers = [];
+            $rows = [];
+
+            // Read all rows first
             while (($row = fgetcsv($handle)) !== false) {
                 $rowIndex++;
+                
                 // Strip BOM on first column for every row
                 if (isset($row[0])) {
                     $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$row[0]);
                 }
 
-                // Skip first row if flagged as headers
-                if ($rowIndex === 1 && $hasHeaders) {
+                // First row is headers
+                if ($rowIndex === 1) {
+                    $headers = array_map(function($h) {
+                        return strtolower(trim($h));
+                    }, $row);
                     continue;
                 }
 
-                // Also skip any row that looks like headers
-                $first = isset($row[0]) ? strtolower(trim($row[0])) : '';
-                if (in_array($first, ['name', 'name*'])) {
+                // Skip empty rows
+                if (empty(array_filter($row))) {
                     continue;
                 }
 
-                // Normalize to at least 6 columns
-                for ($i = 0; $i < 17; $i++) {
-                    if (!isset($row[$i])) { $row[$i] = null; }
+                $rows[] = ['index' => $rowIndex, 'data' => $row];
+            }
+            fclose($handle);
+
+            if (empty($rows)) {
+                $errorMsg = 'Import failed: No data rows found in the CSV file. Please ensure your CSV file contains a header row and at least one data row.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMsg
+                    ], 400);
+                }
+                return redirect()->back()->with('error', $errorMsg);
+            }
+
+            // Validate headers
+            $requiredHeaders = ['name', 'gender', 'birth_date', 'phone', 'region', 'district', 'ward', 'street', 'house_no', 'id_type', 'id_number', 'category'];
+            $missingHeaders = array_diff($requiredHeaders, $headers);
+            
+            if (!empty($missingHeaders)) {
+                $errorMsg = 'Import failed: Missing required columns in CSV file: ' . implode(', ', $missingHeaders) . '. Please download the template and ensure all required columns are present.';
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMsg
+                    ], 400);
+                }
+                return redirect()->back()->with('error', $errorMsg);
+            }
+
+            // Process rows with transaction
+            DB::beginTransaction();
+
+            foreach ($rows as $rowInfo) {
+                $rowIndex = $rowInfo['index'];
+                $row = $rowInfo['data'];
+
+                // Map row data to headers
+                $rowData = [];
+                foreach ($headers as $i => $header) {
+                    $rowData[$header] = isset($row[$i]) ? trim($row[$i]) : null;
                 }
 
-                [
-                     
-                    $name,
-                    $email,
-                    $phone,
-                    $altenative_phone,
-                    $gender,
-                    $birth_date,
-                    $region,
-                    $district,
-                    $ward,
-                    $street,
-                    $house_no,
-                    $work,
-                    $work_address,
-                    $id_type,
-                    $id_number,
-                    $category,
-                    $isActive
-                    
-                    ] = $row;
+                // Validate required fields
+                $rowErrors = [];
                 
-                    //Require rows that must be field to continue
-                if (
-                    !$name || trim($name) === ''
-        
-                    
-                    ) {
-                    $skipped++;
-                    $errors[] = "Row {$rowIndex}: Missing required 'name'";
+                if (empty($rowData['name'])) {
+                    $rowErrors[] = "name is required and cannot be empty";
+                }
+                if (empty($rowData['gender'])) {
+                    $rowErrors[] = "gender is required and cannot be empty";
+                } elseif (!in_array(strtoupper($rowData['gender']), ['M', 'F'])) {
+                    $rowErrors[] = "gender must be M (Male) or F (Female), found '{$rowData['gender']}'";
+                }
+                if (empty($rowData['birth_date'])) {
+                    $rowErrors[] = "birth_date is required and cannot be empty";
+                } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rowData['birth_date'])) {
+                    $rowErrors[] = "birth_date must be in YYYY-MM-DD format, found '{$rowData['birth_date']}'";
+                }
+                if (empty($rowData['phone'])) {
+                    $rowErrors[] = "phone is required and cannot be empty";
+                }
+                if (empty($rowData['region'])) {
+                    $rowErrors[] = "region is required and cannot be empty";
+                }
+                if (empty($rowData['district'])) {
+                    $rowErrors[] = "district is required and cannot be empty";
+                }
+                if (empty($rowData['ward'])) {
+                    $rowErrors[] = "ward is required and cannot be empty";
+                }
+                if (empty($rowData['street'])) {
+                    $rowErrors[] = "street is required and cannot be empty";
+                }
+                if (empty($rowData['house_no'])) {
+                    $rowErrors[] = "house_no is required and cannot be empty";
+                }
+                if (empty($rowData['id_type'])) {
+                    $rowErrors[] = "id_type is required and cannot be empty";
+                } elseif (!in_array($rowData['id_type'], ['NIDA', 'Driving License', 'Voter Id', 'Other'])) {
+                    $rowErrors[] = "id_type must be NIDA, Driving License, Voter Id, or Other, found '{$rowData['id_type']}'";
+                }
+                if (empty($rowData['id_number'])) {
+                    $rowErrors[] = "id_number is required and cannot be empty";
+                }
+                if (empty($rowData['category'])) {
+                    $rowErrors[] = "category is required and cannot be empty";
+                } elseif (!in_array(strtolower($rowData['category']), ['borrower', 'guarantor'])) {
+                    $rowErrors[] = "category must be borrower or guarantor, found '{$rowData['category']}'";
+                }
+
+                if (!empty($rowErrors)) {
+                    $errors[] = "Row {$rowIndex}: " . implode('; ', $rowErrors);
                     continue;
                 }
 
                 try {
-                    // Default active when blank
-                    $active = 1;
-                    if (isset($isActive) && trim((string)$isActive) !== '') {
-                        $active = (trim((string)$isActive) == '1') ? 1 : 0;
-                    }
-
+                    // Prepare data for insertion
                     $data = [
-
-
                         'subshop_id' => $subshopId,
-                        'name' => trim($name),
-                        'email' => $email ? trim($email) : null,
-                        'phone' => $phone ? trim($phone) : null,
-                        'altenative_phone' => $altenative_phone ? trim($altenative_phone) : null,
-                        'gender' => $gender ? trim($gender) : null,
-                        'birth_date' => $birth_date ? trim($birth_date) : null,
-                        'region' => $region ? trim($region) : null,
-                        'district' => $district ? trim($district) : null,
-                        'ward' => $ward ? trim($ward) : null,
-                        'street' => $street ? trim($street) : null,
-                        'house_no' => $house_no ? trim($house_no) : null,
-                        'work' => $work ? trim($work) : null,
-                        'work_address' => $work_address ? trim($work_address) : null,
-                        'id_type' => $id_type ? trim($id_type) : null,
-                        'id_number' => $id_number ? trim($id_number) : null,
-                        'category' => $category ? trim($category) : null,
-                        'is_active' => $active,
-
-
-
+                        'name' => $rowData['name'],
+                        'email' => !empty($rowData['email']) ? $rowData['email'] : null,
+                        'phone' => $rowData['phone'],
+                        'altenative_phone' => !empty($rowData['altenative_phone']) ? $rowData['altenative_phone'] : null,
+                        'gender' => strtoupper($rowData['gender']),
+                        'birth_date' => $rowData['birth_date'],
+                        'region' => $rowData['region'],
+                        'district' => $rowData['district'],
+                        'ward' => $rowData['ward'],
+                        'street' => $rowData['street'],
+                        'house_no' => $rowData['house_no'],
+                        'work' => !empty($rowData['work']) ? $rowData['work'] : null,
+                        'work_address' => !empty($rowData['work_address']) ? $rowData['work_address'] : null,
+                        'id_type' => $rowData['id_type'],
+                        'id_number' => $rowData['id_number'],
+                        'category' => strtolower($rowData['category']),
+                        'is_active' => isset($rowData['is_active']) ? (int)$rowData['is_active'] : 1,
                     ];
 
-                    // Upsert by email within subshop if email provided
+                    // Check for duplicate email in same subshop
                     if (!empty($data['email'])) {
-                        $existing = Customers::withTrashed()
-                            ->where('subshop_id', $subshopId)
+                        $existing = Customers::where('subshop_id', $subshopId)
                             ->where('email', $data['email'])
                             ->first();
+                        
                         if ($existing) {
-                            if ($existing->trashed()) { $existing->restore(); }
-                            $existing->update($data);
-                            $imported++;
+                            $errors[] = "Row {$rowIndex}: A customer with email '{$data['email']}' already exists in this shop. Please use a different email address.";
                             continue;
                         }
                     }
 
                     Customers::create($data);
                     $imported++;
-                } catch (\Throwable $e) {
-                    $skipped++;
-                    $errors[] = "Row {$rowIndex}: " . $e->getMessage();
+                } catch (\Exception $e) {
+                    $errors[] = "Row {$rowIndex}: Database error - " . $e->getMessage();
                 }
             }
-            fclose($handle);
 
-            $total = $imported + $skipped;
-            if ($total === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No data found in the CSV file.',
-                    'total_rows' => 0,
-                    'imported' => 0,
-                    'skipped' => 0,
-                    'errors' => []
-                ], 400);
+            // If there are any errors, rollback the transaction
+            if (!empty($errors)) {
+                DB::rollBack();
+                
+                $errorCount = count($errors);
+                $errorMessage = "Import failed due to {$errorCount} error(s). All changes have been rolled back. Please fix the following issues and try again:";
+                
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMessage,
+                        'errors' => $errors,
+                        'imported' => 0,
+                    ], 400);
+                }
+                
+                return redirect()->back()
+                    ->with('error', $errorMessage)
+                    ->with('import_errors', $errors);
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully processed {$total} rows. Imported: {$imported}, Skipped: {$skipped}",
-                'total_rows' => $total,
-                'imported' => $imported,
-                'skipped' => $skipped,
-                'errors' => $errors,
-            ]);
+            // Commit the transaction if all rows are successful
+            DB::commit();
+
+            $message = "Successfully imported {$imported} customer(s). All data has been saved to the database.";
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'imported' => $imported,
+                ]);
+            }
+
+            return redirect()->route('customers.index')->with('success', $message);
+
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
-                'errors' => [$e->getMessage()],
-                'total_rows' => 0,
-                'imported' => 0,
-                'skipped' => 0,
-            ], 400);
+            DB::rollBack();
+            
+            $errorMessage = 'Import failed: ' . $e->getMessage();
+            
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage,
+                ], 500);
+            }
+            
+            return redirect()->back()->with('error', $errorMessage);
         }
+    }
+
+    /**
+     * Bulk import customers from CSV (redirects to create page)
+     */
+    public function bulkImport(Request $request)
+    {
+        return $this->import($request);
+    }
+
+    /**
+     * Download CSV template for customer import
+     */
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename=customer_import_template.csv',
+        ];
+
+$callback = function() {
+    // Clear any existing output buffer
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    $handle = fopen('php://output', 'w');
+
+    fputcsv($handle, [
+        'name','email',
+        'phone',
+        'altenative_phone',
+        'gender',
+        'birth_date',
+        'region',
+        'district',
+        'ward',
+        'street',
+        'house_no',
+        'work',
+        'work_address',
+        'id_type',
+        'id_number',
+        'category',
+        'is_active'
+    ]);
+
+    fputcsv($handle, [
+        'John Doe',
+        'john.doe@example.com',
+        '0712345678',
+        '0712345679',
+        'M',
+        '1990-01-15',
+        'Dar es Salaam',
+        'Kinondoni',
+        'Masaki',
+        'Slipway Road',
+        '123',
+        'Engineer',
+        'Slipway,
+         Dar es Salaam',
+        'NIDA',
+        '19900115-12345-12345-12',
+        'borrower',
+        '1'
+    ]);
+
+    fputcsv($handle, [
+        'Jane Smith',
+        'jane.smith@example.com',
+        '0712345680',
+        '',
+        'F',
+        '1985-05-20',
+        'Dar es Salaam',
+        'Ilala',
+        'Upanga',
+        'Samora Avenue',
+        '456',
+        'Teacher',
+        'Upanga Primary School',
+        'Driving License',
+        'DL123456789',
+        'guarantor',
+        '1'
+    ]);
+
+    fclose($handle);
+};
+
+        return response()->stream($callback, 200, $headers);
     }
 
 }

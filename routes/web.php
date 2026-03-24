@@ -327,6 +327,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [LoanProductTypesController::class, 'store'])->name('store');
             Route::put('/{productType}', [LoanProductTypesController::class, 'update'])->name('update');
             Route::delete('/{productType}', [LoanProductTypesController::class, 'destroy'])->name('destroy');
+            Route::get('/export/{format}', [LoanProductTypesController::class, 'export'])->name('export');
+            Route::get('/download-template', [LoanProductTypesController::class, 'downloadTemplate'])->name('download-template');
+            Route::post('/import', [LoanProductTypesController::class, 'import'])->name('import');
         });
 
 

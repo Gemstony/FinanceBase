@@ -289,6 +289,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [AccountClassController::class, 'store'])->name('store');
             Route::put('/{accountClass}', [AccountClassController::class, 'update'])->name('update');
             Route::delete('/{accountClass}', [AccountClassController::class, 'destroy'])->name('destroy');
+            Route::get('/export/{format}', [AccountClassController::class, 'export'])->name('export');
+            Route::get('/download-template', [AccountClassController::class, 'downloadTemplate'])->name('download-template');
+            Route::post('/import', [AccountClassController::class, 'import'])->name('import');
         });
 
 

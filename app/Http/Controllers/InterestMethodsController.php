@@ -51,7 +51,7 @@ class InterestMethodsController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:10|unique:interest_methods,code',
+                'code' => 'required|string|max:50|unique:interest_methods,code,NULL,id,subshop_id,' . session('subshop_id'),
                 'supports_installment_based' => 'boolean',
                 'supports_daily_accrual' => 'boolean',
                 'is_active' => 'boolean',

@@ -46,7 +46,7 @@ class CollateralTypesController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:50|unique:collateral_types,code',
+                'code' => 'required|string|max:50|unique:collateral_types,code,NULL,id,subshop_id,' . session('subshop_id'),
                 'description' => 'nullable|string',
                 'requires_valuation' => 'boolean',
                 'default_ltv_ratio' => 'nullable|numeric|min:0|max:100',

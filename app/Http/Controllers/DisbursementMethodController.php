@@ -59,7 +59,7 @@ class DisbursementMethodController extends Controller
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:50|unique:disbursement_methods,code',
+                'code' => 'required|string|max:50|unique:disbursement_methods,code,NULL,id,subshop_id,' . session('subshop_id'),
                 'description' => 'nullable|string',
                 'requires_reference' => 'boolean',
                 'requires_account_details' => 'boolean',

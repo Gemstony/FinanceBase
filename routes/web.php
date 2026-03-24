@@ -340,6 +340,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [RepaymentFrequenciesController::class, 'store'])->name('store');
             Route::put('/{frequency}', [RepaymentFrequenciesController::class, 'update'])->name('update');
             Route::delete('/{frequency}', [RepaymentFrequenciesController::class, 'destroy'])->name('destroy');
+            Route::get('/export/{format}', [RepaymentFrequenciesController::class, 'export'])->name('export');
+            Route::get('/download-template', [RepaymentFrequenciesController::class, 'downloadTemplate'])->name('download-template');
+            Route::post('/import', [RepaymentFrequenciesController::class, 'import'])->name('import');
         });
 
         // Interest cycles Routes

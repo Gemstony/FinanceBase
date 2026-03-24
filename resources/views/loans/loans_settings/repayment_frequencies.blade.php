@@ -25,9 +25,24 @@
             <li class="breadcrumb-item active" aria-current="page">Repayment Frequencies</li>
         </ol>
     </nav>
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addRepaymentFrequencyModal">
-        <i class="fas fa-plus"></i> New Frequency
-    </button>
+    <div>
+        <div class="btn-group mr-2">
+            <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <div class="dropdown-menu">
+                <a class="dropdown-item" href="{{ route('loans.repayment_frequencies.export', 'excel') }}">
+                    <i class="fas fa-file-excel text-success"></i> Export to Excel
+                </a>
+                <a class="dropdown-item" href="{{ route('loans.repayment_frequencies.export', 'pdf') }}">
+                    <i class="fas fa-file-pdf text-danger"></i> Export to PDF
+                </a>
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addRepaymentFrequencyModal">
+            <i class="fas fa-plus"></i> New Frequency
+        </button>
+    </div>
 </div>
 @stop
 
@@ -37,6 +52,29 @@
         <div class="alert alert-danger">
             <ul>
                 @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle"></i> Error</h5>
+            <p class="mb-0">{{ session('error') }}</p>
+        </div>
+    @endif
+    @if(session('success'))
+        <div class="alert alert-success">
+            <h5><i class="fas fa-check-circle"></i> Success</h5>
+            <p class="mb-0">{{ session('success') }}</p>
+        </div>
+    @endif
+    @if(session('import_errors'))
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle"></i> Import Errors</h5>
+            <p class="mb-2">The following errors were found in your Excel file. Please fix them and try again:</p>
+            <ul class="mb-0">
+                @foreach(session('import_errors') as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
@@ -105,6 +143,88 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Import Section -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <a class="d-flex align-items-center justify-content-between text-decoration-none" data-toggle="collapse" href="#importCollapse" role="button" aria-expanded="false" aria-controls="importCollapse">
+                <h5 class="mb-0 text-dark"><i class="fas fa-file-import"></i> Import Repayment Frequencies</h5>
+                <i class="fas fa-chevron-down text-dark"></i>
+            </a>
+        </div>
+        <div class="collapse" id="importCollapse">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card border">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0"><i class="fas fa-upload"></i> Bulk Import Repayment Frequencies</h5>
+                            </div>
+                            <div class="card-body">
+                                <form method="POST" action="{{ route('loans.repayment_frequencies.import') }}" enctype="multipart/form-data">
+                                    @csrf
+                                    
+                                    <div class="mb-4">
+                                        <label for="excel_file" class="form-label fw-bold">Select Excel File <span class="text-danger">*</span></label>
+                                        <input type="file" class="form-control @error('excel_file') is-invalid @enderror"
+                                               id="excel_file" name="excel_file" accept=".xlsx,.xls,.csv" required>
+                                        @error('excel_file')
+                                            <div class="invalid-feedback">{{ $message }}</div>
+                                        @enderror
+                                        <small class="text-muted">Only Excel files (.xlsx, .xls, .csv) are allowed. Maximum file size: 2MB</small>
+                                    </div>
+    
+                                    <div class="d-flex justify-content-between align-items-center mb-4">
+                                        <a href="{{ route('loans.repayment_frequencies.download-template') }}" class="btn btn-outline-success">
+                                            <i class="fas fa-download"></i> Download Excel Template
+                                        </a>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-file-import"></i> Import Repayment Frequencies
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+    
+                    <div class="col-md-4">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Import Instructions</h5>
+                            </div>
+                            <div class="card-body">
+                                <h6 class="fw-bold">Required Columns:</h6>
+                                <ul class="small">
+                                    <li><strong>Code</strong> - Unique code for the frequency (e.g., DLY, WKY, MTH)</li>
+                                    <li><strong>Name</strong> - Name of the repayment frequency</li>
+                                    <li><strong>Interval Days</strong> - Number of days between repayments</li>
+                                </ul>
+    
+                                <h6 class="fw-bold mt-3">Optional Columns:</h6>
+                                <ul class="small">
+                                    <li><strong>Is Month Based</strong> - Yes/No or 1/0 (defaults to No)</li>
+                                    <li><strong>Min Installments</strong> - Minimum number of installments</li>
+                                    <li><strong>Max Installments</strong> - Maximum number of installments</li>
+                                    <li><strong>Is Active</strong> - Yes/No or 1/0 (defaults to Yes)</li>
+                                </ul>
+    
+                                <h6 class="fw-bold mt-3">Important Rules:</h6>
+                                <ul class="small text-danger">
+                                    <li>First row must be the header</li>
+                                    <li>All required fields must be filled</li>
+                                    <li>Code must be unique within your shop</li>
+                                    <li>Interval Days must be a positive integer</li>
+                                    <li>Is Month Based accepts: Yes, No, 1, 0, true, false</li>
+                                    <li>Is Active accepts: Yes, No, 1, 0, true, false</li>
+                                    <li>If any row fails, all imports will be rolled back</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

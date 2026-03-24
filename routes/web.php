@@ -362,6 +362,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [InterestMethodsController::class, 'store'])->name('store');
             Route::put('/{interestMethod}', [InterestMethodsController::class, 'update'])->name('update');
             Route::delete('/{interestMethod}', [InterestMethodsController::class, 'destroy'])->name('destroy');
+            Route::get('/export/{format}', [InterestMethodsController::class, 'export'])->name('export');
+            Route::get('/download-template', [InterestMethodsController::class, 'downloadTemplate'])->name('download-template');
+            Route::post('/import', [InterestMethodsController::class, 'import'])->name('import');
         });
 
         // Loan products Routes

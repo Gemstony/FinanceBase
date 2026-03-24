@@ -348,6 +348,9 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [InterestCycleController::class, 'store'])->name('store');
             Route::put('/{interestCycle}', [InterestCycleController::class, 'update'])->name('update');
             Route::delete('/{interestCycle}', [InterestCycleController::class, 'destroy'])->name('destroy');
+            Route::get('/export/{format}', [InterestCycleController::class, 'export'])->name('export');
+            Route::get('/download-template', [InterestCycleController::class, 'downloadTemplate'])->name('download-template');
+            Route::post('/import', [InterestCycleController::class, 'import'])->name('import');
         });
 
         // Interest methods Routes

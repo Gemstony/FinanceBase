@@ -86,7 +86,7 @@ class PortfolioRiskCalculator
      *
      * This method returns the sum of outstanding balances of those delinquent loans.
      */
-    public function calculateDelinquentOutstanding(int $days): float
+    public function calculateDelinquentOutstanding(int $days, ?int $subshopId = null): float
     {
         $days = max(0, (int) $days);
         $cutoffDate = Carbon::today()->subDays($days);
@@ -104,17 +104,22 @@ class PortfolioRiskCalculator
 
         $total = 0.0;
 
-        $this->activeLoansQuery()
+        $query = $this->activeLoansQuery()
             ->whereIn('id', $delinquentLoanIds)
-            ->select(['id'])
-            ->chunkById(200, function ($loans) use (&$total) {
-                foreach ($loans as $loan) {
-                    $outstanding = $this->calculateLoanOutstanding($loan);
-                    if ($outstanding > 0) {
-                        $total += $outstanding;
-                    }
+            ->select(['id']);
+
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
+        }
+
+        $query->chunkById(200, function ($loans) use (&$total) {
+            foreach ($loans as $loan) {
+                $outstanding = $this->calculateLoanOutstanding($loan);
+                if ($outstanding > 0) {
+                    $total += $outstanding;
                 }
-            });
+            }
+        });
 
         return round($total, 2);
     }

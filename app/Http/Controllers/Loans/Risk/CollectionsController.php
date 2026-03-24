@@ -21,8 +21,10 @@ class CollectionsController extends Controller
      */
     public function index(Request $request): View
     {
+        $subshopId = (int) session('subshop_id');
+
         // For collections, we typically look at everything 1+ days overdue
-        $loans = $this->delinquencyEngine->getDelinquentLoans(1);
+        $loans = $this->delinquencyEngine->getDelinquentLoans(1, $subshopId);
         
         $loans->load(['customer', 'loanGroup', 'latestDisbursement.processor']);
 

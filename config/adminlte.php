@@ -444,7 +444,7 @@ return [
 
          [
             'text' => 'Loan Management',
-            'icon' => 'fas fa-university',
+            'icon' => 'fas fa-hand-holding-usd',
             'submenu' => [
                 [
                     'text' => 'Loan Products',
@@ -513,11 +513,28 @@ return [
 
         //customers management
 
+
+
         [
             'text' => 'Customers',
-            'url' => '/admin/sales/customers',
             'icon' => 'fas fa-users',
-            'can' => 'view_customers',
+            'submenu' => [
+                        [
+                            'text' => 'Customers List',
+                            'url' => '/admin/sales/customers',
+                            'can' => 'view_customers',
+
+                        ],
+                        [
+                            'text' => 'Customer Credits',
+                            'url' => 'credits',
+                        ],
+                        [
+                            'text' => 'Security Deposits',
+                            'url' => 'security-deposits',
+
+                        ],
+            ]
         ],
 
         // [
@@ -527,32 +544,6 @@ return [
         //     'can' => 'view_shop', // Only show for Super Admin role and owner
 
         // ],
-
-
-        [
-            'text' => 'Customer Credits',
-            'icon' => 'fas fa-wallet',
-            'submenu' => [
-                [
-                    'text' => 'Customer Credits',
-                    'url' => 'credits',
-                    'icon' => 'fas fa-wallet',
-                ],
-            ],
-        ],
-
-        [
-            'text' => 'Security Deposits',
-            'icon' => 'fas fa-shield-alt',
-            'submenu' => [
-                [
-                    'text' => 'Security Deposits',
-                    'url' => 'security-deposits',
-                    'icon' => 'fas fa-shield-alt',
-                ],
-            ],
-        ],
-
 
         [
             'text' => 'Customer Deposits',
@@ -576,17 +567,14 @@ return [
                 [
                     'text' => 'Portfolio Risk',
                     'url' => 'risk/portfolio',
-                    'icon' => 'fas fa-chart-line',
                 ],
                 [
                     'text' => 'Delinquent Loans',
                     'url' => 'risk/delinquent',
-                    'icon' => 'fas fa-exclamation-triangle',
                 ],
                 [
                     'text' => 'Collections',
                     'url' => 'risk/collections',
-                    'icon' => 'fas fa-hand-holding-usd',
                 ],
             ],
         ],
@@ -789,7 +777,6 @@ return [
 
 
         // Account settings
-        ['header' => 'Account Settings'],
         [
             'text' => 'Profile',
             'url' => '/settings/profile',
@@ -841,22 +828,22 @@ return [
 
 
         // Labels / Important Info
-        ['header' => 'Labels'],
-        [
-            'text' => 'Important',
-            'icon_color' => 'red',
-            'url' => '#',
-        ],
-        [
-            'text' => 'Warning',
-            'icon_color' => 'yellow',
-            'url' => '#',
-        ],
-        [
-            'text' => 'Information',
-            'icon_color' => 'cyan',
-            'url' => '#',
-        ],
+        // ['header' => 'Labels'],
+        // [
+        //     'text' => 'Important',
+        //     'icon_color' => 'red',
+        //     'url' => '#',
+        // ],
+        // [
+        //     'text' => 'Warning',
+        //     'icon_color' => 'yellow',
+        //     'url' => '#',
+        // ],
+        // [
+        //     'text' => 'Information',
+        //     'icon_color' => 'cyan',
+        //     'url' => '#',
+        // ],
     ],
 
     /*

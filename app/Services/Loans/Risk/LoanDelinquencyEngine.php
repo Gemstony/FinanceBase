@@ -22,35 +22,38 @@ class LoanDelinquencyEngine
      *
      * Returned value is a percentage (0 - 100).
      */
-    public function calculatePAR(int $days): float
+    public function calculatePAR(int $days, ?int $subshopId = null): float
     {
         $days = max(0, (int) $days);
 
-        $totalPortfolio = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding();
+        $totalPortfolio = $subshopId
+            ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$subshopId])
+            : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding();
+        
         if ($totalPortfolio <= 0) {
             return 0.0;
         }
 
-        $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstanding($days);
+        $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstanding($days, $subshopId);
 
         $par = ($delinquentOutstanding / $totalPortfolio) * 100;
 
         return round(max(0.0, $par), 2);
     }
 
-    public function calculatePAR30(): float
+    public function calculatePAR30(?int $subshopId = null): float
     {
-        return $this->calculatePAR(30);
+        return $this->calculatePAR(30, $subshopId);
     }
 
-    public function calculatePAR60(): float
+    public function calculatePAR60(?int $subshopId = null): float
     {
-        return $this->calculatePAR(60);
+        return $this->calculatePAR(60, $subshopId);
     }
 
-    public function calculatePAR90(): float
+    public function calculatePAR90(?int $subshopId = null): float
     {
-        return $this->calculatePAR(90);
+        return $this->calculatePAR(90, $subshopId);
     }
 
     /**
@@ -60,7 +63,7 @@ class LoanDelinquencyEngine
      * - status = overdue
      * - and days overdue > $days
      */
-    public function getDelinquentLoans(int $days): Collection
+    public function getDelinquentLoans(int $days, ?int $subshopId = null): Collection
     {
         $days = max(0, (int) $days);
         $cutoffDate = Carbon::today()->subDays($days);
@@ -76,10 +79,15 @@ class LoanDelinquencyEngine
             return new Collection();
         }
 
-        $loans = $this->portfolioRiskCalculator
+        $query = $this->portfolioRiskCalculator
             ->activeLoansQuery()
-            ->whereIn('id', $loanIds)
-            ->get();
+            ->whereIn('id', $loanIds);
+
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
+        }
+
+        $loans = $query->get();
 
         return $loans
             ->filter(function (Loans $loan) {
@@ -158,14 +166,16 @@ class LoanDelinquencyEngine
      *
      * @return array{portfolio_outstanding: float, par30: float, par60: float, par90: float, par180: float}
      */
-    public function getPortfolioRiskSummary(): array
+    public function getPortfolioRiskSummary(?int $subshopId = null): array
     {
         return [
-            'portfolio_outstanding' => $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding(),
-            'par30' => $this->calculatePAR(30),
-            'par60' => $this->calculatePAR(60),
-            'par90' => $this->calculatePAR(90),
-            'par180' => $this->calculatePAR(180),
+            'portfolio_outstanding' => $subshopId
+                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$subshopId])
+                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding(),
+            'par30' => $this->calculatePAR(30, $subshopId),
+            'par60' => $this->calculatePAR(60, $subshopId),
+            'par90' => $this->calculatePAR(90, $subshopId),
+            'par180' => $this->calculatePAR(180, $subshopId),
         ];
     }
 }

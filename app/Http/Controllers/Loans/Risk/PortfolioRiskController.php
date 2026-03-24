@@ -21,31 +21,38 @@ class PortfolioRiskController extends Controller
      */
     public function dashboard(Request $request): View
     {
-        $summary = $this->delinquencyEngine->getPortfolioRiskSummary();
+        $subshopId = (int) session('subshop_id');
+
+        $summary = $this->delinquencyEngine->getPortfolioRiskSummary($subshopId);
 
         // Count performing vs delinquent loans within the active portfolio only.
-        $delinquentCount = $this->delinquencyEngine->getDelinquentLoans(1)->count();
+        $delinquentCount = $this->delinquencyEngine->getDelinquentLoans(1, $subshopId)->count();
 
         $performingCount = 0;
-        $this->portfolioRisk
+        $query = $this->portfolioRisk
             ->activeLoansQuery()
-            ->select(['id'])
-            ->chunkById(200, function ($loans) use (&$performingCount) {
-                foreach ($loans as $loan) {
-                    if ($this->portfolioRisk->calculateLoanOutstanding($loan) <= 0) {
-                        continue;
-                    }
+            ->select(['id']);
 
-                    $hasOverdue = $loan->installments()
-                        ->where('is_active', true)
-                        ->where('status', 'overdue')
-                        ->exists();
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
+        }
 
-                    if (!$hasOverdue) {
-                        $performingCount++;
-                    }
+        $query->chunkById(200, function ($loans) use (&$performingCount) {
+            foreach ($loans as $loan) {
+                if ($this->portfolioRisk->calculateLoanOutstanding($loan) <= 0) {
+                    continue;
                 }
-            });
+
+                $hasOverdue = $loan->installments()
+                    ->where('is_active', true)
+                    ->where('status', 'overdue')
+                    ->exists();
+
+                if (!$hasOverdue) {
+                    $performingCount++;
+                }
+            }
+        });
 
         return view('risk.portfolio', compact('summary', 'delinquentCount', 'performingCount'));
     }
@@ -55,7 +62,9 @@ class PortfolioRiskController extends Controller
      */
     public function delinquentLoans(Request $request): View
     {
-        $loans = $this->delinquencyEngine->getDelinquentLoans(1);
+        $subshopId = (int) session('subshop_id');
+
+        $loans = $this->delinquencyEngine->getDelinquentLoans(1, $subshopId);
         
         // Apply eager loading to avoid N+1
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
@@ -75,7 +84,9 @@ class PortfolioRiskController extends Controller
      */
     public function delinquentByDays(int $days): View
     {
-        $loans = $this->delinquencyEngine->getDelinquentLoans($days);
+        $subshopId = (int) session('subshop_id');
+
+        $loans = $this->delinquencyEngine->getDelinquentLoans($days, $subshopId);
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
         return view('risk.delinquent', [

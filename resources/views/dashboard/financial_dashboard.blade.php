@@ -76,7 +76,8 @@
 
     <!-- KPI Summary Cards -->
     <div class="row mb-4">
-        <div class="col-md-2 col-sm-6">
+
+        <div class="col-md-4 mb-2">
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -98,7 +99,7 @@
             </div>
         </div>
         
-        <div class="col-md-2 col-sm-6">
+        <div class="col-md-4 mb-2">
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -120,7 +121,7 @@
             </div>
         </div>
         
-        <div class="col-md-2 col-sm-6">
+        <div class="col-md-4 mb-2">
             <div class="card bg-success text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -141,8 +142,13 @@
                 </div>
             </div>
         </div>
+
+    </div>
+
+    <div class="row mb-4">
         
-        <div class="col-md-2 col-sm-6">
+        
+        <div class="col-md-4 mb-2">
             <div class="card bg-danger text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -164,7 +170,7 @@
             </div>
         </div>
         
-        <div class="col-md-2 col-sm-6">
+        <div class="col-md-4 mb-2">
             <div class="card {{ ($dashboardData['kpis']['net_profit'] ?? 0) >= 0 ? 'bg-success' : 'bg-danger' }} text-white">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -186,7 +192,7 @@
             </div>
         </div>
         
-        <div class="col-md-2 col-sm-6">
+        <div class="col-md-4 mb-2">
             <div class="card bg-warning text-dark">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -207,6 +213,8 @@
                 </div>
             </div>
         </div>
+
+
     </div>
 
     <!-- PAR Card -->

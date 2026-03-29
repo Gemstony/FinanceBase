@@ -249,4 +249,17 @@ document.addEventListener('submit', function(e){
     });
 });
 </script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    $('#LoanProductsTable').DataTable({
+        responsive: true,
+     
+        order: [
+            [9, 'desc']
+        ] // Sort by code by default
+    });
+});
+ </script>
 @stop

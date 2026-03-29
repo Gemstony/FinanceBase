@@ -120,8 +120,8 @@
                         </form>
                     </div>
                 </div>
-                <div class="card-body table-responsive p-0">
-                    <table class="table table-hover text-nowrap">
+                <div class="card-body table-responsive p-2">
+                    <table class="table table-hover text-nowrap" id="databaseBackupTable">
                         <thead>
                             <tr>
                                 <th>Backup File</th>
@@ -194,6 +194,7 @@
 @endpush
 
 @section('js')
+
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // Handle backup creation with SweetAlert confirmation
@@ -256,4 +257,17 @@
             return false;
         });
     </script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    $('#databaseBackupTable').DataTable({
+        responsive: true,
+     
+        order: [
+            [2, 'desc']
+        ] // Sort by code by default
+    });
+});
+ </script>
 @stop
+

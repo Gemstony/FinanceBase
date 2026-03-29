@@ -1,81 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ $subshop->name ?? 'Shop' }} Customers Export</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Customers Report - {{ $shop->name ?? 'Shop' }}</title>
     <style>
-        body { font-family: 'DejaVu Sans', Arial, sans-serif; margin:0; padding:15px; color:#333; font-size:10px; line-height:1.4; }
-        .header { background:#2c3e50; color:#fff; padding:20px; text-align:center; margin-bottom:20px; }
-        .header h1{ font-size:26px; margin:0 0 8px; font-weight:700; }
-        .header .subtitle{ font-size:14px; margin:0 0 10px; }
-        .header .meta{ margin-top:10px; font-size:9px; border-top:1px solid rgba(255,255,255,0.3); padding-top:10px; }
-        .stats-table{ width:100%; margin-bottom:20px; border-collapse:separate; border-spacing:8px; }
-        .stats-table td{ width:50%; padding:12px 8px; text-align:center; border:2px solid #ddd; border-radius:4px; }
-        .stat-label{ font-size:8px; color:#666; text-transform:uppercase; font-weight:700; letter-spacing:.5px; margin-bottom:5px; }
-        .stat-value{ font-size:22px; font-weight:700; color:#2c3e50; margin:5px 0; }
-        .stat-blue{ background:#e3f2fd; border-color:#2196f3; } .stat-blue .stat-value{ color:#1976d2; }
-        .stat-green{ background:#e8f5e9; border-color:#4caf50; } .stat-green .stat-value{ color:#388e3c; }
-        .stat-orange{ background:#fff3e0; border-color:#ff9800; } .stat-orange .stat-value{ color:#f57c00; }
-        .stat-red{ background:#ffebee; border-color:#f44336; } .stat-red .stat-value{ color:#d32f2f; }
-        .data-table{ width:100%; border-collapse:collapse; font-size:8px; margin-top:15px; }
-        .data-table thead th{ background:#34495e; color:#fff; padding:8px 4px; text-align:left; font-weight:700; font-size:8px; text-transform:uppercase; border:1px solid #2c3e50; }
-        .data-table td{ padding:6px 4px; border:1px solid #ddd; vertical-align:top; word-wrap:break-word; }
-        .data-table tbody tr:nth-child(odd){ background:#f9f9f9; }
-        .data-table tbody tr:nth-child(even){ background:#fff; }
-        .col-no{ width:4%; } .col-name{ width:18%; } .col-contact{ width:16%; } .col-email{ width:18%; } .col-phone{ width:12%; }
-        .col-status{ width:8%; } .col-orders{ width:8%; } .col-spent{ width:10%; } .col-date{ width:10%; }
-        .badge{ display:inline-block; padding:2px 6px; font-size:7px; font-weight:700; border-radius:3px; text-transform:uppercase; }
-        .badge-success{ background:#4caf50; color:#fff; } .badge-warning{ background:#ff9800; color:#fff; } .badge-danger{ background:#f44336; color:#fff; } .badge-secondary{ background:#607d8b; color:#fff; }
-        .data-table thead { display: table-header-group; }
-        .right{ text-align:right; }
-        .footer { margin-top: 20px; padding: 10px; border-top: 1px solid #ddd; font-size: 9px; color: #666; text-align: center; }
+        @page { margin: 24px 22px; font-family: 'DejaVu Sans', Arial, sans-serif; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 10px; color: #000; }
+
+        .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 12px; }
+        .header-left { display: inline-block; vertical-align: top; width: 64%; }
+        .header-right { display: inline-block; vertical-align: top; width: 35%; text-align: right; }
+        .header-logo { display: inline-block; vertical-align: top; width: 90px; }
+        .header-info { display: inline-block; vertical-align: top; width: calc(100% - 95px); }
+        .logo { max-width: 85px; max-height: 85px; object-fit: contain; }
+
+        .inst-name { font-size: 14px; font-weight: 700; margin: 0 0 3px 0; }
+        .inst-meta { font-size: 9px; line-height: 1.35; }
+        .report-title { font-size: 12px; font-weight: 700; text-transform: uppercase; text-align: right; margin: 0 0 3px 0; }
+        .report-sub { font-size: 9px; text-align: right; line-height: 1.35; }
+
+        .section { margin-top: 14px; }
+        .section-title { font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { border: 1px solid #000; padding: 6px; }
+        th { background: #fff; font-weight: 700; text-align: left; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .muted { color: #555; }
+        .page-break { page-break-after: always; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>{{ $subshop->name ?? 'Shop' }}</h1>
-        <div class="subtitle">CUSTOMERS REPORT</div>
-        <div style="font-size:10px; line-height:1.5; margin: 6px 0 4px;">
-            This report lists customers with activity metrics (orders and total spent) based on your selected filters.
+
+@php
+  $shopName = $shop->name ?? 'Shop';
+  $shopEmail = $shop->email ?? null;
+  $shopPhone = $shop->phone ?? null;
+  $shopAddress = $shop->address ?? null;
+  $shopRegion = $shop->region ?? null;
+  $shopCountry = $shop->country ?? null;
+  $branchName = $subshop->name ?? 'Branch';
+@endphp
+
+<div class="header">
+    <div class="header-left">
+        <div class="header-logo">
+            @if(!empty($shop->logo) && file_exists(public_path('storage/' . $shop->logo)))
+                <img class="logo" src="{{ public_path('storage/' . $shop->logo) }}" alt="Logo">
+            @endif
         </div>
-        <div class="meta">Generated: {{ now()->format('F j, Y \a\t g:i A') }} | System: DukaBase</div>
+        <div class="header-info">
+            <div class="inst-name">{{ $shopName }}</div>
+            <div class="inst-meta">
+                @if($shopAddress)
+                    <div><strong>Address:</strong> {{ $shopAddress }}</div>
+                @endif
+                @if($shopRegion || $shopCountry)
+                    <div>
+                        @if($shopRegion)<strong>Region:</strong> {{ $shopRegion }}@endif
+                        @if($shopRegion && $shopCountry) | @endif
+                        @if($shopCountry)<strong>Country:</strong> {{ $shopCountry }}@endif
+                    </div>
+                @endif
+                @if($shopPhone)
+                    <div><strong>Phone:</strong> {{ $shopPhone }}</div>
+                @endif
+                @if($shopEmail)
+                    <div><strong>Email:</strong> {{ $shopEmail }}</div>
+                @endif
+            </div>
+        </div>
     </div>
 
-    <table class="stats-table">
+    <div class="header-right">
+        <div class="report-title">Customers Report</div>
+        <div class="report-sub">
+            <div><strong>Branch:</strong> {{ $branchName }}</div>
+            <div><strong>Generated:</strong> {{ now()->format('F j, Y \a\t g:i A') }}</div>
+            <div><strong>Generated By:</strong> {{ $generatedBy ?? 'System' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-title">Summary KPIs</div>
+    <table>
         <tr>
-            <td class="stat-blue">
-                <div class="stat-label">Total Customers</div>
-                <div class="stat-value">{{ number_format($summary['count'] ?? 0) }}</div>
-            </td>
-            <td class="stat-green">
-                <div class="stat-label">Total Spent</div>
-                <div class="stat-value">TZS{{ number_format($summary['total_spent'] ?? 0, 2) }}</div>
-            </td>
+            <th>Metric</th>
+            <th class="text-right">Value</th>
         </tr>
         <tr>
-            <td class="stat-orange">
-                <div class="stat-label">Total Orders</div>
-                <div class="stat-value">{{ number_format($summary['total_orders'] ?? 0) }}</div>
-            </td>
-            <td class="stat-red">
-                <div class="stat-label">Active ({{ number_format($summary['active_count'] ?? 0) }}) | Inactive ({{ number_format($summary['inactive_count'] ?? 0) }})</div>
-                <div class="stat-value">&nbsp;</div>
-            </td>
+            <td>Total Customers</td>
+            <td class="text-right">{{ number_format($summary['count'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Active Customers</td>
+            <td class="text-right">{{ number_format($summary['active_count'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Inactive Customers</td>
+            <td class="text-right">{{ number_format($summary['inactive_count'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Total Loans</td>
+            <td class="text-right">{{ number_format($summary['total_loans'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Total Outstanding Balance</td>
+            <td class="text-right">{{ number_format($summary['total_outstanding'] ?? 0, 2) }}</td>
+        </tr>
+        <tr>
+            <td>Active Loans</td>
+            <td class="text-right">{{ number_format($summary['total_active_loans'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Overdue Loans</td>
+            <td class="text-right">{{ number_format($summary['total_overdue_loans'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Closed Loans</td>
+            <td class="text-right">{{ number_format($summary['total_closed_loans'] ?? 0) }}</td>
+        </tr>
+        <tr>
+            <td>Written Off Loans</td>
+            <td class="text-right">{{ number_format($summary['total_written_off_loans'] ?? 0) }}</td>
         </tr>
     </table>
+</div>
 
-    <table class="data-table">
+<div class="section">
+    <div class="section-title">Customer Details</div>
+    <table>
         <thead>
             <tr>
-                <th class="col-no">#</th>
-                <th class="col-name">NAME</th>
-                <th class="col-contact">CONTACT PERSON</th>
-                <th class="col-email">EMAIL</th>
-                <th class="col-phone">PHONE</th>
-                <th class="col-status">STATUS</th>
-                <th class="col-orders">ORDERS</th>
-                <th class="col-spent right">TOTAL SPENT</th>
-                <th class="col-date">JOINED</th>
+                <th>#</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Gender</th>
+                <th>Region</th>
+                <th>Status</th>
+                <th class="text-right">Total Loans</th>
+                <th class="text-right">Outstanding Balance</th>
+                <th class="text-right">Active Loans</th>
+                <th class="text-right">Overdue Loans</th>
+                <th class="text-right">Closed Loans</th>
+                <th class="text-right">Written Off Loans</th>
+                <th>Joined</th>
             </tr>
         </thead>
         <tbody>
@@ -84,23 +155,27 @@
                 <tr>
                     <td>{{ $i++ }}</td>
                     <td>{{ $e->name }}</td>
-                    <td>{{ $e->contact_person ?? '-' }}</td>
-                    <td>{{ $e->email ?? '-' }}</td>
                     <td>{{ $e->phone ?? '-' }}</td>
-                    <td>
-                        @php $st = $e->is_active ? 'ACTIVE' : 'INACTIVE'; @endphp
-                        <span class="badge {{ $e->is_active ? 'badge-success' : 'badge-secondary' }}">{{ $st }}</span>
-                    </td>
-                    <td class="right">{{ (int)($e->orders_count ?? 0) }}</td>
-                    <td class="right">{{ number_format((float)($e->total_spent ?? 0), 2) }}</td>
+                    <td>{{ $e->gender ?? '-' }}</td>
+                    <td>{{ $e->region ?? '-' }}</td>
+                    <td>{{ $e->is_active ? 'ACTIVE' : 'INACTIVE' }}</td>
+                    <td class="text-right">{{ (int)($e->total_loans ?? 0) }}</td>
+                    <td class="text-right">{{ number_format((float)($e->outstanding_balance ?? 0), 2) }}</td>
+                    <td class="text-right">{{ (int)($e->active_loans ?? 0) }}</td>
+                    <td class="text-right">{{ (int)($e->overdue_loans ?? 0) }}</td>
+                    <td class="text-right">{{ (int)($e->closed_loans ?? 0) }}</td>
+                    <td class="text-right">{{ (int)($e->written_off_loans ?? 0) }}</td>
                     <td>{{ optional($e->created_at)->format('Y-m-d') }}</td>
                 </tr>
             @endforeach
+            @if($rows->isEmpty())
+                <tr>
+                    <td colspan="14" class="text-center muted">No data available</td>
+                </tr>
+            @endif
         </tbody>
     </table>
+</div>
 
-    <div class="footer">
-        Report generated by: <strong>{{ $generatedBy ?? 'System' }}</strong> • {{ now()->format('Y-m-d H:i:s') }}
-    </div>
 </body>
 </html>

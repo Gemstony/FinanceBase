@@ -69,7 +69,7 @@ class DataController extends Controller
             }
 
             // Generate backup filename
-            $filename = 'DukaBase_backup_' . date('Y-m-d_H-i-s') . '.sql';
+            $filename = 'FinanceBase_backup_' . date('Y-m-d_H-i-s') . '.sql';
             $filepath = $backupPath . '/' . $filename;
 
             // Get database credentials using config

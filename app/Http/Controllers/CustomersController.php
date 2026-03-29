@@ -12,6 +12,7 @@ use App\Models\SalesOrdersItems;
 use App\Models\Item;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use App\Models\Shop;
 
 class CustomersController extends Controller
 {
@@ -790,9 +791,17 @@ class CustomersController extends Controller
                 ->with('error', 'Please select a shop first');
         }
 
-        // Stats subquery with optional date range on orders
-        $statsSub = SalesOrders::selectRaw('customer_id, COUNT(*) as orders_count, COALESCE(SUM(grand_total),0) as total_spent')
-            ->where('subshop_id', $subshopId);
+        // Stats subquery with optional date range on loans
+        $statsSub = Loans::selectRaw('
+            customer_id,
+            COUNT(*) as total_loans,
+            COALESCE(SUM(CASE WHEN status IN ("disbursed", "partially_paid", "defaulted") AND is_active = 1 THEN 1 ELSE 0 END), 0) as active_loans,
+            COALESCE(SUM(CASE WHEN status IN ("paid_off", "closed") OR (status = "disbursed" AND installments_paid >= installments AND installments > 0) THEN 1 ELSE 0 END), 0) as closed_loans,
+            COALESCE(SUM(CASE WHEN is_written_off = 1 THEN 1 ELSE 0 END), 0) as written_off_loans,
+            COALESCE(SUM(principal_amount), 0) as total_disbursed
+        ')
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true);
         if ($request->filled('date_from')) {
             $statsSub->whereDate('created_at', '>=', $request->input('date_from'));
         }
@@ -801,12 +810,42 @@ class CustomersController extends Controller
         }
         $statsSub->groupBy('customer_id');
 
-        // Base customers query with stats
+        // Outstanding balance subquery
+        $outstandingSub = Loans::selectRaw('customer_id, COALESCE(SUM(outstanding_balance), 0) as outstanding_balance')
+            ->where('subshop_id', $subshopId)
+            ->where('is_active', true)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->groupBy('customer_id');
+
+        // Overdue loans subquery
+        $overdueSub = Loans::selectRaw('customer_id, COUNT(DISTINCT loans.id) as overdue_loans')
+            ->join('loan_installments', 'loans.id', '=', 'loan_installments.loan_id')
+            ->where('loans.subshop_id', $subshopId)
+            ->where('loans.is_active', true)
+            ->where('loan_installments.is_active', true)
+            ->where('loan_installments.status', 'overdue')
+            ->groupBy('customer_id');
+
+        // Base customers query with loan stats
         $base = Customers::where('customers.subshop_id', $subshopId)
             ->leftJoinSub($statsSub, 'stats', function($join){
                 $join->on('stats.customer_id', '=', 'customers.id');
             })
-            ->select('customers.*', DB::raw('COALESCE(stats.orders_count,0) as orders_count'), DB::raw('COALESCE(stats.total_spent,0) as total_spent'));
+            ->leftJoinSub($outstandingSub, 'outstanding', function($join){
+                $join->on('outstanding.customer_id', '=', 'customers.id');
+            })
+            ->leftJoinSub($overdueSub, 'overdue', function($join){
+                $join->on('overdue.customer_id', '=', 'customers.id');
+            })
+            ->select(
+                'customers.*',
+                DB::raw('COALESCE(stats.total_loans, 0) as total_loans'),
+                DB::raw('COALESCE(outstanding.outstanding_balance, 0) as outstanding_balance'),
+                DB::raw('COALESCE(stats.active_loans, 0) as active_loans'),
+                DB::raw('COALESCE(overdue.overdue_loans, 0) as overdue_loans'),
+                DB::raw('COALESCE(stats.closed_loans, 0) as closed_loans'),
+                DB::raw('COALESCE(stats.written_off_loans, 0) as written_off_loans')
+            );
 
         // Apply same filters as index
         if ($request->filled('search')) {
@@ -821,20 +860,20 @@ class CustomersController extends Controller
         if ($request->filled('status') && in_array($request->status, ['active','inactive'])) {
             $base->where('customers.is_active', $request->status === 'active' ? 1 : 0);
         }
-        if ($request->filled('min_orders')) {
-            $base->whereRaw('COALESCE(stats.orders_count,0) >= ?', [(int)$request->input('min_orders')]);
+        if ($request->filled('min_loans')) {
+            $base->whereRaw('COALESCE(stats.total_loans,0) >= ?', [(int)$request->input('min_loans')]);
         }
-        if ($request->filled('max_orders')) {
-            $base->whereRaw('COALESCE(stats.orders_count,0) <= ?', [(int)$request->input('max_orders')]);
+        if ($request->filled('max_loans')) {
+            $base->whereRaw('COALESCE(stats.total_loans,0) <= ?', [(int)$request->input('max_loans')]);
         }
-        if ($request->filled('min_spent')) {
-            $base->whereRaw('COALESCE(stats.total_spent,0) >= ?', [(float)$request->input('min_spent')]);
+        if ($request->filled('min_outstanding')) {
+            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) >= ?', [(float)$request->input('min_outstanding')]);
         }
-        if ($request->filled('max_spent')) {
-            $base->whereRaw('COALESCE(stats.total_spent,0) <= ?', [(float)$request->input('max_spent')]);
+        if ($request->filled('max_outstanding')) {
+            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) <= ?', [(float)$request->input('max_outstanding')]);
         }
         if ($request->filled('date_from') || $request->filled('date_to')) {
-            $base->whereRaw('COALESCE(stats.orders_count,0) > 0');
+            $base->whereRaw('COALESCE(stats.total_loans,0) > 0');
         }
 
         // Sorting for export
@@ -845,14 +884,14 @@ class CustomersController extends Controller
             $base->orderBy('customers.name', 'desc');
         } elseif ($sort === 'date_asc') {
             $base->orderBy('customers.created_at', 'asc');
-        } elseif ($sort === 'orders_desc') {
-            $base->orderByRaw('COALESCE(stats.orders_count,0) desc');
-        } elseif ($sort === 'orders_asc') {
-            $base->orderByRaw('COALESCE(stats.orders_count,0) asc');
-        } elseif ($sort === 'spent_desc') {
-            $base->orderByRaw('COALESCE(stats.total_spent,0) desc');
-        } elseif ($sort === 'spent_asc') {
-            $base->orderByRaw('COALESCE(stats.total_spent,0) asc');
+        } elseif ($sort === 'loans_desc') {
+            $base->orderByRaw('COALESCE(stats.total_loans,0) desc');
+        } elseif ($sort === 'loans_asc') {
+            $base->orderByRaw('COALESCE(stats.total_loans,0) asc');
+        } elseif ($sort === 'outstanding_desc') {
+            $base->orderByRaw('COALESCE(outstanding.outstanding_balance,0) desc');
+        } elseif ($sort === 'outstanding_asc') {
+            $base->orderByRaw('COALESCE(outstanding.outstanding_balance,0) asc');
         } elseif ($sort === 'status') {
             $base->orderBy('customers.is_active', 'desc');
         } else {
@@ -864,16 +903,24 @@ class CustomersController extends Controller
         if ($format === 'csv') {
             return response()->stream(function () use ($rows) {
                 $h = fopen('php://output', 'w');
-                fputcsv($h, ['Name','Contact Person','Email','Phone','Status','Orders','Total Spent','Joined']);
+                fputcsv($h, ['Name','Email','Phone','Gender','ID Type','ID Number','Region','District','Status','Total Loans','Outstanding Balance','Active Loans','Overdue Loans','Closed Loans','Written Off Loans','Joined']);
                 foreach ($rows as $e) {
                     fputcsv($h, [
                         $e->name,
-                        $e->contact_person,
-                        $e->email,
-                        $e->phone,
+                        $e->email ?? '-',
+                        $e->phone ?? '-',
+                        $e->gender ?? '-',
+                        $e->id_type ?? '-',
+                        $e->id_number ?? '-',
+                        $e->region ?? '-',
+                        $e->district ?? '-',
                         $e->is_active ? 'ACTIVE' : 'INACTIVE',
-                        (int)($e->orders_count ?? 0),
-                        number_format((float)($e->total_spent ?? 0), 2, '.', ''),
+                        (int)($e->total_loans ?? 0),
+                        number_format((float)($e->outstanding_balance ?? 0), 2, '.', ''),
+                        (int)($e->active_loans ?? 0),
+                        (int)($e->overdue_loans ?? 0),
+                        (int)($e->closed_loans ?? 0),
+                        (int)($e->written_off_loans ?? 0),
                         optional($e->created_at)->format('Y-m-d'),
                     ]);
                 }
@@ -888,12 +935,20 @@ class CustomersController extends Controller
             $exportRows = $rows->map(function($e){
                 return [
                     'Name' => $e->name,
-                    'Contact Person' => $e->contact_person,
-                    'Email' => $e->email,
-                    'Phone' => $e->phone,
+                    'Email' => $e->email ?? '-',
+                    'Phone' => $e->phone ?? '-',
+                    'Gender' => $e->gender ?? '-',
+                    'ID Type' => $e->id_type ?? '-',
+                    'ID Number' => $e->id_number ?? '-',
+                    'Region' => $e->region ?? '-',
+                    'District' => $e->district ?? '-',
                     'Status' => $e->is_active ? 'ACTIVE' : 'INACTIVE',
-                    'Orders' => (int)($e->orders_count ?? 0),
-                    'Total Spent' => (float)($e->total_spent ?? 0),
+                    'Total Loans' => (int)($e->total_loans ?? 0),
+                    'Outstanding Balance' => (float)($e->outstanding_balance ?? 0),
+                    'Active Loans' => (int)($e->active_loans ?? 0),
+                    'Overdue Loans' => (int)($e->overdue_loans ?? 0),
+                    'Closed Loans' => (int)($e->closed_loans ?? 0),
+                    'Written Off Loans' => (int)($e->written_off_loans ?? 0),
                     'Joined' => optional($e->created_at)->format('Y-m-d'),
                 ];
             });
@@ -902,15 +957,21 @@ class CustomersController extends Controller
 
         if ($format === 'pdf') {
             $subshop = SubShop::find($subshopId);
+            $shop = $subshop ? Shop::find($subshop->shop_id) : null;
             $summary = [
                 'count' => $rows->count(),
-                'total_orders' => (int) $rows->sum(function($r){ return (int)($r->orders_count ?? 0); }),
-                'total_spent' => (float) $rows->sum(function($r){ return (float)($r->total_spent ?? 0); }),
+                'total_loans' => (int) $rows->sum(function($r){ return (int)($r->total_loans ?? 0); }),
+                'total_outstanding' => (float) $rows->sum(function($r){ return (float)($r->outstanding_balance ?? 0); }),
+                'total_active_loans' => (int) $rows->sum(function($r){ return (int)($r->active_loans ?? 0); }),
+                'total_overdue_loans' => (int) $rows->sum(function($r){ return (int)($r->overdue_loans ?? 0); }),
+                'total_closed_loans' => (int) $rows->sum(function($r){ return (int)($r->closed_loans ?? 0); }),
+                'total_written_off_loans' => (int) $rows->sum(function($r){ return (int)($r->written_off_loans ?? 0); }),
                 'active_count' => (int) $rows->where('is_active', true)->count(),
                 'inactive_count' => (int) $rows->where('is_active', false)->count(),
             ];
             $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('exports.customers_pdf', [
                 'rows' => $rows,
+                'shop' => $shop,
                 'subshop' => $subshop,
                 'summary' => $summary,
                 'generatedBy' => optional(auth()->guard()->user())->name ?? 'System',

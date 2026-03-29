@@ -1172,6 +1172,7 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_customers')
             ->name('customers.index');
         Route::get('/admin/sales/customers/export/{format}', [CustomersController::class, 'export'])->name('customers.export');
+        Route::get('/admin/sales/customers/{id}/export/{format}', [CustomersController::class, 'exportCustomer'])->name('customers.export.single');
         Route::get('/admin/sales/customers/import/sample', [CustomersController::class, 'downloadSample'])->name('customers.import.sample');
         Route::get('/admin/sales/customers/template', [CustomersController::class, 'downloadTemplate'])->name('customers.download-template');
         Route::post('/admin/sales/customers/import', [CustomersController::class, 'import'])->name('customers.import');

@@ -17,6 +17,12 @@
                             <i class="fas fa-edit"></i> Edit
                         </a>
                     @endcan
+                    <a href="{{ route('customers.export.single', ['id' => $customer->id, 'format' => 'excel']) }}" class="btn btn-outline-light border ml-2">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </a>
+                    <a href="{{ route('customers.export.single', ['id' => $customer->id, 'format' => 'pdf']) }}" class="btn btn-outline-light border ml-2">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </a>
                     <a href="{{ route('customers.index') }}" class="btn btn-light border ml-2">
                         <i class="fas fa-arrow-left"></i> Back
                     </a>

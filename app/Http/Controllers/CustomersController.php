@@ -239,9 +239,12 @@ class CustomersController extends Controller
             return redirect()->route('subshops.choose', ['intended' => route('customers.show', $id)]);
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $customer = Customers::withTrashed()->findOrFail($id);
 
-        if ((int) $customer->subshop_id !== (int) $subshopId) {
+        if (!$shopSubshopIds->contains((int) $customer->subshop_id)) {
             abort(404);
         }
 
@@ -605,8 +608,11 @@ class CustomersController extends Controller
             return redirect()->route('subshops.choose', ['intended' => route('customers.edit', $id)]);
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $customer = Customers::findOrFail($id);
-        if ((int) $customer->subshop_id !== (int) $subshopId) {
+        if (!$shopSubshopIds->contains((int) $customer->subshop_id)) {
             abort(404);
         }
 
@@ -1375,6 +1381,230 @@ $callback = function() {
 };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Export single customer details to Excel or PDF
+     */
+    public function exportCustomer(Request $request, $id, $format)
+    {
+        $subshopId = session('subshop_id');
+        if (!$subshopId) {
+            return redirect()->route('subshops.choose', ['intended' => route('customers.show', $id)])
+                ->with('error', 'Please select a shop first');
+        }
+
+        $customer = Customers::withTrashed()->findOrFail($id);
+        if ((int) $customer->subshop_id !== (int) $subshopId) {
+            abort(404);
+        }
+
+        $subshop = SubShop::with('shop')->findOrFail($subshopId);
+        $shop = $subshop->shop;
+
+        // Get shop logo path
+        $shopLogoPath = null;
+        if ($shop && $shop->logo) {
+            $shopLogoPath = public_path('storage/' . $shop->logo);
+            if (!file_exists($shopLogoPath)) {
+                $shopLogoPath = null;
+            }
+        }
+
+        // Get all loans for this customer (not just active)
+        $allLoans = Loans::where('customer_id', $customer->id)
+            ->with(['loanProduct', 'latestDisbursement'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Calculate loan statistics using the same logic as show method
+        $totalLoans = $allLoans->count();
+        $activeLoans = $allLoans->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])->where('is_active', true);
+        $closedLoans = $allLoans->filter(function($loan) {
+            return in_array($loan->status, ['paid_off', 'closed']) || 
+                   ($loan->status === 'disbursed' && $loan->installments_paid >= $loan->installments && $loan->installments > 0);
+        });
+        $writtenOffLoans = $allLoans->where('is_written_off', true);
+        
+        // Calculate financial totals using actual outstanding from installments
+        $totalDisbursed = 0;
+        $totalRepaid = 0;
+        $totalOutstanding = 0;
+        $overdueLoansCount = 0;
+        $overdueAmount = 0;
+        $maxDaysPastDue = 0;
+
+        foreach ($allLoans as $loan) {
+            $totalDisbursed += (float) $loan->principal_amount;
+            
+            // Calculate actual outstanding from installments
+            $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
+            
+            // Calculate repaid (disbursed - outstanding)
+            $repaid = (float) $loan->principal_amount - $loan->calculated_outstanding;
+            $totalRepaid += $repaid;
+            $totalOutstanding += $loan->calculated_outstanding;
+            
+            // Check for overdue installments to get days past due
+            $overdueInstallment = $loan->installments()
+                ->where('is_active', true)
+                ->where('status', 'overdue')
+                ->orderBy('due_date', 'asc')
+                ->first();
+            
+            if ($overdueInstallment) {
+                $daysPastDue = now()->diffInDays($overdueInstallment->due_date, false);
+                $loan->days_past_due = abs($daysPastDue);
+                
+                if ($loan->days_past_due > 0) {
+                    $overdueLoansCount++;
+                    $overdueAmount += $loan->calculated_outstanding;
+                    $maxDaysPastDue = max($maxDaysPastDue, $loan->days_past_due);
+                }
+            } else {
+                $loan->days_past_due = 0;
+            }
+        }
+
+        // Loan status summary
+        $loanStatusSummary = [
+            'disbursed' => $allLoans->where('status', 'disbursed')->count(),
+            'partially_paid' => $allLoans->where('status', 'partially_paid')->count(),
+            'defaulted' => $allLoans->where('status', 'defaulted')->count(),
+            'paid' => $allLoans->where('status', 'paid')->count(),
+            'pending' => $allLoans->where('status', 'pending')->count(),
+            'rejected' => $allLoans->where('status', 'rejected')->count(),
+            'written_off' => $writtenOffLoans->count(),
+        ];
+
+        $stats = [
+            'loans_count' => $totalLoans,
+            'active_loans_count' => $activeLoans->count(),
+            'closed_loans_count' => $closedLoans->count(),
+            'written_off_count' => $writtenOffLoans->count(),
+            'total_principal' => $totalDisbursed,
+            'total_repaid' => $totalRepaid,
+            'outstanding_balance' => $totalOutstanding,
+            'overdue_loans_count' => $overdueLoansCount,
+            'overdue_amount' => $overdueAmount,
+            'max_days_past_due' => $maxDaysPastDue,
+            'loan_status_summary' => $loanStatusSummary,
+        ];
+
+        if ($format === 'excel') {
+            $exportRows = [];
+            
+            // Customer Information
+            $exportRows[] = ['CUSTOMER INFORMATION', ''];
+            $exportRows[] = ['Name', $customer->name];
+            $exportRows[] = ['Email', $customer->email ?? '-'];
+            $exportRows[] = ['Phone', $customer->phone ?? '-'];
+            $exportRows[] = ['Alternative Phone', $customer->altenative_phone ?? '-'];
+            $exportRows[] = ['Gender', $customer->gender ?? '-'];
+            $exportRows[] = ['Birth Date', $customer->birth_date ?? '-'];
+            $exportRows[] = ['Category', $customer->category ?? '-'];
+            $exportRows[] = ['Status', $customer->is_active ? 'Active' : 'Inactive'];
+            $exportRows[] = ['', ''];
+            
+            // Address Information
+            $exportRows[] = ['ADDRESS INFORMATION', ''];
+            $exportRows[] = ['Region', $customer->region ?? '-'];
+            $exportRows[] = ['District', $customer->district ?? '-'];
+            $exportRows[] = ['Ward', $customer->ward ?? '-'];
+            $exportRows[] = ['Street', $customer->street ?? '-'];
+            $exportRows[] = ['House No', $customer->house_no ?? '-'];
+            $exportRows[] = ['', ''];
+            
+            // Work Information
+            $exportRows[] = ['WORK INFORMATION', ''];
+            $exportRows[] = ['Work', $customer->work ?? '-'];
+            $exportRows[] = ['Work Address', $customer->work_address ?? '-'];
+            $exportRows[] = ['', ''];
+            
+            // Identification
+            $exportRows[] = ['IDENTIFICATION', ''];
+            $exportRows[] = ['ID Type', $customer->id_type ?? '-'];
+            $exportRows[] = ['ID Number', $customer->id_number ?? '-'];
+            $exportRows[] = ['', ''];
+            
+            // Loan Statistics
+            $exportRows[] = ['LOAN STATISTICS', ''];
+            $exportRows[] = ['Total Loans', $stats['loans_count']];
+            $exportRows[] = ['Active Loans', $stats['active_loans_count']];
+            $exportRows[] = ['Closed Loans', $stats['closed_loans_count']];
+            $exportRows[] = ['Written Off Loans', $stats['written_off_count']];
+            $exportRows[] = ['Overdue Loans', $stats['overdue_loans_count']];
+            $exportRows[] = ['Total Disbursed', number_format($stats['total_principal'], 2)];
+            $exportRows[] = ['Total Repaid', number_format($stats['total_repaid'], 2)];
+            $exportRows[] = ['Outstanding Balance', number_format($stats['outstanding_balance'], 2)];
+            $exportRows[] = ['Overdue Amount', number_format($stats['overdue_amount'], 2)];
+            $exportRows[] = ['Max Days Past Due', $stats['max_days_past_due']];
+            $exportRows[] = ['', ''];
+            
+            // Loan Details
+            $exportRows[] = ['LOAN DETAILS', ''];
+            $exportRows[] = ['Loan Code', 'Product', 'Status', 'Principal', 'Outstanding', 'Disbursed Date', 'Maturity Date', 'Installments', 'DPD'];
+            
+            foreach ($allLoans as $loan) {
+                $status = $loan->status;
+                if ($loan->is_written_off) {
+                    $status = 'Written Off';
+                } elseif ($loan->days_past_due > 0) {
+                    $status = 'Overdue';
+                }
+                
+                $exportRows[] = [
+                    $loan->loan_code,
+                    $loan->loanProduct->name ?? 'N/A',
+                    $status,
+                    number_format($loan->principal_amount, 2),
+                    number_format($loan->calculated_outstanding, 2),
+                    $loan->disbursement_date?->format('Y-m-d') ?? '-',
+                    $loan->maturity_date?->format('Y-m-d') ?? '-',
+                    ($loan->installments_paid ?? 0) . '/' . ($loan->installments ?? 0),
+                    $loan->days_past_due > 0 ? $loan->days_past_due : '-',
+                ];
+            }
+            
+            return \Maatwebsite\Excel\Facades\Excel::download(
+                new \App\Exports\GenericArrayExport($exportRows, 'Customer Details'),
+                'customer_' . $customer->id . '_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+            );
+        }
+
+        if ($format === 'pdf') {
+            // Get shop logo path
+            $shopLogoPath = null;
+            if ($shop && $shop->logo) {
+                $logoPath = public_path('storage/' . $shop->logo);
+                if (file_exists($logoPath)) {
+                    $shopLogoPath = $logoPath;
+                }
+            }
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('customers.pdf.customer_details', [
+                'customer' => $customer,
+                'shop' => $shop,
+                'subshop' => $subshop,
+                'allLoans' => $allLoans,
+                'stats' => $stats,
+                'shopLogoPath' => $shopLogoPath,
+                'generatedBy' => optional(auth()->guard()->user())->name ?? 'System',
+            ]);
+
+            // Ensure directory exists
+            $directory = storage_path('app/public/customers/pdf');
+            if (!file_exists($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            $filename = $customer->name. '_Report_' . now()->format('Y-m-d_H-i-s') . '.pdf';
+            $pdf->save($directory . '/' . $filename);
+
+            return response()->download($directory . '/' . $filename)->deleteFileAfterSend(true);
+        }
+
+        return redirect()->back()->with('error', 'Unsupported export format');
     }
 
 }

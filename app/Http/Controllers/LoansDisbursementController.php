@@ -7,6 +7,7 @@ use App\Models\LoanApprovals;
 use App\Models\LoanDisbursements;
 use App\Models\Loans;
 use App\Models\LoanSecurityDeposit;
+use App\Models\Shop;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
 use App\Models\BankAccounts;
@@ -15,6 +16,7 @@ use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Disbursement\LoanDisbursementEngine;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
+use App\Services\Sms\SmsManager;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -217,7 +219,8 @@ class LoansDisbursementController extends Controller
                 if ($loanLocked->status === 'disbursed' || LoanDisbursements::query()->where('loan_id', $loanLocked->id)->exists()) {
                     return;
                 }
-
+                 $shopId = SubShop::where('id', $loanLocked->subshop_id)->value('shop_id');
+              
                 // Call the existing disbursement engine with the correct signature.
                 // Note: the engine currently persists disbursement_date as now(); we still validate user input date here.
                 $disbursement = $this->disbursementEngine->disburseLoan(
@@ -259,16 +262,40 @@ class LoansDisbursementController extends Controller
                     ]
                 );
 
-                // Update installments: set start dates and active status based on disbursement date
-                $this->activateInstallments($loanLocked);
+                 // Update installments: set start dates and active status based on disbursement date
+                 $this->activateInstallments($loanLocked);
 
-                // Apply fees configured for disbursement / installment events
-                $this->feeEngine->applyFees($loanLocked, 'loan_disbursed', $disbursementDate);
-                $this->feeEngine->applyFees($loanLocked, 'first_installment', $disbursementDate);
-                $this->feeEngine->applyFees($loanLocked, 'every_installment', $disbursementDate);
+                 // Apply fees configured for disbursement / installment events
+                 $this->feeEngine->applyFees($loanLocked, 'loan_disbursed', $disbursementDate);
+                 $this->feeEngine->applyFees($loanLocked, 'first_installment', $disbursementDate);
+                 $this->feeEngine->applyFees($loanLocked, 'every_installment', $disbursementDate);
 
-                // Deduct fees if applicable (placeholder: adjust to real fee deduction logic)
-                $this->deductFees($loanLocked, $disbursementDate);
+                 // Deduct fees if applicable (placeholder: adjust to real fee deduction logic)
+                 $this->deductFees($loanLocked, $disbursementDate);
+
+                //  $shopId = SubShop::where('id', $loanLocked->subshop_id)->value('shop_id');
+
+                 // Send SMS notification for loan disbursement
+                 try {
+                     $customer = $loanLocked->customer;
+                     if ($customer && $customer->phone) {
+                         app(SmsManager::class)->sendEvent('loan.disbursed', [
+                             'shop_id' => $shopId,
+                             'subshop_id' => $loanLocked->subshop_id,
+                             'user_id' => Auth::id(),
+                             'phone' => $customer->phone,
+                             'data' => [
+                                 'name' => $customer->name,
+                                 'amount' => $loanLocked->principal_amount,
+                                 'date' => $disbursementDate->format('Y-m-d H:i'),
+                                 'loan_code' => $loanLocked->loan_code ?? 'N/A'
+                             ]
+                         ]);
+                     }
+                 } catch (\Exception $e) {
+                     // Don't let SMS failure affect the disbursement process
+                     \Log::warning('Failed to send loan disbursement SMS: ' . $e->getMessage());
+                 }
             });
 
             return redirect()->route('loans.disbursement.index')->with('success', "Loan {$loan->loan_code} has been disbursed successfully.");

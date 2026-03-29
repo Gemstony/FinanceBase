@@ -1,84 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>{{ $subshop->name ?? 'Shop' }} Charts of Account Export</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Charts of Account - {{ $subshop->name ?? 'All Branches' }}</title>
     <style>
-        body { font-family: 'DejaVu Sans', Arial, sans-serif; margin:0; padding:15px; color:#333; font-size:10px; line-height:1.4; }
-        .header { background:#2c3e50; color:#fff; padding:20px; text-align:center; margin-bottom:20px; }
-        .header h1{ font-size:26px; margin:0 0 8px; font-weight:700; }
-        .header .subtitle{ font-size:14px; margin:0 0 10px; }
-        .header .meta{ margin-top:10px; font-size:9px; border-top:1px solid rgba(255,255,255,0.3); padding-top:10px; }
-        .stats-table{ width:100%; margin-bottom:20px; border-collapse:separate; border-spacing:8px; }
-        .stats-table td{ width:50%; padding:12px 8px; text-align:center; border:2px solid #ddd; border-radius:4px; }
-        .stat-label{ font-size:8px; color:#666; text-transform:uppercase; font-weight:700; letter-spacing:.5px; margin-bottom:5px; }
-        .stat-value{ font-size:22px; font-weight:700; color:#2c3e50; margin:5px 0; }
-        .stat-blue{ background:#e3f2fd; border-color:#2196f3; } .stat-blue .stat-value{ color:#1976d2; }
-        .stat-green{ background:#e8f5e9; border-color:#4caf50; } .stat-green .stat-value{ color:#388e3c; }
-        .stat-gray{ background:#eceff1; border-color:#90a4ae; } .stat-gray .stat-value{ color:#455a64; }
-        .stat-purple{ background:#f3e5f5; border-color:#ab47bc; } .stat-purple .stat-value{ color:#8e24aa; }
-        .data-table{ width:100%; border-collapse:collapse; font-size:8px; margin-top:15px; }
-        .data-table thead th{ background:#34495e; color:#fff; padding:8px 4px; text-align:left; font-weight:700; font-size:8px; text-transform:uppercase; border:1px solid #2c3e50; }
-        .data-table td{ padding:6px 4px; border:1px solid #ddd; vertical-align:top; word-wrap:break-word; }
-        .data-table tbody tr:nth-child(odd){ background:#f9f9f9; }
-        .data-table tbody tr:nth-child(even){ background:#fff; }
-        .col-no{ width:3%; } .col-code{ width:8%; } .col-name{ width:18%; } .col-desc{ width:12%; } .col-class{ width:10%; } .col-group{ width:10%; } .col-cash{ width:7%; } .col-equity{ width:7%; } .col-cust{ width:6%; } .col-sys{ width:6%; } .col-act{ width:6%; } .col-date{ width:7%; }
-        .badge{ display:inline-block; padding:2px 6px; font-size:7px; font-weight:700; border-radius:3px; text-transform:uppercase; }
-        .badge-success{ background:#4caf50; color:#fff; }
-        .badge-danger{ background:#f44336; color:#fff; }
-        .badge-secondary{ background:#9e9e9e; color:#fff; }
-        .data-table thead { display: table-header-group; }
-        .footer { margin-top: 20px; padding: 10px; border-top: 1px solid #ddd; font-size: 9px; color: #666; text-align: center; }
+        @page { margin: 24px 22px; font-family: 'DejaVu Sans', Arial, sans-serif; }
+        body { font-family: 'DejaVu Sans', Arial, sans-serif; font-size: 10px; color: #000; }
+
+        .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 12px; }
+        .header-left { display: inline-block; vertical-align: top; width: 64%; }
+        .header-right { display: inline-block; vertical-align: top; width: 35%; text-align: right; }
+        .header-logo { display: inline-block; vertical-align: top; width: 90px; }
+        .header-info { display: inline-block; vertical-align: top; width: calc(100% - 95px); }
+        .logo { max-width: 85px; max-height: 85px; object-fit: contain; }
+
+        .inst-name { font-size: 14px; font-weight: 700; margin: 0 0 3px 0; }
+        .inst-meta { font-size: 9px; line-height: 1.35; }
+        .report-title { font-size: 12px; font-weight: 700; text-transform: uppercase; text-align: right; margin: 0 0 3px 0; }
+        .report-sub { font-size: 9px; text-align: right; line-height: 1.35; }
+
+        .block-title { font-size: 10px; font-weight: 700; margin: 14px 0 6px 0; text-transform: uppercase; }
+
+        .kpi { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .kpi td { border: 1px solid #000; padding: 7px 6px; }
+        .kpi .kpi-label { font-size: 8px; font-weight: 700; text-transform: uppercase; }
+        .kpi .kpi-value { font-size: 11px; font-weight: 700; margin-top: 2px; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { border: 1px solid #000; padding: 6px; }
+        th { background: #fff; font-weight: 700; text-align: left; }
+        td.num, th.num { text-align: right; }
+
+        .page-break { page-break-before: always; }
+        .small { font-size: 9px; }
+
+        .footer { border-top: 1px solid #000; margin-top: 14px; padding-top: 6px; font-size: 8px; }
+        .footer-left { display: inline-block; vertical-align: top; width: 70%; }
+        .footer-right { display: inline-block; vertical-align: top; width: 29%; text-align: right; }
+
+        .badge { display: inline-block; padding: 2px 6px; font-size: 7px; font-weight: 700; border-radius: 3px; text-transform: uppercase; }
+        .badge-success { background: #4caf50; color: #fff; }
+        .badge-danger { background: #f44336; color: #fff; }
+        .badge-secondary { background: #9e9e9e; color: #fff; }
     </style>
 </head>
 <body>
+    @php
+        $shopName = $shop->name ?? $subshop->name ?? 'Institution';
+        $shopEmail = $shop->email ?? $subshop->email ?? null;
+        $shopPhone = $shop->phone ?? $subshop->phone ?? null;
+        $shopWebsite = $shop->website ?? $subshop->website ?? null;
+        $shopAddress = $shop->address ?? $subshop->address ?? null;
+        $shopRegion = $shop->region ?? $subshop->region ?? null;
+        $shopCountry = $shop->country ?? $subshop->country ?? null;
+    @endphp
+
     <div class="header">
-        <h1>{{ $subshop->name ?? 'Shop' }}</h1>
-        <div class="subtitle">CHARTS OF ACCOUNT</div>
-        <div style="font-size:10px; line-height:1.5; margin: 6px 0 4px;">
-            This report lists your chart of accounts including system and user accounts.
+        <div class="header-left">
+            <div class="header-logo">
+                @if(!empty($shopLogoPath) && file_exists($shopLogoPath))
+                    <img class="logo" src="{{ $shopLogoPath }}" alt="Logo">
+                @endif
+            </div>
+            <div class="header-info">
+                <div class="inst-name">{{ $shopName }}</div>
+                <div class="inst-meta">
+                    @if($shopAddress)
+                        <div><strong>Address:</strong> {{ $shopAddress }}</div>
+                    @endif
+                    @if($shopRegion || $shopCountry)
+                        <div>
+                            @if($shopRegion)<strong>Region:</strong> {{ $shopRegion }}@endif
+                            @if($shopRegion && $shopCountry) | @endif
+                            @if($shopCountry)<strong>Country:</strong> {{ $shopCountry }}@endif
+                        </div>
+                    @endif
+                    @if($shopPhone)
+                        <div><strong>Phone:</strong> {{ $shopPhone }}</div>
+                    @endif
+                    @if($shopEmail)
+                        <div><strong>Email:</strong> {{ $shopEmail }}</div>
+                    @endif
+                    @if($shopWebsite)
+                        <div><strong>Website:</strong> {{ $shopWebsite }}</div>
+                    @endif
+                </div>
+            </div>
         </div>
-        <div class="meta">Generated: {{ now()->format('F j, Y \a\t g:i A') }} | System: DukaBase</div>
+
+        <div class="header-right">
+            <div class="report-title">Charts of Account</div>
+            <div class="report-sub">
+                <div><strong>Branch:</strong> {{ $subshop->name ?? 'All Branches' }}</div>
+                <div><strong>Generated:</strong> {{ $generatedAt ?? now()->format('Y-m-d H:i:s') }}</div>
+            </div>
+        </div>
     </div>
 
-    <table class="stats-table">
+    <table class="kpi">
         <tr>
-            <td class="stat-blue">
-                <div class="stat-label">Total Accounts</div>
-                <div class="stat-value">{{ number_format($summary['count'] ?? 0) }}</div>
+            <td>
+                <div class="kpi-label">Total Accounts</div>
+                <div class="kpi-value">{{ number_format($summary['count'] ?? 0) }}</div>
             </td>
-            <td class="stat-green">
-                <div class="stat-label">Active</div>
-                <div class="stat-value">{{ number_format($summary['active'] ?? 0) }}</div>
+            <td>
+                <div class="kpi-label">Active</div>
+                <div class="kpi-value">{{ number_format($summary['active'] ?? 0) }}</div>
+            </td>
+            <td>
+                <div class="kpi-label">System Accounts</div>
+                <div class="kpi-value">{{ number_format($summary['system'] ?? 0) }}</div>
             </td>
         </tr>
         <tr>
-            <td class="stat-gray">
-                <div class="stat-label">System Accounts</div>
-                <div class="stat-value">{{ number_format($summary['system'] ?? 0) }}</div>
+            <td>
+                <div class="kpi-label">User Accounts</div>
+                <div class="kpi-value">{{ number_format($summary['user'] ?? 0) }}</div>
             </td>
-            <td class="stat-purple">
-                <div class="stat-label">User Accounts</div>
-                <div class="stat-value">{{ number_format($summary['user'] ?? 0) }}</div>
-            </td>
+            <td colspan="2"></td>
         </tr>
     </table>
 
-    <table class="data-table">
+    <div class="block-title">Account List</div>
+    <div class="small" style="margin-bottom:6px;">
+        Showing {{ number_format(count($rows)) }} accounts.
+    </div>
+    <table>
         <thead>
             <tr>
-                <th class="col-no">#</th>
-                <th class="col-code">CODE</th>
-                <th class="col-name">ACCOUNT NAME</th>
-                <th class="col-desc">DESCRIPTION</th>
-                <th class="col-class">CLASS</th>
-                <th class="col-group">GROUP</th>
-                <th class="col-cash">CASH FLOW</th>
-                <th class="col-equity">EQUITY</th>
-                <th class="col-cust">CUSTOMER</th>
-                <th class="col-sys">SYSTEM</th>
-                <th class="col-act">ACTIVE</th>
-                <th class="col-date">CREATED</th>
+                <th>#</th>
+                <th>Code</th>
+                <th>Account Name</th>
+                <th>Description</th>
+                <th>Class</th>
+                <th>Group</th>
+                <th>Cash Flow</th>
+                <th>Equity</th>
+                <th>Customer</th>
+                <th>System</th>
+                <th>Active</th>
+                <th>Created</th>
             </tr>
         </thead>
         <tbody>
@@ -119,11 +180,19 @@
                 <td>{{ optional($row->created_at)->format('Y-m-d') }}</td>
             </tr>
             @endforeach
+            @if(empty($rows))
+                <tr><td colspan="12" style="text-align:center; color:#777; padding:10px;">No data</td></tr>
+            @endif
         </tbody>
     </table>
 
     <div class="footer">
-        Generated by: {{ $generatedBy ?? 'System' }}
+        <div class="footer-left">
+            <strong>{{ $shopName }}</strong> | Charts of Account
+        </div>
+        <div class="footer-right">
+            Page 1
+        </div>
     </div>
 </body>
 </html>

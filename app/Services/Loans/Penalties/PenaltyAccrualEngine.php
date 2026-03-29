@@ -5,7 +5,10 @@ namespace App\Services\Loans\Penalties;
 use App\Models\LoanInstallments;
 use App\Models\LoanPenaltyApplications;
 use App\Models\LoanProductPenalties;
+use App\Models\SubShop;
+use App\Services\Sms\SmsManager;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -146,6 +149,30 @@ class PenaltyAccrualEngine
                     );
 
                     $lockedInstallment->save();
+
+                    // Send SMS notification for penalty application
+                    try {
+                        $customer = $loan->customer;
+                        if ($customer && $customer->phone) {
+                            $shopId = SubShop::where('id', $loan->subshop_id)->value('shop_id');
+                            app(SmsManager::class)->sendEvent('loan.penalty', [
+                                'shop_id' => $shopId,
+                                'subshop_id' => $loan->subshop_id,
+                                'user_id' => Auth::id(),
+                                'phone' => $customer->phone,
+                                'data' => [
+                                    'name' => $customer->name,
+                                    'amount' => $penaltyAmount,
+                                    'date' => $today->format('Y-m-d H:i'),
+                                    'loan_code' => $loan->loan_code ?? 'N/A',
+                                    'installment_number' => $lockedInstallment->installment_number
+                                ]
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        // Don't let SMS failure affect the penalty processing
+                        Log::warning('Failed to send loan penalty SMS: ' . $e->getMessage());
+                    }
                 }
             }, 3);
         }

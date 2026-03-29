@@ -57,6 +57,11 @@ use App\Http\Controllers\ProfitAndLossReportController;
 use App\Http\Controllers\PrinterSettingsController;
 use App\Http\Controllers\PrintJobsController;
 use App\Http\Controllers\SmsManagementController;
+use App\Http\Controllers\Sms\SmsConfigController;
+use App\Http\Controllers\Sms\SmsTemplateController;
+use App\Http\Controllers\Sms\SmsEventController;
+use App\Http\Controllers\Sms\SmsLogController;
+use App\Http\Controllers\Sms\AnalyticsController;
 use App\Http\Controllers\LoanRepaymentController;
 use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
@@ -92,9 +97,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/shop/setup', [ShopController::class, 'create'])->name('shop.create');
     Route::post('/shop/setup', [ShopController::class, 'store'])->name('shop.store');
 
+    //General Settings routes
     Route::get('/settings/general_settings', [\App\Http\Controllers\Settings\GeneralSettingsController::class, 'index'])
     ->middleware('can:view_general_settings')
     ->name('settings.general_settings.index');
+
+    // SMS Settings routes
+    Route::get('/settings/sms_settings', [\App\Http\Controllers\Sms_settings\SmsSettingsController::class, 'index'])
+    ->middleware('can:view_sms_settings')
+    ->name('settings.sms_settings.index');
 
     
     // Profile routes
@@ -430,6 +441,45 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{loanPenalty}', [LoanPenaltiesController::class, 'update'])->name('update');
             Route::delete('/{loanPenalty}', [LoanPenaltiesController::class, 'destroy'])->name('destroy');
         });
+
+        // SMS Management Routes
+        Route::prefix('sms')->name('sms.')->group(function () {
+            Route::resource('configs', SmsConfigController::class)
+                ->names([
+                    'index' => 'configs.index',
+                    'create' => 'configs.create',
+                    'store' => 'configs.store',
+                    'edit' => 'configs.edit',
+                    'show' => 'configs.show',
+                    'update' => 'configs.update',
+                    'destroy' => 'configs.destroy',
+                ]);
+            Route::resource('templates', SmsTemplateController::class)
+                ->names([
+                    'index' => 'templates.index',
+                    'create' => 'templates.create',
+                    'store' => 'templates.store',
+                    'edit' => 'templates.edit',
+                    'update' => 'templates.update',
+                    'destroy' => 'templates.destroy',
+                ]);
+            Route::resource('events', SmsEventController::class)
+                ->names([
+                    'index' => 'events.index',
+                    'create' => 'events.create',
+                    'store' => 'events.store',
+                    'edit' => 'events.edit',
+                    'update' => 'events.update',
+                    'destroy' => 'events.destroy',
+                ]);
+            Route::resource('logs', SmsLogController::class)->only(['index', 'show', 'destroy'])
+                ->names([
+                    'index' => 'logs.index',
+                    'show' => 'logs.show',
+                ]);
+            Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+        });
+        
 
 
 

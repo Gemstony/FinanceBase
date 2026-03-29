@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AccountClass;
 use App\Models\AccountGroups;
 use App\Models\ChartsOfAccount;
+use App\Models\Shop;
 use App\Models\SubShop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,7 +33,20 @@ class ChartsOfAccountController extends Controller
             return back()->with('error', 'Unsupported export format.');
         }
 
-        $query = ChartsOfAccount::query();
+        $subshopId = session('subshop_id');
+        if (!$subshopId) {
+            return back()->with('error', 'No branch selected.');
+        }
+
+        $subshop = SubShop::findOrFail($subshopId);
+        if ($subshop->is_active != 1) {
+            return back()->with('error', 'Shop is not active.');
+        }
+
+        // Aggregate across all subshops under the same shop
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+        $query = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds);
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where('account_name', 'like', "%$search%");
@@ -48,6 +62,8 @@ class ChartsOfAccountController extends Controller
 
         if ($format === 'pdf') {
             $subshop = SubShop::find(session('subshop_id'));
+            $shop = $subshop ? Shop::find($subshop->shop_id) : null;
+            $shopLogoPath = $shop && $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
             $summary = [
                 'count' => $rows->count(),
                 'active' => (int) $rows->where('is_active', 1)->count(),
@@ -56,7 +72,9 @@ class ChartsOfAccountController extends Controller
             ];
             $pdf = PDF::loadView('exports.charts_of_account_pdf', [
                 'rows' => $rows,
+                'shop' => $shop,
                 'subshop' => $subshop,
+                'shopLogoPath' => $shopLogoPath,
                 'summary' => $summary,
                 'generatedBy' => optional(auth()->user())->name ?? 'System',
             ]);

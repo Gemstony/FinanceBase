@@ -133,6 +133,7 @@ class PermissionsSeeder extends Seeder
             'view_accounting_reports',
             'view_customers_reports',
             'view_general_settings',
+            'view_sms_settings',
         ];
 
         foreach ($permissions as $permission) {

@@ -7,12 +7,16 @@ use App\Models\Customers;
 use App\Models\LoanInstallments;
 use App\Models\LoanPayments;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
+use App\Services\Sms\SmsManager;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -166,6 +170,29 @@ class LoanRepaymentController extends Controller
                 ->back()
                 ->withInput()
                 ->with('error', 'Failed to process payment. Please try again or contact support.');
+        }
+
+        // Send SMS notification for loan repayment
+        try {
+            $customer = $loan->customer;
+            if ($customer && $customer->phone) {
+                $shopId = SubShop::where('id', $loan->subshop_id)->value('shop_id');
+                app(SmsManager::class)->sendEvent('loan.repayment', [
+                    'shop_id' => $shopId,
+                    'subshop_id' => $loan->subshop_id,
+                    'user_id' => Auth::id(),
+                    'phone' => $customer->phone,
+                    'data' => [
+                        'name' => $customer->name,
+                        'amount' => $validated['payment_amount'],
+                        'date' => Carbon::parse((string) $validated['payment_date'])->format('Y-m-d'),
+                        'loan_code' => $loan->loan_code ?? 'N/A'
+                    ]
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Don't let SMS failure affect the repayment process
+            Log::warning('Failed to send loan repayment SMS: ' . $e->getMessage());
         }
 
         return redirect()

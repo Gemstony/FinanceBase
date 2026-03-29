@@ -1,31 +1,30 @@
 @extends('adminlte::page')
 
-@section('title', 'General Settings ')
+@section('title', 'SMS Settings - ' . $subshop->name)
 
 @section('content_header')
 <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="d-none d-md-block text-light"><i class="fas fa-cog"></i> General Settings</h1>
-                <h1 class="d-md-none text-light"><i class="fas fa-cog"></i> General Settings</h1>
-                <p class="mb-0 text-light">Managing General Settings for: <strong>{{ $subshop->name }}</strong></p>
+                <h1 class="d-none d-md-block text-light"><i class="fas fa-sms"></i> SMS Settings</h1>
+                <h1 class="d-md-none text-light"><i class="fas fa-sms"></i> SMS Settings</h1>
+                <p class="mb-0 text-light">Managing SMS Settings for: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Change Brunch
-            </a>
+            <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+
         </div>
     </div>
 </div>
 <div class="d-flex justify-content-between align-items-center">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i>
-                    Dashboard</a></li>
-            <li class="breadcrumb-item active text-dark" aria-current="page">General Settings
-            </li>
+            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('settings.general_settings.index') }}">General Settings</a></li>
+            <li class="breadcrumb-item active text-dark" aria-current="page">SMS Settings</li>
         </ol>
     </nav>
+    <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
 </div>
 @stop
 
@@ -33,11 +32,27 @@
 
 @section('content')
 <div class="container-fluid">
+ 
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
 
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach($errors->all() as $e)
+                    <li>{{ $e }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
 <div class="card card-outline card-primary">
     <div class="card-header">
-        <h3 class="card-title">General System Settings</h3>
+        <h3 class="card-title">SMS Settings</h3>
         <div class="card-tools">
             <button type="button" class="btn btn-tool" data-card-widget="collapse">
                 <i class="fas fa-minus"></i>
@@ -46,19 +61,19 @@
     </div>
     <div class="card-body">
         <div class="row">
-            <!-- Company Settings -->
+            <!-- SMS Analystics  -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-primary elevation-1">
-                        <i class="fas fa-building"></i>
+                        <i class="fas fa-chart-bar"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Company Settings</span>
+                        <span class="info-box-text">SMS Analytics</span>
                         <span class="info-box-number">
-                            Manage company information
+                            Monitor SMS delivery and performance
                         </span>
                         <div class="mt-2">
-                            <a href="{{ route('shop.show') }}" 
+                            <a href="{{ route('sms.analytics.index') }}" 
                                class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
@@ -67,19 +82,19 @@
                 </div>
             </div>
 
-            <!-- Users Settings card -->
+            <!-- SMS configurations -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-success elevation-1">
-                        <i class="fas fa-users"></i>
+                        <i class="fas fa-cog"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Users Settings</span>
+                        <span class="info-box-text">SMS Configurations</span>
                         <span class="info-box-number">
-                            Manage User Accounts
+                            Manage SMS provider configurations
                         </span>
                         <div class="mt-2">
-                            <a href="{{ Route('users.index') }}" class="btn btn-sm btn-outline-success">
+                            <a href="{{ Route('sms.configs.index') }}" class="btn btn-sm btn-outline-success">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>
@@ -87,59 +102,19 @@
                 </div>
             </div>
 
-            <!-- Change Password -->
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-dark elevation-1">
-                        <i class="fas fa-key"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">Change Password</span>
-                        <span class="info-box-number">
-                            Change your account password
-                        </span>
-                        <div class="mt-2">
-                            <a href="{{ Route('settings.password.show') }}" class="btn btn-sm btn-outline-dark">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- System Theme UI -->
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-info elevation-1">
-                        <i class="fas fa-palette"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">System Themes</span>
-                        <span class="info-box-number">
-                            Customize your system theme
-                        </span>
-                        <div class="mt-2">
-                            <a href="{{ Route('settings.ui') }}" class="btn btn-sm btn-outline-info">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-             <!-- Printer Settings -->
+            <!-- SMS Events -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-secondary elevation-1">
-                        <i class="fas fa-print"></i>
+                        <i class="fas fa-bolt"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Printer Settings</span>
+                        <span class="info-box-text">SMS Events</span>
                         <span class="info-box-number">
-                            Configure Printer Settings
+                            Map events to SMS templates
                         </span>
                         <div class="mt-2">
-                            <a href="{{ Route('printers.settings.index') }}" class="btn btn-sm btn-outline-secondary">
+                            <a href="{{ Route('sms.events.index') }}" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>
@@ -147,46 +122,48 @@
                 </div>
             </div>
 
-            <!-- User Roles and Permissions -->
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-warning elevation-1">
-                        <i class="fas fa-user-shield"></i>
-                    </span>
-                    <div class="info-box-content">
-                        <span class="info-box-text">User Roles & Permissions</span>
-                        <span class="info-box-number">
-                            Manage User Roles and Permissions
-                        </span>
-                        <div class="mt-2">
-                            <a href="{{ Route('settings.roles-permissions.show') }}" class="btn btn-sm btn-outline-warning">
-                                <i class="fas fa-cog mr-1"></i> Configure
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-            <!-- SMS Settings -->
+            <!-- SMS Logs -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
                     <span class="info-box-icon bg-warning elevation-1">
                         <i class="fas fa-sms"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">SMS Settings</span>
+                        <span class="info-box-text">SMS Logs</span>
                         <span class="info-box-number">
-                            Configure SMS Settings
+                            View SMS delivery logs
                         </span>
                         <div class="mt-2">
-                            <a href="{{ Route('settings.sms_settings.index') }}" class="btn btn-sm btn-outline-warning">
+                            <a href="{{ Route('sms.logs.index') }}" class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- SMS Templates -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-file-alt"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">SMS Templates</span>
+                        <span class="info-box-number">
+                            Manage SMS templates
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('sms.templates.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
 
         </div>
     </div>

@@ -12,18 +12,28 @@ class SmsLog extends Model
     protected $fillable = [
         'shop_id',
         'subshop_id',
-        'owner_id',
+        'user_id',
         'phone',
         'message',
-        'type',
+        'template_id',
+        'event',
         'status',
         'provider',
+        'provider_message_id',
         'provider_response',
+        'attempts',
+        'cost',
+        'error_code',
+        'error_message',
         'sent_at',
+        'delivered_at',
     ];
 
     protected $casts = [
         'sent_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'attempts' => 'integer',
+        'cost' => 'decimal:2',
     ];
 
     public function shop()
@@ -36,8 +46,13 @@ class SmsLog extends Model
         return $this->belongsTo(SubShop::class, 'subshop_id');
     }
 
-    public function owner()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'owner_id');
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function template()
+    {
+        return $this->belongsTo(SmsTemplate::class);
     }
 }

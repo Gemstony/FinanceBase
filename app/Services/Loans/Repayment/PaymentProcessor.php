@@ -15,6 +15,7 @@ use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Credits\CustomerCreditService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
+use App\Services\Sms\SmsManager;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -220,17 +221,38 @@ class PaymentProcessor
                 'bank_account_id' => $bankAccountId,
             ]);
 
-            $this->voucherService->createVoucherFromJournalEntry(
-                $journal,
-                'receipt',
-                [
-                    'payment_method' => (string) $paymentMethod,
-                    'bank_account_id' => $bankAccountId,
-                    'description' => 'Loan repayment receipt voucher #' . (int) $payment->id,
-                ]
-            );
+             $this->voucherService->createVoucherFromJournalEntry(
+                 $journal,
+                 'receipt',
+                 [
+                     'payment_method' => (string) $paymentMethod,
+                     'bank_account_id' => $bankAccountId,
+                     'description' => 'Loan repayment receipt voucher #' . (int) $payment->id,
+                 ]
+             );
 
-            return $payment;
+             // Send SMS notification for payment received
+             try {
+                 $customer = $loan->customer;
+                 if ($customer && $customer->phone) {
+                     app(SmsManager::class)->sendEvent('payment.received', [
+                         'shop_id' => $loan->shop_id,
+                         'subshop_id' => $loan->subshop_id,
+                         'user_id' => auth()->id(),
+                         'phone' => $customer->phone,
+                         'data' => [
+                             'amount' => $paymentAmount,
+                             'date' => $paymentDate->format('Y-m-d'),
+                             'loan_code' => $loan->loan_code ?? 'N/A'
+                         ]
+                     ]);
+                 }
+             } catch (\Exception $e) {
+                 // Don't let SMS failure affect the payment process
+                 Log::warning('Failed to send payment received SMS: ' . $e->getMessage());
+             }
+
+             return $payment;
         });
     }
 }

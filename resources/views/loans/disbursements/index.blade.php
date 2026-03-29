@@ -195,7 +195,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [8] },
                 { searchable: false, targets: [8] }
             ],
-            order: [[0, 'asc']]
+            order: [[4, 'desc']]
         });
     }
 });

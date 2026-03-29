@@ -17,7 +17,7 @@ class PlanSeeder extends Seeder
             [
                 'name' => 'Free Trial',
                 'slug' => 'free-trial',
-                'description' => '14-day free trial to explore DukaBase features',
+                'description' => '14-day free trial to explor FinanceBase features',
                 'price' => 0.00,
                 'currency' => 'USD',
                 'billing_cycle' => 'monthly',

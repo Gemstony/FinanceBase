@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Sms\SmsManager;
 use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,11 +62,42 @@ class PhoneOtpPasswordResetController extends Controller
             'created_at' => now(),
         ]);
 
-        $smsService->sendSms(
-            $phone,
-            "Your password reset code is: {$otpPlain}. It expires in " . self::OTP_EXPIRY_MINUTES . " minutes.",
-            ['type' => 'password_reset_otp', 'sensitive' => true]
-        );
+          // Send OTP via new SMS Manager (event-based)
+          try {
+              $user = User::query()
+                  ->where('email', $validated['email'])
+                  ->whereIn('phone_number', $phoneCandidates)
+                  ->first();
+              
+              if ($user && $user->phone_number) {
+                  $sent = app(SmsManager::class)->sendEvent('otp.generated', [
+                      'shop_id' => $user->shop_id ?? 1, // Default to shop 1 if not set
+                      'subshop_id' => $user->subshop_id ?? null,
+                      'user_id' => $user->id,
+                      'phone' => $user->phone_number,
+                      'data' => ['otp' => $otpPlain],
+                      'sensitive' => true
+                  ]);
+                  
+                  // If event-based SMS failed to queue, fall back to legacy service
+                  if (!$sent) {
+                      \Log::warning('SMS Manager failed to queue OTP, falling back to SmsService');
+                      $smsService->sendSms(
+                          $phone,
+                          "Your password reset code is: {$otpPlain}. It expires in " . self::OTP_EXPIRY_MINUTES . " minutes.",
+                          ['type' => 'password_reset_otp', 'sensitive' => true]
+                      );
+                  }
+              }
+          } catch (\Exception $e) {
+              // Fallback to old SMS service if new manager fails
+              \Log::warning('Failed to send OTP via SmsManager, falling back to SmsService: ' . $e->getMessage());
+              $smsService->sendSms(
+                  $phone,
+                  "Your password reset code is: {$otpPlain}. It expires in " . self::OTP_EXPIRY_MINUTES . " minutes.",
+                  ['type' => 'password_reset_otp', 'sensitive' => true]
+              );
+          }
 
         $request->session()->put(self::SESSION_KEY, [
             'email' => $validated['email'],

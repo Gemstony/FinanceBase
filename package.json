@@ -27,7 +27,7 @@
     "pdfmake": "^0.2.20",
     "puppeteer": "^24.30.0"
   },
-  "name": "dukabase",
+  "name": "financebase",
   "description": "<p align=\"center\"><a href=\"https://laravel.com\" target=\"_blank\"><img src=\"https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg\" width=\"400\" alt=\"Laravel Logo\"></a></p>",
   "version": "1.0.0",
   "main": "postcss.config.js",
@@ -36,13 +36,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Gemstony/DukaBase.git"
+    "url": "git+https://github.com/Gemstony/FinanceBase.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Gemstony/DukaBase/issues"
+    "url": "https://github.com/Gemstony/FinanceBase/issues"
   },
-  "homepage": "https://github.com/Gemstony/DukaBase#readme"
+  "homepage": "https://github.com/Gemstony/FinanceBase#readme"
 }

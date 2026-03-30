@@ -206,7 +206,11 @@ Route::middleware(['auth'])->group(function () {
   
     // Protected routes - require shop setup or assignment, and enforce subshop access context
     Route::middleware(['has.shop','subshop.access'])->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'index'])
+        // Route::get('/dashboard', [DashboardController::class, 'index'])
+        //     ->middleware('can:view_dashboard')
+        //     ->name('dashboard');
+        
+        Route::get('/dashboard', [\App\Http\Controllers\Dashboard\FinancialDashboardController::class, 'index'])
             ->middleware('can:view_dashboard')
             ->name('dashboard');
 

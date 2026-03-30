@@ -369,17 +369,18 @@ return [
         ],
 
         // Dashboard
-        [
-            'text' => 'Dashboard',
-            'url' => '/dashboard',
-            'icon' => 'fas fa-tachometer-alt',
-            'can' => 'view_dashboard',
-        ],
+        // [
+        //     'text' => 'Financial Dashboard',
+        //     'url' => '/dashboard',
+        //     'icon' => 'fas fa-tachometer-alt',
+        //     'can' => 'view_dashboard',
+        // ],
 
         // Financial Dashboard
         [
             'text' => 'Financial Dashboard',
-            'url' => '/dashboard/financial',
+            'url' => '/dashboard',
+             'can' => 'view_dashboard',
             'icon' => 'fas fa-chart-line',
         ],
 

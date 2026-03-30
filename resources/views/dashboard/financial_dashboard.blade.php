@@ -3,24 +3,83 @@
 @section('title', 'Financial Dashboard')
 
 @section('content_header')
-<div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="d-none d-md-block text-light"><i class="fas fa-chart-line"></i> Financial Dashboard</h1>
-                <h1 class="d-md-none text-light"><i class="fas fa-chart-line"></i> Financial</h1>
-                <p class="mb-0 text-light">Executive Overview - {{ $shop->name ?? 'All Branches' }}</p>
+<div class="card border-0 shadow-lg mb-4" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
+    <div class="card-body py-4">
+        <div class="row align-items-center">
+            <!-- Dashboard Title & Welcome -->
+            <div class="col-md-8">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3">
+                        <div class="rounded-circle bg-opacity-25 p-3 d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <i class="fas fa-chart-line fa-2x text-white"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="mb-1 fw-bold text-white" style="font-size: 2rem;">Financial Dashboard</h1>
+                        <p class="mb-0 text-white-50">
+                            <i class="fas fa-calendar-alt me-1"></i>
+                            {{ now()->format('l, F j, Y') }}
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <span class="badge bg-white text-primary me-2 px-3 py-2">
+                        <i class="fas fa-building me-1"></i>
+                        {{ $shop->name ?? 'System' }}
+                    </span>
+                    <span class="badge bg-white bg-opacity-25 text-white px-3 py-2">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ now()->format('g:i A') }}
+                    </span>
+                </div>
             </div>
-            <a href="{{ route('dashboard') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Back
-            </a>
+            
+            <!-- User Profile Section -->
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <div class="d-flex align-items-center justify-content-md-end">
+                    <div class="text-end me-3">
+                        <h6 class="mb-0 text-white fw-semibold">{{ auth()->user()->name }}</h6>
+                        <small class="text-white-50">
+                            @if(auth()->user()->roles->first())
+                                <i class="fas fa-user-shield me-1"></i>
+                                {{ auth()->user()->roles->first()->name }}
+                            @else
+                                <i class="fas fa-user me-1"></i>
+                                User
+                            @endif
+                        </small>
+                    </div>
+                    <div class="position-relative">
+                        @if(auth()->user()->profile_image)
+                            <img src="{{ asset('storage/' . auth()->user()->profile_image) }}" 
+                                 alt="{{ auth()->user()->name }}" 
+                                 class="rounded-circle border border-3 border-white shadow" 
+                                 style="width: 55px; height: 55px; object-fit: cover;">
+                        @else
+                            <div class="rounded-circle bg-opacity-25 d-flex align-items-center justify-content-center border border-3 border-white shadow" 
+                                 style="width: 55px; height: 55px;">
+                                <span class="text-white fw-bold" style="font-size: 1.25rem;">
+                                    {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
+                                </span>
+                            </div>
+                        @endif
+                        <span class="position-absolute bottom-0 end-0 bg-success rounded-circle border border-2 border-white" 
+                              style="width: 14px; height: 14px;" 
+                              title="Online"></span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+    <ol class="breadcrumb bg-light rounded px-3 py-2 mb-0">
+        <li class="breadcrumb-item">
+            <a href="{{ route('dashboard.financial') }}" class="text-decoration-none">
+                <i class="fas fa-home me-1"></i>Home
+            </a>
+        </li>
         <li class="breadcrumb-item active" aria-current="page">Financial Dashboard</li>
     </ol>
 </nav>
@@ -29,11 +88,21 @@
 @section('content')
 <div class="container-fluid">
     <!-- Filters Section -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
-                @csrf
-                <select name="subshop_id" class="form-select form-select-sm" style="width: 180px;" onchange="this.form.submit()">
+<div class="card  border-0 mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-filter me-1 text-warning"></i>
+            Filters <i class="fas fa-info-circle text-muted" data-toggle="tooltip" title="Filter dashboard data based on date range and branch"></i>
+        </h5>
+    </div>
+    <div class="card-body py-3">
+        <form method="GET" class="row g-3 align-items-end">
+            @csrf
+
+            <!-- Branch -->
+            <div class="col-md-3">
+                <label class="form-label fw-semibold text-muted small">Branch</label>
+                <select name="subshop_id" class="form-select" onchange="this.form.submit()">
                     <option value="">All Branches</option>
                     @foreach($subshops as $subshop)
                         <option value="{{ $subshop->id }}" {{ $selectedSubshopId == $subshop->id ? 'selected' : '' }}>
@@ -41,18 +110,36 @@
                         </option>
                     @endforeach
                 </select>
-                <input type="date" name="from_date" class="form-control form-control-sm" value="{{ $dateFrom }}" style="width: 140px;">
-                <span class="text-muted">to</span>
-                <input type="date" name="to_date" class="form-control form-control-sm" value="{{ $dateTo }}" style="width: 140px;">
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="fas fa-filter"></i> Apply
+            </div>
+
+            <!-- From Date -->
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small"><i class="fas fa-calendar text-danger"></i> From</label>
+                <input type="date" name="from_date" class="form-control" value="{{ $dateFrom }}">
+            </div>
+
+            <!-- To Date -->
+            <div class="col-md-2">
+                <label class="form-label fw-semibold text-muted small"><i class="fas fa-calendar text-danger"></i> To</label>
+                <input type="date" name="to_date" class="form-control" value="{{ $dateTo }}">
+            </div>
+
+            <!-- Buttons -->
+            <div class="col-md-5 d-flex gap-2">
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="fas fa-filter me-1"></i> Apply Filters
                 </button>
-                <a href="{{ route('dashboard.financial', array_merge(request()->query(), ['clear_filters' => 1])) }}" class="btn btn-secondary btn-sm">
-                    <i class="fas fa-times"></i> Clear
+
+                <a href="{{ route('dashboard.financial', ['clear_filters' => 1]) }}"
+                   class="btn btn-outline-secondary px-4">
+                    <i class="fas fa-undo me-1"></i> Reset
                 </a>
-            </form>
-        </div>
+            </div>
+
+        </form>
+
     </div>
+</div>
 
     <!-- Alerts Section -->
     @if(!empty($dashboardData['alerts']))
@@ -73,7 +160,60 @@
         </div>
     </div>
     @endif
-
+                        {{-- Quick Actions Panel --}}
+    <div class="row mb-2">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt text-warning"></i>
+                        Quick Actions <i class="fas fa-info-circle text-muted" data-toggle="tooltip" title="Shortcuts to common tasks"></i>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('customers.create') }}" class="btn btn-outline-primary btn-block btn-sm">
+                                <i class="fas fa-user"></i><br>
+                                <small>Add Customer</small>
+                            </a>
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('loans.loans.create') }}" class="btn btn-outline-success btn-block btn-sm">
+                                 <i class="fas fa-hand-holding-usd"></i><br>
+                                <small>Add Loan</small>
+                            </a>
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('loan.repayments.index') }}" class="btn btn-outline-info btn-block btn-sm">
+                               <i class="fas fa-money-bill-wave"></i><br>
+                                <small>Record Payment</small>
+                            </a>
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('deposits.index') }}" class="btn btn-outline-secondary btn-block btn-sm">
+                                <i class="fas fa-credit-card"></i><br>
+                                <small>Loans Reports</small>
+                            </a>
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('reports.loan_reports.index') }}" class="btn btn-outline-warning btn-block btn-sm">
+                                <i class="fas fa-file-alt"></i><br>
+                                <small>Loans Reports</small>
+                            </a>
+                        </div>
+                       
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <a href="{{ route('reports.accounting_reports.index')}}" class="btn btn-outline-danger btn-block btn-sm">
+                                <i class="fas fa-tags"></i><br>
+                                <small>Accounting Reports</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- KPI Summary Cards -->
     <div class="row mb-4">
 

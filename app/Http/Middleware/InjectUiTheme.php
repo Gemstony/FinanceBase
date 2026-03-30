@@ -38,8 +38,17 @@ class InjectUiTheme
                     $shopId = (int) $sub->shop_id;
                 }
             }
+            // If no shop_id yet, check if user owns a shop
             if (!$shopId && method_exists($user, 'shop') && $user->shop) {
                 $shopId = (int) $user->shop->id;
+            }
+            // If still no shop_id, user might be an assigned user (shopkeeper)
+            // Try to get shop_id from their assigned subshops
+            if (!$shopId && method_exists($user, 'subshops')) {
+                $assignedSubshop = $user->subshops()->wherePivot('is_active', 1)->first();
+                if ($assignedSubshop && $assignedSubshop->shop_id) {
+                    $shopId = (int) $assignedSubshop->shop_id;
+                }
             }
         }
 

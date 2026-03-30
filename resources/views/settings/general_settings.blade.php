@@ -171,7 +171,7 @@
             <!-- SMS Settings -->
             <div class="col-12 col-md-6 col-lg-4 mb-4">
                 <div class="info-box bg-gradient-white shadow-sm border">
-                    <span class="info-box-icon bg-warning elevation-1">
+                    <span class="info-box-icon bg-primary elevation-1">
                         <i class="fas fa-sms"></i>
                     </span>
                     <div class="info-box-content">
@@ -180,7 +180,27 @@
                             Configure SMS Settings
                         </span>
                         <div class="mt-2">
-                            <a href="{{ Route('settings.sms_settings.index') }}" class="btn btn-sm btn-outline-warning">
+                            <a href="{{ Route('settings.sms_settings.index') }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction Settings -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-warning elevation-1">
+                        <i class="fas fa-credit-card"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Transaction Settings</span>
+                        <span class="info-box-number">
+                            Configure Transaction Settings
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('settings.payment_settings.index') }}" class="btn btn-sm btn-outline-warning">
                                 <i class="fas fa-cog mr-1"></i> Configure
                             </a>
                         </div>

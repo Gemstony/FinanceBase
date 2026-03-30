@@ -50,7 +50,6 @@ use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\SubshopSelectionController;
-use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\PurchasesReportController;
 use App\Http\Controllers\ProfitAndLossReportController;
@@ -62,6 +61,9 @@ use App\Http\Controllers\Sms\SmsTemplateController;
 use App\Http\Controllers\Sms\SmsEventController;
 use App\Http\Controllers\Sms\SmsLogController;
 use App\Http\Controllers\Sms\AnalyticsController;
+use App\Http\Controllers\Payments\PaymentController as PaymentsController;
+use App\Http\Controllers\Payments\WebhookController;
+use App\Http\Controllers\Payments\ClickPesaWebhookController;
 use App\Http\Controllers\LoanRepaymentController;
 use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
@@ -107,7 +109,12 @@ Route::middleware(['auth'])->group(function () {
     ->middleware('can:view_sms_settings')
     ->name('settings.sms_settings.index');
 
-    
+
+    // Payment Settings routes
+    Route::get('/settings/payment_settings', [\App\Http\Controllers\Payments\PaymentSettingsController::class, 'index'])
+    ->middleware('can:view_payment_settings')
+    ->name('settings.payment_settings.index');
+
     // Profile routes
     Route::get('/settings/profile', function () {
         $user = auth()->user();
@@ -478,6 +485,35 @@ Route::middleware(['auth'])->group(function () {
                     'show' => 'logs.show',
                 ]);
             Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+        });
+
+        // Payment Management Routes
+        Route::prefix('payments')->name('payments.')->group(function () {
+            // Payment Configs
+            Route::get('configs', [PaymentsController::class, 'configs'])->name('configs');
+            Route::get('configs/create', [PaymentsController::class, 'createConfig'])->name('configs.create');
+            Route::post('configs', [PaymentsController::class, 'storeConfig'])->name('configs.store');
+            Route::get('configs/{id}/edit', [PaymentsController::class, 'editConfig'])->name('configs.edit');
+            Route::put('configs/{id}', [PaymentsController::class, 'updateConfig'])->name('configs.update');
+            Route::delete('configs/{id}', [PaymentsController::class, 'deleteConfig'])->name('configs.delete');
+            Route::post('configs/{id}/set-default', [PaymentsController::class, 'setDefaultConfig'])->name('configs.setDefault');
+
+            // Transactions
+            Route::get('transactions', [PaymentsController::class, 'transactions'])->name('transactions');
+            Route::get('transactions/{id}', [PaymentsController::class, 'showTransaction'])->name('transactions.show');
+            Route::get('transactions/export', [PaymentsController::class, 'export'])->name('transactions.export');
+            Route::get('stats', [PaymentsController::class, 'stats'])->name('stats');
+
+            // Initiate Payment
+            Route::post('initiate', [PaymentsController::class, 'initiatePayment'])->name('initiate');
+        });
+
+        // Webhook Routes (API)
+        Route::prefix('api/payments')->name('api.payments.')->group(function () {
+            Route::post('mpesa/webhook', [WebhookController::class, 'mpesa'])->name('mpesa.webhook');
+            Route::post('airtel/webhook', [WebhookController::class, 'airtel'])->name('airtel.webhook');
+            Route::post('tigo/webhook', [WebhookController::class, 'tigo'])->name('tigo.webhook');
+            Route::post('clickpesa/webhook', [ClickPesaWebhookController::class, 'handle'])->name('clickpesa.webhook');
         });
         
 

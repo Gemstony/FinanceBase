@@ -13,6 +13,16 @@
             <a href="{{ route('loans.loan_products.create') }}" class="btn btn-outline-light"><i class="fas fa-plus"></i> New Product</a>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i>
+                    Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('loans.loans_settings.index') }}">Loans Settings</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Loan Products</li>
+        </ol>
+    </nav>
+</div>
 @stop
 
 @section('content')

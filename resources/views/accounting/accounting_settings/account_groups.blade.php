@@ -234,22 +234,13 @@ $(document).ready(function() {
     // Initialize DataTable
     $('#accountClassesTable').DataTable({
         responsive: true,
-        columnDefs: [{
-                orderable: false,
-                targets: [0, 7]
-            }, // Disable sorting on action column
-            {
-                searchable: false,
-                targets: [0, 4, 5, 6,  7]
-            } // Disable search on action and status columns
-        ],
         order: [
-            [1, 'asc']
+            [0, 'asc']
         ] // Sort by code by default
     });
 
-    // Handle edit button click
-    $('.edit-btn').click(function() {
+    // Handle edit button click (using event delegation for DataTables pagination)
+    $(document).on('click', '.edit-btn', function() {
         var id = $(this).data('id');
         var class_id = $(this).data('class-id')
          var class_name = $(this).data('class-name')
@@ -269,8 +260,8 @@ $(document).ready(function() {
         $('#editAccountGroupModal').modal('show');
     });
 
-    // Handle delete button click
-    $('.delete-btn').click(function() {
+    // Handle delete button click (using event delegation for DataTables pagination)
+    $(document).on('click', '.delete-btn', function() {
         var id = $(this).data('id');
 
         Swal.fire({

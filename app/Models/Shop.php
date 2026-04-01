@@ -41,7 +41,9 @@ class Shop extends Model
                 return;
             }
 
-            $shop->registration_number = 'FIN-' . str_pad((string) $shop->id, 6, '0', STR_PAD_LEFT);
+            $initial = strtoupper(substr($shop->name, 0, 2));
+
+            $shop->registration_number = $initial. '-' . str_pad((string) $shop->id, 4, '0', STR_PAD_LEFT);
             $shop->saveQuietly();
         });
     }

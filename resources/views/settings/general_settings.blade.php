@@ -195,9 +195,9 @@
                         <i class="fas fa-credit-card"></i>
                     </span>
                     <div class="info-box-content">
-                        <span class="info-box-text">Transaction Settings</span>
+                        <span class="info-box-text">Payment Settings</span>
                         <span class="info-box-number">
-                            Configure Transaction Settings
+                            Configure Payment Settings
                         </span>
                         <div class="mt-2">
                             <a href="{{ route('settings.payment_settings.index') }}" class="btn btn-sm btn-outline-warning">

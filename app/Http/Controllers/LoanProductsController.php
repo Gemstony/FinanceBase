@@ -266,6 +266,7 @@ class LoanProductsController extends Controller
 
         // Chart of accounts for mapping principal, interest, penalties, fees, write-offs
         $accounts = ChartsOfAccount::query()
+            ->with('accountClass')
             ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('account_name')

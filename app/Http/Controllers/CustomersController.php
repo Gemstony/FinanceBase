@@ -176,6 +176,13 @@ class CustomersController extends Controller
             ]);
             $data['subshop_id'] = $subshopId;
             $data['is_active'] = $request->has('is_active');
+            
+            // Get the parent shop from the subshop
+            $subshop = SubShop::findOrFail($subshopId);
+            $data['shop_id'] = $subshop->shop_id;
+            
+            // Generate unique customer_code
+            $data['customer_code'] = $this->generateCustomerCode($subshop->shop_id);
 
             // Check if there's a soft deleted customer with the same email in the same shop
             $existingCustomer = null;
@@ -789,6 +796,42 @@ class CustomersController extends Controller
         return redirect()->route('subshops.choose', ['intended' => route('dashboard')]);
     }
 
+    /**
+     * Generate a unique customer code
+     * Format: {registration_number}-{YYMM}-{RAND}
+     * @param int $shopId
+     * @return string
+     */
+    private function generateCustomerCode(int $shopId): string
+    {
+        $shop = Shop::findOrFail($shopId);
+        $registrationNumber = $shop->registration_number;
+        
+        // Get current year and month in YYMM format
+        $yearMonth = now()->format('ym');
+        
+        // Generate random 4-character alphanumeric string (uppercase letters and numbers only)
+        $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $randomString = '';
+        
+        for ($i = 0; $i < 4; $i++) {
+            $randomString .= $characters[random_int(0, strlen($characters) - 1)];
+        }
+        
+        $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
+        
+        // Check if code already exists, regenerate if it does
+        while (Customers::where('customer_code', $customerCode)->exists()) {
+            $randomString = '';
+            for ($i = 0; $i < 4; $i++) {
+                $randomString .= $characters[random_int(0, strlen($characters) - 1)];
+            }
+            $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
+        }
+        
+        return $customerCode;
+    }
+
     public function export(Request $request, $format)
     {
         $subshopId = session('subshop_id');
@@ -1198,9 +1241,14 @@ class CustomersController extends Controller
                 }
 
                 try {
+                    // Get the parent shop from the subshop
+                    $subshop = SubShop::findOrFail($subshopId);
+                    
                     // Prepare data for insertion
                     $data = [
                         'subshop_id' => $subshopId,
+                        'shop_id' => $subshop->shop_id,
+                        'customer_code' => $this->generateCustomerCode($subshop->shop_id),
                         'name' => $rowData['name'],
                         'email' => !empty($rowData['email']) ? $rowData['email'] : null,
                         'phone' => $rowData['phone'],

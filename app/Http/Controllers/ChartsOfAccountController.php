@@ -240,8 +240,13 @@ class ChartsOfAccountController extends Controller
                     throw new \RuntimeException('Missing class code for account code generation.');
                 }
 
-                // Find the latest code by class prefix across all accounts to honor unique(account_code)
-                $lastAccount = ChartsOfAccount::where('account_code', 'like', $prefix . '%')
+                // Get the shop_id from the subshop
+                $subshop = SubShop::findOrFail($subshopId);
+                $shopId = $subshop->shop_id;
+
+                // Find the latest code by class prefix within the same shop to honor unique(shop_id, account_code)
+                $lastAccount = ChartsOfAccount::where('shop_id', $shopId)
+                    ->where('account_code', 'like', $prefix . '%')
                     ->lockForUpdate()
                     ->orderBy('account_code', 'DESC')
                     ->first();
@@ -252,6 +257,23 @@ class ChartsOfAccountController extends Controller
                     $number = 1;
                 }
                 $accountCode = $prefix . str_pad($number, 3, '0', STR_PAD_LEFT);
+
+                // Double-check uniqueness within the shop scope (in case of race conditions)
+                $exists = ChartsOfAccount::where('shop_id', $shopId)
+                    ->where('account_code', $accountCode)
+                    ->exists();
+                
+                if ($exists) {
+                    // If code exists, find the next available code
+                    $lastAccount = ChartsOfAccount::where('shop_id', $shopId)
+                        ->where('account_code', 'like', $prefix . '%')
+                        ->lockForUpdate()
+                        ->orderBy('account_code', 'DESC')
+                        ->first();
+                    
+                    $number = intval(substr($lastAccount->account_code, strlen($prefix))) + 1;
+                    $accountCode = $prefix . str_pad($number, 3, '0', STR_PAD_LEFT);
+                }
 
                 return ChartsOfAccount::create([
                     'account_code'        => $accountCode,
@@ -272,6 +294,7 @@ class ChartsOfAccountController extends Controller
                     'is_active'           => $validated['is_active'] ?? true,
 
                     'subshop_id'          => $subshopId,
+                    'shop_id'             => $shopId,
                     'created_by'          => Auth::id(),
                 ]);
             });

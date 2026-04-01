@@ -594,7 +594,7 @@
                             <select class="form-control" id="principal_account_id" name="principal_account_id" required>
                                 <option value="">Select account</option>
                                 @foreach($accounts as $a)
-                                <option value="{{ $a->id }}" {{ (string)old('principal_account_id', $loanProductAccounts?->principal_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})</option>
+                                <option value="{{ $a->id }}" {{ (string)old('principal_account_id', $loanProductAccounts?->principal_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -606,7 +606,7 @@
                                     name="interest_receivable_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('interest_receivable_account_id', $loanProductAccounts?->interest_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('interest_receivable_account_id', $loanProductAccounts?->interest_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -618,7 +618,7 @@
                                     name="interest_income_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('interest_income_account_id', $loanProductAccounts?->interest_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('interest_income_account_id', $loanProductAccounts?->interest_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -632,7 +632,7 @@
                                     name="penalty_receivable_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('penalty_receivable_account_id', $loanProductAccounts?->penalty_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('penalty_receivable_account_id', $loanProductAccounts?->penalty_receivable_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -644,7 +644,7 @@
                                     name="penalty_income_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('penalty_income_account_id', $loanProductAccounts?->penalty_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('penalty_income_account_id', $loanProductAccounts?->penalty_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -656,7 +656,7 @@
                                 <select class="form-control" id="fee_income_account_id" name="fee_income_account_id">
                                     <option value="">Select account (optional)</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('fee_income_account_id', $loanProductAccounts?->fee_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('fee_income_account_id', $loanProductAccounts?->fee_income_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -666,10 +666,10 @@
                                         class="text-danger">*</span></label>
                                 <select class="form-control" id="write_off_expense_account_id"
                                     name="write_off_expense_account_id" required>
-                                    <option value="">Select account</option>
+                                    <option value="">Select account</option> 
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('write_off_expense_account_id', $loanProductAccounts?->write_off_expense_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
-                                    </option>
+                                        <option value="{{ $a->id }}" {{ (string)old('write_off_expense_account_id', $loanProductAccounts?->write_off_expense_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -682,7 +682,7 @@
                                     name="customer_savings_control_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_control_account_id', $loanProductAccounts?->customer_savings_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_control_account_id', $loanProductAccounts?->customer_savings_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -694,7 +694,7 @@
                                     name="security_deposit_control_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('security_deposit_control_account_id', $loanProductAccounts?->security_deposit_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('security_deposit_control_account_id', $loanProductAccounts?->security_deposit_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -707,7 +707,7 @@
                                 <select class="form-control" id="customer_savings_account_id" name="customer_savings_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_account_id', $loanProductAccounts?->customer_savings_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_savings_account_id', $loanProductAccounts?->customer_savings_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -717,7 +717,7 @@
                                 <select class="form-control" id="customer_security_deposit_account_id" name="customer_security_deposit_account_id">
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
-                                    <option value="{{ $a->id }}" {{ (string)old('customer_security_deposit_account_id', $loanProductAccounts?->customer_security_deposit_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_name }} ({{ $a->account_code }})
+                                    <option value="{{ $a->id }}" {{ (string)old('customer_security_deposit_account_id', $loanProductAccounts?->customer_security_deposit_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -1020,9 +1020,9 @@ select[multiple] {
     font-weight: 600;
 }
 
-.card {
+/* .card {
     border-radius: .5rem;
-}
+} */
 
 .card-header {
     border-top-left-radius: .5rem;

@@ -163,10 +163,7 @@ class ShopController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
             ]);
-            
-            return back()
-                ->withInput()
-                ->withErrors(['error' => 'An error occurred. Please try again.']);
+            return back()->with('error', 'An error occurred. Please try again.');
         }
     }
 
@@ -297,10 +294,7 @@ class ShopController extends Controller
                     'message' => 'An error occurred. Please try again.'
                 ], 500);
             }
-
-            return back()
-                ->withInput()
-                ->withErrors(['error' => 'An error occurred. Please try again.']);
+            return back()->with('error', 'An error occurred. Please try again.');
         }
     }
 }

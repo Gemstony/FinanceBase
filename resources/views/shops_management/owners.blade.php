@@ -40,7 +40,7 @@
     @if (session('error'))
         Swal.fire({
             icon: 'error',
-            title: 'Kuna Tatizo!',
+            title: 'Error!',
             text: "{{ session('error') }}",
             showConfirmButton: true
         });
@@ -78,7 +78,22 @@
             </div>
         </div>
     </div>
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
 
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach($errors->all() as $e)
+                    <li>{{ $e }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
     <!-- Create Owner Modal -->
     <div class="modal fade" id="createOwnerModal" tabindex="-1" role="dialog" aria-labelledby="createOwnerModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
@@ -482,7 +497,7 @@
     $(document).ready(function() {
         setTimeout(function() {
             $('.alert').fadeOut('slow');
-        }, 5000);
+        }, 7000);
     });
 
     // Owners data for editing

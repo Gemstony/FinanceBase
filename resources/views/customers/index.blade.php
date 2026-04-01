@@ -29,7 +29,6 @@
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{{ route('customers.subshops') }}">Choose Shop</a></li>
                 <li class="breadcrumb-item active" aria-current="page">Customers</li>
             </ol>
         </nav>
@@ -85,7 +84,7 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 mb-3" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+    <div class="card border-0 mb-3" >
         <div class="card-body">
             <form method="GET" action="{{ route('customers.index') }}" class="mb-0">
                 <div class="bg-light p-2 rounded border">
@@ -155,7 +154,7 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+    <div class="card border-0">
         <div class="card-body table-responsive">
             <table class="table table-hover text-nowrap" id="customersTable">
                 <thead class="thead-light">

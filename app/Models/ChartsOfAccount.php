@@ -10,6 +10,7 @@ class ChartsOfAccount extends Model
 
     protected $fillable = [
         'subshop_id',
+        'shop_id',
         'account_code',
         'account_name',
         'description',
@@ -48,6 +49,14 @@ class ChartsOfAccount extends Model
     public function subshop()
     {
         return $this->belongsTo(SubShop::class, 'subshop_id');
+    }
+
+    /**
+     * Get the shop that owns the chart of account.
+     */
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class, 'shop_id');
     }
 
     /**

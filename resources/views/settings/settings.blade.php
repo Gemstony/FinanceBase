@@ -57,14 +57,12 @@
         @endif
 
         <!-- Buttons to Add New Role and Permission (Super Admin or Owner) -->
-        @can('admin-or-owner')
         <div class="mb-3">
             <button class="btn btn-primary" data-toggle="modal" data-target="#addRoleModal"><i class="fas fa-plus"></i> Add New Role</button>
             @can('Super Admin')
             <button class="btn btn-secondary" data-toggle="modal" data-target="#addPermissionModal"><i class="fas fa-plus"></i> Add New Permission</button>
             @endcan
         </div>
-        @endcan
 
 
 
@@ -247,7 +245,6 @@
                         <label for="role_name">Role Name</label>
                         <input type="text" class="form-control" id="role_name" name="name" required>
                     </div>
-                    @can('Super Admin')
                     <div class="form-group">
                         <div class="custom-control custom-checkbox">
                             <input class="custom-control-input" type="checkbox" name="is_global" value="1" id="is_global">
@@ -256,7 +253,6 @@
                             </label>
                         </div>
                     </div>
-                    @endcan
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>

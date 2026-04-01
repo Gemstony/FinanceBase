@@ -7,7 +7,7 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="d-none d-md-block text-light"><i class="fas fa-user"></i> {{ $customer->name }}</h1>
+                    <h1 class="d-none d-md-block text-light"><i class="fas fa-user"></i> {{ $customer->name }} [{{ $customer->customer_code }}] </h1>
                     <h1 class="d-md-none text-light"><i class="fas fa-user"></i> {{ $customer->name }}</h1>
                     <p class="mb-0 text-light">Customer Profile</p>
                 </div>
@@ -30,6 +30,15 @@
             </div>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('customers.index') }}">Customers</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Customer Details</li>
+            </ol>
+        </nav>
+    </div>
 @stop
 
 @section('content')
@@ -44,7 +53,7 @@
     <div class="row">
         <div class="col-md-8">
             <!-- Customer Information Card -->
-            <div class="card shadow-sm border-0 mb-4" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+            <div class="card border-0 mb-4" >
                 <div class="card-header bg-white"><strong>Customer Information</strong></div>
                 <div class="card-body">
                     <div class="row">
@@ -144,7 +153,7 @@
             </div>
 
             <!-- Loan History Section -->
-            <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+            <div class="card border-0">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <strong><i class="fas fa-history"></i> Loan History</strong>
                     <span class="badge badge-primary">{{ $allLoans->count() }} Total</span>
@@ -320,7 +329,7 @@
             </div>
 
             <!-- Financial Summary Card -->
-            <div class="card shadow-sm border-0 mb-3" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+            <div class="card border-0 mb-3" >
                 <div class="card-header bg-white"><strong><i class="fas fa-chart-line"></i> Financial Summary</strong></div>
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-2">
@@ -359,7 +368,7 @@
             </div>
 
             <!-- Loan Status Summary -->
-            <div class="card shadow-sm border-0 mb-3" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+            <div class="card border-0 mb-3" >
                 <div class="card-header bg-white"><strong><i class="fas fa-chart-pie"></i> Loan Status</strong></div>
                 <div class="card-body">
                     <div class="row text-center">
@@ -404,7 +413,7 @@
             </div>
 
             <!-- Quick Links Card -->
-            <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+            <div class="card border-0" >
                 <div class="card-header bg-white"><strong>Quick Links</strong></div>
                 <div class="card-body">
                     <a href="{{ route('credits.show', $customer->id) }}" class="btn btn-outline-success btn-block mb-2">

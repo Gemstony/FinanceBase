@@ -16,6 +16,17 @@
             </div>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i>
+                    Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('loans.loans_settings.index') }}">Loans Settings</a></li>
+            <li class="breadcrumb-item"><a href="{{ route('loans.loan_products.index') }}">Loan Products</a></li>
+            <li class="breadcrumb-item active" aria-current="page">View Product</li>
+        </ol>
+    </nav>
+</div>
 @stop
 
 @section('content')
@@ -206,6 +217,7 @@
                                 <thead class="thead-light">
                                     <tr>
                                         <th>Fee</th>
+                                        <th>Amount</th>
                                         <th>Charge Event</th>
                                         <th>Payment Method</th>
                                         <th class="text-right">Max Applications</th>
@@ -217,7 +229,8 @@
                                 <tbody>
                                     @foreach($loanProductFees as $f)
                                         <tr>
-                                            <td>{{ $f->loanFee->name ?? ($f->loan_fee_id ?? '-') }}</td>
+                                            <td>{{ $f->loanFee->name ?? ($f->loan_fee_id ?? '-') }} </td>
+                                            <td>{{ $f->loanFee->amount ?? '-' }}</td>
                                             <td>{{ $f->charge_event ?? '-' }}</td>
                                             <td>{{ $f->payment_method ?? '-' }}</td>
                                             <td class="text-right">{{ $f->max_applications ?? '-' }}</td>
@@ -246,6 +259,7 @@
                                 <thead class="thead-light">
                                     <tr>
                                         <th>Penalty</th>
+                                        <th>Amount</th>
                                         <th class="text-right">Max Applications</th>
                                         <th class="text-right">Grace Days Override</th>
                                         <th class="text-center">Auto Apply</th>
@@ -255,6 +269,7 @@
                                     @foreach($loanProductPenalties as $p)
                                         <tr>
                                             <td>{{ $p->loanPenalty->name ?? ($p->loan_penalty_id ?? '-') }}</td>
+                                            <td>{{ $p->loanPenalty->amount ?? '-' }}</td>
                                             <td class="text-right">{{ $p->max_applications ?? '-' }}</td>
                                             <td class="text-right">{{ $p->grace_days_override ?? '-' }}</td>
                                             <td class="text-center">{{ !empty($p->auto_apply) ? 'Yes' : 'No' }}</td>

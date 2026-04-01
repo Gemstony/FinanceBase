@@ -12,6 +12,8 @@ class Customers extends Model
 
     protected $fillable = [
         'subshop_id',
+        'shop_id',
+        'customer_code',
         'name',
         'email',
         'phone',
@@ -44,6 +46,14 @@ class Customers extends Model
     public function subshop()
     {
         return $this->belongsTo(SubShop::class);
+    }
+
+    /**
+     * Get the shop that owns this customer
+     */
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
     }
 
     /**

@@ -17,6 +17,15 @@
             </div>
         </div>
     </div>
+        <div class="d-flex justify-content-between align-items-center">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('customers.index') }}">Customers</a></li>
+                <li class="breadcrumb-item active" aria-current="page">New Customer</li>
+            </ol>
+        </nav>
+    </div>
 @stop
 
 @section('content')
@@ -45,7 +54,7 @@
         </div>
     @endif
 
-    <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+    <div class="card border-0">
         <div class="card-header">
             <ul class="nav nav-tabs card-header-tabs" id="customerTabs" role="tablist">
                 <li class="nav-item" role="presentation">

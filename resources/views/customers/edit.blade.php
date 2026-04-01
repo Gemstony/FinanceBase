@@ -7,7 +7,7 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="d-none d-md-block text-light"><i class="fas fa-user-edit"></i> Edit Customer</h1>
+                    <h1 class="d-none d-md-block text-light"><i class="fas fa-user-edit"></i> Edit Customer [{{ $customer->customer_code }}]</h1>
                     <h1 class="d-md-none text-light"><i class="fas fa-user-edit"></i> Edit Customer</h1>
                     <p class="mb-0 text-light">{{ $customer->name }}</p>
                 </div>
@@ -17,6 +17,15 @@
             </div>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ route('customers.index') }}">Customers</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Edit Customer Details</li>
+            </ol>
+        </nav>
+    </div>
 @stop
 
 @section('content')
@@ -25,7 +34,7 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    <div class="card shadow-sm border-0" style="box-shadow: 0 6px 20px rgba(0,0,0,.06);">
+    <div class="card  border-0">
         <div class="card-body">
             <form method="POST" action="{{ route('customers.update', $customer->id) }}">
                 @csrf

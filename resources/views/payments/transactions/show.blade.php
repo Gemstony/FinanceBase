@@ -38,6 +38,8 @@
                     <h3 class="card-title">Transaction Information</h3>
                 </div>
                 <div class="card-body">
+                    
+                <div class="table-responsive">
                     <table class="table table-bordered">
                         <tr>
                             <th width="200">Reference</th>
@@ -66,7 +68,17 @@
                         <tr>
                             <th>Provider</th>
                             <td>
-                                <span class="badge badge-{{ $transaction->provider === 'mpesa' ? 'success' : ($transaction->provider === 'airtel' ? 'danger' : 'info') }}">
+                                @php
+                                    $badgeClass = match($transaction->provider) {
+                                        'mpesa' => 'success',
+                                        'airtel' => 'danger',
+                                        'tigo' => 'info',
+                                        'clickpesa' => 'primary',
+                                        'azampay' => 'warning',
+                                        default => 'secondary',
+                                    };
+                                @endphp
+                                <span class="badge badge-{{ $badgeClass }}">
                                     {{ ucfirst($transaction->provider) }}
                                 </span>
                             </td>
@@ -99,8 +111,8 @@
                             <th>Loan</th>
                             <td>
                                 @if($transaction->loan)
-                                    <a href="{{ route('loans.show', $transaction->loan_id) }}">
-                                        {{ $transaction->loan->reference }}
+                                    <a href="{{ route('loans.loans.show', $transaction->loan->loan_code) }}">
+                                        {{ $transaction->loan->loan_code }}
                                     </a>
                                 @else
                                     N/A
@@ -120,6 +132,7 @@
                             <td>{{ $transaction->created_at->format('Y-m-d H:i:s') }}</td>
                         </tr>
                     </table>
+                </div>
 
                     @if($transaction->provider_response)
                         <div class="mt-4">
@@ -187,7 +200,7 @@
         </div>
     </div>
 
-    <div class="mt-3">
+    <div class="mt-3 mb-3">
         <a href="{{ route('payments.transactions') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Transactions
         </a>

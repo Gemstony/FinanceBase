@@ -32,7 +32,7 @@ class MpesaProvider implements PaymentProviderInterface
         try {
             $timestamp = date('YmdHis');
             $password = base64_encode(
-                $this->config->shortcode . $this->config->passkey . $timestamp
+                $this->config->shortcode.$this->config->passkey.$timestamp
             );
 
             $payload = [
@@ -50,9 +50,9 @@ class MpesaProvider implements PaymentProviderInterface
             ];
 
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->getAccessToken(),
+                'Authorization' => 'Bearer '.$this->getAccessToken(),
                 'Content-Type' => 'application/json',
-            ])->post($this->config->api_url . '/mpesa/stkpush/v1/processrequest', $payload);
+            ])->post($this->config->api_url.'/mpesa/stkpush/v1/processrequest', $payload);
 
             $responseData = $response->json();
 
@@ -78,7 +78,7 @@ class MpesaProvider implements PaymentProviderInterface
             return [
                 'status' => 'failed',
                 'external_id' => null,
-                'message' => 'STK Push failed: ' . $e->getMessage(),
+                'message' => 'STK Push failed: '.$e->getMessage(),
             ];
         }
     }
@@ -103,9 +103,9 @@ class MpesaProvider implements PaymentProviderInterface
             ];
 
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->getAccessToken(),
+                'Authorization' => 'Bearer '.$this->getAccessToken(),
                 'Content-Type' => 'application/json',
-            ])->post($this->config->api_url . '/mpesa/b2c/v1/paymentrequest', $payload);
+            ])->post($this->config->api_url.'/mpesa/b2c/v1/paymentrequest', $payload);
 
             $responseData = $response->json();
 
@@ -131,7 +131,7 @@ class MpesaProvider implements PaymentProviderInterface
             return [
                 'status' => 'failed',
                 'external_id' => null,
-                'message' => 'B2C request failed: ' . $e->getMessage(),
+                'message' => 'B2C request failed: '.$e->getMessage(),
             ];
         }
     }
@@ -168,7 +168,7 @@ class MpesaProvider implements PaymentProviderInterface
                 'status' => 'failed',
                 'external_id' => null,
                 'reference' => null,
-                'message' => 'Webhook handling failed: ' . $e->getMessage(),
+                'message' => 'Webhook handling failed: '.$e->getMessage(),
             ];
         }
     }
@@ -243,7 +243,7 @@ class MpesaProvider implements PaymentProviderInterface
         $response = Http::withBasicAuth(
             $this->config->api_key,
             $this->config->secret_key
-        )->get($this->config->api_url . '/oauth/v1/generate?grant_type=client_credentials');
+        )->get($this->config->api_url.'/oauth/v1/generate?grant_type=client_credentials');
 
         return $response->json('access_token');
     }
@@ -271,7 +271,7 @@ class MpesaProvider implements PaymentProviderInterface
 
         // Add country code if not present
         if (substr($phone, 0, 3) !== '255') {
-            $phone = '255' . $phone;
+            $phone = '255'.$phone;
         }
 
         return $phone;
@@ -282,7 +282,7 @@ class MpesaProvider implements PaymentProviderInterface
      */
     protected function getCallbackUrl(): string
     {
-        return config('app.url') . '/api/payments/mpesa/webhook';
+        return config('app.url').'/api/payments/mpesa/webhook';
     }
 
     /**
@@ -290,7 +290,7 @@ class MpesaProvider implements PaymentProviderInterface
      */
     protected function getTimeoutUrl(): string
     {
-        return config('app.url') . '/api/payments/mpesa/webhook';
+        return config('app.url').'/api/payments/mpesa/webhook';
     }
 
     /**
@@ -298,6 +298,83 @@ class MpesaProvider implements PaymentProviderInterface
      */
     protected function getResultUrl(): string
     {
-        return config('app.url') . '/api/payments/mpesa/webhook';
+        return config('app.url').'/api/payments/mpesa/webhook';
+    }
+
+    /**
+     * Test provider connectivity and credentials.
+     */
+    public function testConnection(array $data): array
+    {
+        try {
+            $token = $this->getAccessToken();
+
+            if (empty($token)) {
+                return [
+                    'success' => false,
+                    'message' => 'Authentication failed: No access token returned.',
+                    'provider_response' => ['status' => 'auth_failed'],
+                ];
+            }
+
+            // Auth succeeded — attempt a lightweight STK probe in sandbox.
+            $reference = 'TEST-'.strtoupper(\Illuminate\Support\Str::random(8));
+            $timestamp = date('YmdHis');
+            $password = base64_encode(
+                $this->config->shortcode.$this->config->passkey.$timestamp
+            );
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.$token,
+                'Content-Type' => 'application/json',
+            ])->post($this->config->api_url.'/mpesa/stkpush/v1/processrequest', [
+                'BusinessShortCode' => $this->config->shortcode,
+                'Password' => $password,
+                'Timestamp' => $timestamp,
+                'TransactionType' => 'CustomerPayBillOnline',
+                'Amount' => (int) ($data['amount'] ?? 100),
+                'PartyA' => $this->formatPhone($data['phone'] ?? '255000000000'),
+                'PartyB' => $this->config->shortcode,
+                'PhoneNumber' => $this->formatPhone($data['phone'] ?? '255000000000'),
+                'CallBackURL' => $this->getCallbackUrl(),
+                'AccountReference' => $reference,
+                'TransactionDesc' => 'Connection Test',
+            ]);
+
+            $responseData = $response->json();
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message' => 'Connection successful. STK Push accepted in sandbox.',
+                    'provider_response' => $this->sanitizeResponse($responseData),
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $responseData['errorMessage'] ?? $responseData['ResponseDescription'] ?? 'API call failed with status '.$response->status(),
+                'provider_response' => $this->sanitizeResponse($responseData),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Connection test failed: '.$e->getMessage(),
+                'provider_response' => ['error' => class_basename($e)],
+            ];
+        }
+    }
+
+    /**
+     * Remove sensitive data from response for logging/display.
+     */
+    protected function sanitizeResponse(array $response): array
+    {
+        $sensitive = ['access_token', 'secret_key', 'api_key', 'Authorization', 'Password', 'SecurityCredential'];
+        foreach ($sensitive as $key) {
+            unset($response[$key]);
+        }
+
+        return $response;
     }
 }

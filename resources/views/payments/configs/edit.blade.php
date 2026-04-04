@@ -44,47 +44,95 @@
                     <input type="text" class="form-control" value="{{ ucfirst($config->provider) }}" disabled>
                 </div>
 
-                <div class="form-group">
-                    <label for="api_url">API URL <span class="text-danger">*</span></label>
-                    <input type="url" name="api_url" id="api_url" class="form-control @error('api_url') is-invalid @enderror" value="{{ old('api_url', $config->api_url) }}" required>
-                    @error('api_url')
-                        <span class="invalid-feedback">{{ $message }}</span>
-                    @enderror
+                <!-- Standard Fields -->
+                <div id="standard-fields" style="{{ $config->provider === 'azampay' ? 'display:none;' : '' }}">
+                    <div class="form-group">
+                        <label for="api_url">API URL <span class="text-danger">*</span></label>
+                        <input type="url" name="api_url" id="api_url" class="form-control @error('api_url') is-invalid @enderror" value="{{ old('api_url', $config->api_url) }}" required>
+                        @error('api_url')
+                            <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="api_key">API Key</label>
+                        <input type="text" name="api_key" id="api_key" class="form-control @error('api_key') is-invalid @enderror" value="{{ old('api_key') }}" placeholder="Leave blank to keep current">
+                        <small class="form-text text-muted">Leave blank to keep current API key</small>
+                        @error('api_key')
+                            <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secret_key">Secret Key</label>
+                        <input type="text" name="secret_key" id="secret_key" class="form-control @error('secret_key') is-invalid @enderror" value="{{ old('secret_key') }}" placeholder="Leave blank to keep current">
+                        <small class="form-text text-muted">Leave blank to keep current secret key</small>
+                        @error('secret_key')
+                            <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="shortcode">Shortcode</label>
+                        <input type="text" name="shortcode" id="shortcode" class="form-control @error('shortcode') is-invalid @enderror" value="{{ old('shortcode', $config->shortcode) }}">
+                        @error('shortcode')
+                            <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="passkey">Passkey</label>
+                        <input type="text" name="passkey" id="passkey" class="form-control @error('passkey') is-invalid @enderror" value="{{ old('passkey') }}" placeholder="Leave blank to keep current">
+                        <small class="form-text text-muted">Leave blank to keep current passkey</small>
+                        @error('passkey')
+                            <span class="invalid-feedback">{{ $message }}</span>
+                        @enderror
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="api_key">API Key</label>
-                    <input type="text" name="api_key" id="api_key" class="form-control @error('api_key') is-invalid @enderror" value="{{ old('api_key') }}" placeholder="Leave blank to keep current">
-                    <small class="form-text text-muted">Leave blank to keep current API key</small>
-                    @error('api_key')
-                        <span class="invalid-feedback">{{ $message }}</span>
-                    @enderror
-                </div>
+                @php
+                    $configData = $config->getConfigJsonDecoded();
+                @endphp
 
-                <div class="form-group">
-                    <label for="secret_key">Secret Key</label>
-                    <input type="text" name="secret_key" id="secret_key" class="form-control @error('secret_key') is-invalid @enderror" value="{{ old('secret_key') }}" placeholder="Leave blank to keep current">
-                    <small class="form-text text-muted">Leave blank to keep current secret key</small>
-                    @error('secret_key')
-                        <span class="invalid-feedback">{{ $message }}</span>
-                    @enderror
-                </div>
+                <!-- AzamPay Fields -->
+                <div id="azampay-fields" style="{{ $config->provider === 'azampay' ? '' : 'display:none;' }}">
+                    <div class="form-group">
+                        <label for="client_id">Client ID <span class="text-danger">*</span></label>
+                        <input type="text" name="client_id" id="client_id" class="form-control" value="{{ old('client_id', $configData['client_id'] ?? '') }}">
+                    </div>
 
-                <div class="form-group">
-                    <label for="shortcode">Shortcode</label>
-                    <input type="text" name="shortcode" id="shortcode" class="form-control @error('shortcode') is-invalid @enderror" value="{{ old('shortcode', $config->shortcode) }}">
-                    @error('shortcode')
-                        <span class="invalid-feedback">{{ $message }}</span>
-                    @enderror
-                </div>
+                    <div class="form-group">
+                        <label for="client_secret">Client Secret</label>
+                        <input type="text" name="client_secret" id="client_secret" class="form-control" value="{{ old('client_secret') }}" placeholder="Leave blank to keep current">
+                        <small class="form-text text-muted">Leave blank to keep current client secret</small>
+                    </div>
 
-                <div class="form-group">
-                    <label for="passkey">Passkey</label>
-                    <input type="text" name="passkey" id="passkey" class="form-control @error('passkey') is-invalid @enderror" value="{{ old('passkey') }}" placeholder="Leave blank to keep current">
-                    <small class="form-text text-muted">Leave blank to keep current passkey</small>
-                    @error('passkey')
-                        <span class="invalid-feedback">{{ $message }}</span>
-                    @enderror
+                    <div class="form-group">
+                        <label for="azampay_api_key">API Key</label>
+                        <input type="text" name="azampay_api_key" id="azampay_api_key" class="form-control" value="{{ old('azampay_api_key') }}" placeholder="Leave blank to keep current">
+                        <small class="form-text text-muted">Leave blank to keep current API key</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="app_name">App Name <span class="text-danger">*</span></label>
+                        <input type="text" name="app_name" id="app_name" class="form-control" value="{{ old('app_name', $configData['app_name'] ?? '') }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="base_url">Base URL <span class="text-danger">*</span></label>
+                        <input type="url" name="base_url" id="base_url" class="form-control" value="{{ old('base_url', $configData['base_url'] ?? 'https://api.azampay.co.tz') }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="default_network">Default Network</label>
+                        <select name="default_network" id="default_network" class="form-control">
+                            @php $net = $configData['default_network'] ?? 'Mpesa'; @endphp
+                            <option value="Mpesa" {{ $net === 'Mpesa' ? 'selected' : '' }}>M-Pesa</option>
+                            <option value="Airtel" {{ $net === 'Airtel' ? 'selected' : '' }}>Airtel</option>
+                            <option value="Tigo" {{ $net === 'Tigo' ? 'selected' : '' }}>Tigo</option>
+                            <option value="Halopesa" {{ $net === 'Halopesa' ? 'selected' : '' }}>Halopesa</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-group">

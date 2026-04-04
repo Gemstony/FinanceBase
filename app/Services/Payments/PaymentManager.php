@@ -7,6 +7,7 @@ use App\Models\PaymentConfig;
 use App\Models\PaymentTransaction;
 use App\Services\Payments\Contracts\PaymentProviderInterface;
 use App\Services\Payments\Providers\AirtelProvider;
+use App\Services\Payments\Providers\AzamPayProvider;
 use App\Services\Payments\Providers\ClickPesaProvider;
 use App\Services\Payments\Providers\MpesaProvider;
 use App\Services\Payments\Providers\TigoProvider;
@@ -18,18 +19,18 @@ class PaymentManager
     /**
      * Initiate a payment.
      *
-     * @param array $data Payment data containing:
-     *   - shop_id: int (required)
-     *   - customer_id: int (optional)
-     *   - loan_id: int (optional)
-     *   - amount: float (required)
-     *   - phone: string (required)
-     *   - channel: string (stk, c2b, b2c) (required)
-     *   - provider: string (optional, uses default if not provided)
-     *   - subshop_id: int (optional)
-     *   - description: string (optional)
-     *   - meta: array (optional)
-     * @return PaymentTransaction
+     * @param  array  $data  Payment data containing:
+     *                       - shop_id: int (required)
+     *                       - customer_id: int (optional)
+     *                       - loan_id: int (optional)
+     *                       - amount: float (required)
+     *                       - phone: string (required)
+     *                       - channel: string (stk, c2b, b2c) (required)
+     *                       - provider: string (optional, uses default if not provided)
+     *                       - subshop_id: int (optional)
+     *                       - description: string (optional)
+     *                       - meta: array (optional)
+     *
      * @throws ValidationException
      */
     public function initiatePayment(array $data): PaymentTransaction
@@ -41,7 +42,7 @@ class PaymentManager
         $provider = $data['provider'] ?? null;
         $config = $this->resolveProviderConfig($data['shop_id'], $provider);
 
-        if (!$config) {
+        if (! $config) {
             throw ValidationException::withMessages([
                 'provider' => 'No active payment provider configured for this shop.',
             ]);
@@ -77,17 +78,14 @@ class PaymentManager
 
     /**
      * Process a payment (called by job).
-     *
-     * @param int $transactionId
-     * @param array $data
-     * @return void
      */
     public function processPayment(int $transactionId, array $data): void
     {
         $transaction = PaymentTransaction::find($transactionId);
 
-        if (!$transaction) {
+        if (! $transaction) {
             Log::error('Transaction not found for processing', ['transaction_id' => $transactionId]);
+
             return;
         }
 
@@ -147,10 +145,6 @@ class PaymentManager
 
     /**
      * Handle webhook callback.
-     *
-     * @param string $provider
-     * @param array $payload
-     * @return PaymentTransaction|null
      */
     public function handleWebhook(string $provider, array $payload): ?PaymentTransaction
     {
@@ -158,8 +152,9 @@ class PaymentManager
             // Get provider config
             $config = PaymentConfig::provider($provider)->active()->first();
 
-            if (!$config) {
+            if (! $config) {
                 Log::error('Provider config not found for webhook', ['provider' => $provider]);
+
                 return null;
             }
 
@@ -172,11 +167,12 @@ class PaymentManager
             // Find transaction
             $transaction = $this->findTransactionForWebhook($response, $config->shop_id);
 
-            if (!$transaction) {
+            if (! $transaction) {
                 Log::warning('Transaction not found for webhook', [
                     'provider' => $provider,
                     'response' => $response,
                 ]);
+
                 return null;
             }
 
@@ -190,7 +186,7 @@ class PaymentManager
 
             // Update transaction status
             $updateData = [];
-            
+
             if ($response['status'] === 'success') {
                 $updateData['status'] = 'success';
                 $updateData['external_id'] = $response['external_id'];
@@ -205,7 +201,7 @@ class PaymentManager
                 $updateData['provider_response'] = json_encode($response);
                 $updateData['completed_at'] = now();
             }
-            
+
             // Handle ClickPesa-specific fields
             if ($provider === 'clickpesa') {
                 if (isset($response['fee'])) {
@@ -219,8 +215,16 @@ class PaymentManager
                 }
                 $updateData['aggregator'] = 'clickpesa';
             }
-            
-            if (!empty($updateData)) {
+
+            // Handle AzamPay-specific fields
+            if ($provider === 'azampay') {
+                if (isset($response['channel_provider'])) {
+                    $updateData['channel_provider'] = $response['channel_provider'];
+                }
+                $updateData['aggregator'] = 'azampay';
+            }
+
+            if (! empty($updateData)) {
                 $transaction->update($updateData);
             }
 
@@ -244,10 +248,6 @@ class PaymentManager
 
     /**
      * Resolve provider config.
-     *
-     * @param int $shopId
-     * @param string|null $provider
-     * @return PaymentConfig|null
      */
     protected function resolveProviderConfig(int $shopId, ?string $provider): ?PaymentConfig
     {
@@ -259,17 +259,28 @@ class PaymentManager
     }
 
     /**
+     * Resolve provider instance from a given config (used for test calls).
+     */
+    public function resolveProviderFromConfig(PaymentConfig $config): PaymentProviderInterface
+    {
+        return match ($config->provider) {
+            'mpesa' => new MpesaProvider($config),
+            'airtel' => new AirtelProvider($config),
+            'tigo' => new TigoProvider($config),
+            'clickpesa' => new ClickPesaProvider($config),
+            'azampay' => new AzamPayProvider($config->shop_id),
+            default => throw new \Exception("Unsupported payment provider: {$config->provider}"),
+        };
+    }
+
+    /**
      * Resolve provider instance.
-     *
-     * @param string $provider
-     * @param int $shopId
-     * @return PaymentProviderInterface
      */
     protected function resolveProvider(string $provider, int $shopId): PaymentProviderInterface
     {
         $config = PaymentConfig::getForProvider($shopId, $provider);
 
-        if (!$config) {
+        if (! $config) {
             throw new \Exception("Payment provider {$provider} not configured for shop {$shopId}");
         }
 
@@ -278,21 +289,18 @@ class PaymentManager
             'airtel' => new AirtelProvider($config),
             'tigo' => new TigoProvider($config),
             'clickpesa' => new ClickPesaProvider($config),
+            'azampay' => new AzamPayProvider($shopId),
             default => throw new \Exception("Unsupported payment provider: {$provider}"),
         };
     }
 
     /**
      * Find transaction for webhook.
-     *
-     * @param array $response
-     * @param int $shopId
-     * @return PaymentTransaction|null
      */
     protected function findTransactionForWebhook(array $response, int $shopId): ?PaymentTransaction
     {
         // Try to find by external_id
-        if (!empty($response['external_id'])) {
+        if (! empty($response['external_id'])) {
             $transaction = PaymentTransaction::where('external_id', $response['external_id'])
                 ->where('shop_id', $shopId)
                 ->first();
@@ -303,7 +311,7 @@ class PaymentManager
         }
 
         // Try to find by reference
-        if (!empty($response['reference'])) {
+        if (! empty($response['reference'])) {
             $transaction = PaymentTransaction::where('reference', $response['reference'])
                 ->where('shop_id', $shopId)
                 ->first();
@@ -319,7 +327,6 @@ class PaymentManager
     /**
      * Validate payment data.
      *
-     * @param array $data
      * @throws ValidationException
      */
     protected function validatePaymentData(array $data): void
@@ -338,21 +345,17 @@ class PaymentManager
             $errors['phone'] = 'Phone number is required.';
         }
 
-        if (empty($data['channel']) || !in_array($data['channel'], ['stk', 'c2b', 'b2c'])) {
+        if (empty($data['channel']) || ! in_array($data['channel'], ['stk', 'c2b', 'b2c'])) {
             $errors['channel'] = 'Channel must be stk, c2b, or b2c.';
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
     }
 
     /**
      * Get transaction by reference.
-     *
-     * @param string $reference
-     * @param int $shopId
-     * @return PaymentTransaction|null
      */
     public function getTransactionByReference(string $reference, int $shopId): ?PaymentTransaction
     {
@@ -364,35 +367,33 @@ class PaymentManager
     /**
      * Get transactions for a shop.
      *
-     * @param int $shopId
-     * @param array $filters
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public function getTransactions(int $shopId, array $filters = [])
     {
         $query = PaymentTransaction::where('shop_id', $shopId);
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['provider'])) {
+        if (! empty($filters['provider'])) {
             $query->where('provider', $filters['provider']);
         }
 
-        if (!empty($filters['start_date'])) {
+        if (! empty($filters['start_date'])) {
             $query->where('created_at', '>=', $filters['start_date']);
         }
 
-        if (!empty($filters['end_date'])) {
+        if (! empty($filters['end_date'])) {
             $query->where('created_at', '<=', $filters['end_date']);
         }
 
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $query->where('customer_id', $filters['customer_id']);
         }
 
-        if (!empty($filters['loan_id'])) {
+        if (! empty($filters['loan_id'])) {
             $query->where('loan_id', $filters['loan_id']);
         }
 

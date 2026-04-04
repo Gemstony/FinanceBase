@@ -37,6 +37,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'telescope.super-admin' => TelescopeSuperAdminMiddleware::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+        '/api/payments/azampay/webhook',
+    ]);
+
+
+
         // Inject UI theme variables globally for all HTML responses
         $middleware->append(InjectUiTheme::class);
     })

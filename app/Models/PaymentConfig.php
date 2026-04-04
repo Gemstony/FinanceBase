@@ -19,6 +19,7 @@ class PaymentConfig extends Model
         'secret_key',
         'shortcode',
         'passkey',
+        'config_json',
         'environment',
         'is_active',
         'is_default',
@@ -33,7 +34,45 @@ class PaymentConfig extends Model
         'api_key',
         'secret_key',
         'passkey',
+        'config_json',
     ];
+
+    /**
+     * Encrypt config_json before saving.
+     */
+    public function setConfigJsonAttribute($value): void
+    {
+        if (is_array($value)) {
+            $value = json_encode($value);
+        }
+        $this->attributes['config_json'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    /**
+     * Decrypt config_json when retrieving.
+     */
+    public function getConfigJsonAttribute($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Get decoded config_json as array.
+     */
+    public function getConfigJsonDecoded(): array
+    {
+        $json = $this->config_json;
+
+        return $json ? json_decode($json, true) : [];
+    }
 
     /**
      * Encrypt sensitive attributes before saving.

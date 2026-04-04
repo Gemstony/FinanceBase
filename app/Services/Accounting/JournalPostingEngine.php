@@ -17,8 +17,7 @@ class JournalPostingEngine
         private readonly DoubleEntryValidator $validator,
         private readonly JournalEntryBuilder $builder,
         private readonly LoanAccountingMapper $mapper,
-    ) {
-    }
+    ) {}
 
     /**
      * Post a generic journal entry to the General Ledger.
@@ -30,19 +29,18 @@ class JournalPostingEngine
      * 4. Insert all journal entry lines.
      * 5. Commit the transaction.
      *
-     * @param array  $lines          Array of lines with account_id, debit, credit, description
-     * @param string $referenceType  Reference type (e.g., loan_disbursement, loan_payment)
-     * @param int    $referenceId    Reference ID (e.g., loan_id, payment_id)
-     * @param string|null $description Optional transaction description
-     *
-     * @return JournalEntries
+     * @param  array  $lines  Array of lines with account_id, debit, credit, description
+     * @param  string  $referenceType  Reference type (e.g., loan_disbursement, loan_payment)
+     * @param  int  $referenceId  Reference ID (e.g., loan_id, payment_id)
+     * @param  string|null  $description  Optional transaction description
      */
     public function postJournalEntry(
         array $lines,
         string $referenceType,
         int $referenceId,
         ?string $description = null,
-        ?string $transactionDate = null
+        ?string $transactionDate = null,
+        ?int $subshopId = null
     ): JournalEntries {
         $this->validator->validate($lines);
 
@@ -51,10 +49,11 @@ class JournalPostingEngine
             $referenceType,
             $referenceId,
             $description,
-            $transactionDate
+            $transactionDate,
+            $subshopId
         ) {
             $journal = JournalEntries::create([
-                'subshop_id' => (int) session('subshop_id'),
+                'subshop_id' => $subshopId ?? (int) session('subshop_id') ?? 0,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
                 'transaction_date' => $transactionDate ?: Carbon::now()->toDateString(),
@@ -84,11 +83,9 @@ class JournalPostingEngine
     /**
      * Convenience method: post a loan disbursement journal entry.
      *
-     * @param Loans  $loan   The loan being disbursed
-     * @param float  $amount Disbursement amount
-     * @param int    $creditAccountId Chart of Accounts ID for the bank/cash account to credit
-     *
-     * @return JournalEntries
+     * @param  Loans  $loan  The loan being disbursed
+     * @param  float  $amount  Disbursement amount
+     * @param  int  $creditAccountId  Chart of Accounts ID for the bank/cash account to credit
      */
     public function postLoanDisbursement(Loans $loan, float $amount, int $creditAccountId): JournalEntries
     {
@@ -116,7 +113,7 @@ class JournalPostingEngine
             $lines,
             'loan_disbursement',
             (int) $loanDisbursement->id,
-            'Loan disbursement for loan #' . (int) $loan->id,
+            'Loan disbursement for loan #'.(int) $loan->id,
             $loanDisbursement->disbursement_date ? $loanDisbursement->disbursement_date->toDateString() : null
         );
     }
@@ -124,19 +121,21 @@ class JournalPostingEngine
     /**
      * Convenience method: post a loan repayment journal entry.
      *
-     * @param array $allocation Payment allocation data
-     *
-     * @return JournalEntries
+     * @param  array  $allocation  Payment allocation data
      */
     public function postLoanRepayment(array $allocation): JournalEntries
     {
         $lines = $this->mapper->buildLoanRepaymentEntry($allocation);
 
+        $subshopId = (int) ($allocation['subshop_id'] ?? session('subshop_id') ?? 0);
+
         return $this->postJournalEntry(
             $lines,
             'loan_payment',
             (int) ($allocation['payment_id'] ?? 0),
-            'Loan repayment – cash received'
+            'Loan repayment – cash received',
+            null,
+            $subshopId
         );
     }
 
@@ -149,7 +148,7 @@ class JournalPostingEngine
             ->latest('id')
             ->first();
 
-        if (!$original) {
+        if (! $original) {
             return $this->postJournalEntry(
                 [],
                 'loan_payment_reversal',
@@ -179,10 +178,8 @@ class JournalPostingEngine
     /**
      * Convenience method: post a loan write-off journal entry.
      *
-     * @param Loans  $loan   The loan being written off
-     * @param float  $amount Write-off amount
-     *
-     * @return JournalEntries
+     * @param  Loans  $loan  The loan being written off
+     * @param  float  $amount  Write-off amount
      */
     public function postLoanWriteOff(Loans $loan, float $amount): JournalEntries
     {
@@ -199,11 +196,9 @@ class JournalPostingEngine
     /**
      * Convenience method: post a loan recovery journal entry.
      *
-     * @param float $amount Recovery amount received
-     * @param int|null $bankAccountId Bank account ID for the payment
-     * @param string|null $paymentMethod Payment method used
-     *
-     * @return JournalEntries
+     * @param  float  $amount  Recovery amount received
+     * @param  int|null  $bankAccountId  Bank account ID for the payment
+     * @param  string|null  $paymentMethod  Payment method used
      */
     public function postLoanRecovery(float $amount, ?int $bankAccountId = null, ?string $paymentMethod = null): JournalEntries
     {

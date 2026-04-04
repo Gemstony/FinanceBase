@@ -9,7 +9,6 @@ use App\Models\PaymentTransaction;
 use App\Models\SubShop;
 use App\Services\Payments\PaymentManager;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -28,11 +27,12 @@ class PaymentController extends Controller
     protected function getShopId(): int
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             abort(403, 'No subshop selected');
         }
 
         $subshop = SubShop::findOrFail($subshopId);
+
         return $subshop->shop_id;
     }
 
@@ -56,6 +56,7 @@ class PaymentController extends Controller
     public function createConfig()
     {
         $this->getShopId(); // Ensure subshop is selected
+
         return view('payments.configs.create');
     }
 
@@ -66,17 +67,32 @@ class PaymentController extends Controller
     {
         $shopId = $this->getShopId();
 
-        $validator = Validator::make($request->all(), [
-            'provider' => 'required|in:mpesa,airtel,tigo',
-            'api_url' => 'required|url',
-            'api_key' => 'required|string',
-            'secret_key' => 'required|string',
-            'shortcode' => 'nullable|string',
-            'passkey' => 'nullable|string',
+        $rules = [
+            'provider' => 'required|in:mpesa,airtel,tigo,clickpesa,azampay',
             'environment' => 'required|in:sandbox,live',
             'is_active' => 'boolean',
             'is_default' => 'boolean',
-        ]);
+        ];
+
+        if ($request->provider === 'azampay') {
+            $rules['client_id'] = 'required|string';
+            $rules['client_secret'] = 'required|string';
+            $rules['azampay_api_key'] = 'required|string';
+            $rules['app_name'] = 'required|string';
+            $rules['base_url'] = 'required|url';
+            $rules['api_url'] = 'nullable|url';
+            $rules['api_key'] = 'nullable|string';
+            $rules['secret_key'] = 'nullable|string';
+        } else {
+            $rules['api_url'] = 'required|url';
+            $rules['api_key'] = 'required|string';
+            $rules['secret_key'] = 'required|string';
+        }
+
+        $rules['shortcode'] = 'nullable|string';
+        $rules['passkey'] = 'nullable|string';
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return redirect()->back()
@@ -98,11 +114,12 @@ class PaymentController extends Controller
         PaymentConfig::create([
             'shop_id' => $shopId,
             'provider' => $request->provider,
-            'api_url' => $request->api_url,
-            'api_key' => $request->api_key,
-            'secret_key' => $request->secret_key,
+            'api_url' => $request->provider === 'azampay' ? ($request->base_url ?? 'https://api.azampay.co.tz') : $request->api_url,
+            'api_key' => $request->provider === 'azampay' ? ($request->azampay_api_key ?? '') : $request->api_key,
+            'secret_key' => $request->provider === 'azampay' ? ($request->client_secret ?? '') : $request->secret_key,
             'shortcode' => $request->shortcode,
             'passkey' => $request->passkey,
+            'config_json' => $this->buildConfigJson($request),
             'environment' => $request->environment,
             'is_active' => $request->boolean('is_active', true),
             'is_default' => $request->boolean('is_default', false),
@@ -133,16 +150,29 @@ class PaymentController extends Controller
     {
         $shopId = $this->getShopId();
 
-        $validator = Validator::make($request->all(), [
-            'api_url' => 'required|url',
-            'api_key' => 'nullable|string',
-            'secret_key' => 'nullable|string',
-            'shortcode' => 'nullable|string',
-            'passkey' => 'nullable|string',
+        $config = PaymentConfig::where('shop_id', $shopId)
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $rules = [
             'environment' => 'required|in:sandbox,live',
             'is_active' => 'boolean',
             'is_default' => 'boolean',
-        ]);
+        ];
+
+        if ($config->provider === 'azampay') {
+            $rules['base_url'] = 'required|url';
+            $rules['api_url'] = 'nullable|url';
+        } else {
+            $rules['api_url'] = 'required|url';
+        }
+
+        $rules['api_key'] = 'nullable|string';
+        $rules['secret_key'] = 'nullable|string';
+        $rules['shortcode'] = 'nullable|string';
+        $rules['passkey'] = 'nullable|string';
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return redirect()->back()
@@ -150,16 +180,13 @@ class PaymentController extends Controller
                 ->withInput();
         }
 
-        $config = PaymentConfig::where('shop_id', $shopId)
-            ->where('id', $id)
-            ->firstOrFail();
-
         $updateData = [
-            'api_url' => $request->api_url,
+            'api_url' => $config->provider === 'azampay' ? ($request->base_url ?? $config->api_url) : $request->api_url,
             'shortcode' => $request->shortcode,
             'environment' => $request->environment,
             'is_active' => $request->boolean('is_active', true),
             'is_default' => $request->boolean('is_default', false),
+            'config_json' => $this->buildConfigJson($request, $config),
         ];
 
         // Only update credentials if provided
@@ -289,7 +316,7 @@ class PaymentController extends Controller
             'amount' => 'required|numeric|min:1',
             'phone' => 'required|string',
             'channel' => 'required|in:stk,c2b,b2c',
-            'provider' => 'nullable|in:mpesa,airtel,tigo',
+            'provider' => 'nullable|in:mpesa,airtel,tigo,clickpesa,azampay',
             'description' => 'nullable|string',
         ]);
 
@@ -346,7 +373,7 @@ class PaymentController extends Controller
 
         return Excel::download(
             new PaymentTransactionsExport($shopId, $filters),
-            'payment-transactions-' . now()->format('Y-m-d') . '.xlsx'
+            'payment-transactions-'.now()->format('Y-m-d').'.xlsx'
         );
     }
 
@@ -374,5 +401,64 @@ class PaymentController extends Controller
         ];
 
         return response()->json($stats);
+    }
+
+    /**
+     * Build config JSON from request data for providers that use it.
+     */
+    protected function buildConfigJson(Request $request, ?PaymentConfig $existingConfig = null): ?array
+    {
+        $provider = $request->provider ?? ($existingConfig->provider ?? null);
+
+        if ($provider === 'azampay') {
+            $existingData = $existingConfig ? $existingConfig->getConfigJsonDecoded() : [];
+            $configJson = [];
+
+            // Client ID
+            if ($request->filled('client_id')) {
+                $configJson['client_id'] = $request->client_id;
+            } elseif (isset($existingData['client_id'])) {
+                $configJson['client_id'] = $existingData['client_id'];
+            }
+
+            // Client Secret - preserve if blank
+            if ($request->filled('client_secret')) {
+                $configJson['client_secret'] = $request->client_secret;
+            } elseif (isset($existingData['client_secret'])) {
+                $configJson['client_secret'] = $existingData['client_secret'];
+            }
+
+            // API Key
+            if ($request->filled('azampay_api_key')) {
+                $configJson['api_key'] = $request->azampay_api_key;
+            } elseif (isset($existingData['api_key'])) {
+                $configJson['api_key'] = $existingData['api_key'];
+            }
+
+            // App Name
+            if ($request->filled('app_name')) {
+                $configJson['app_name'] = $request->app_name;
+            } elseif (isset($existingData['app_name'])) {
+                $configJson['app_name'] = $existingData['app_name'];
+            }
+
+            // Base URL
+            if ($request->filled('base_url')) {
+                $configJson['base_url'] = $request->base_url;
+            } elseif (isset($existingData['base_url'])) {
+                $configJson['base_url'] = $existingData['base_url'];
+            }
+
+            // Default Network
+            if ($request->filled('default_network')) {
+                $configJson['default_network'] = $request->default_network;
+            } elseif (isset($existingData['default_network'])) {
+                $configJson['default_network'] = $existingData['default_network'];
+            }
+
+            return ! empty($configJson) ? $configJson : null;
+        }
+
+        return null;
     }
 }

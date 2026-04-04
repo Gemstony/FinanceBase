@@ -66,7 +66,7 @@ class PaymentTransaction extends Model
     public static function generateReference(): string
     {
         do {
-            $reference = 'PAY-' . strtoupper(Str::random(10));
+            $reference = 'PAY-'.strtoupper(Str::random(10));
         } while (static::where('reference', $reference)->exists());
 
         return $reference;
@@ -93,7 +93,7 @@ class PaymentTransaction extends Model
      */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customers::class);
     }
 
     /**
@@ -101,7 +101,7 @@ class PaymentTransaction extends Model
      */
     public function loan(): BelongsTo
     {
-        return $this->belongsTo(Loan::class);
+        return $this->belongsTo(Loans::class);
     }
 
     /**

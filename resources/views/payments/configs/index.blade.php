@@ -34,7 +34,11 @@
             <h3 class="card-title">Payment Providers</h3>
             <div class="card-tools">
                 <a href="{{ route('payments.configs.create') }}" class="btn btn-primary btn-sm">
+
                     <i class="fas fa-plus"></i> Add Provider
+                </a>
+                <a href="{{ route('payments.configs.test') }}" class="btn btn-info btn-sm ml-2">
+                    <i class="fas fa-vial"></i> Test
                 </a>
             </div>
         </div>
@@ -67,7 +71,17 @@
                         @forelse($configs as $config)
                             <tr>
                                 <td>
-                                    <span class="badge badge-{{ $config->provider === 'mpesa' ? 'success' : ($config->provider === 'airtel' ? 'danger' : 'info') }}">
+                                    @php
+                                        $badgeClass = match($config->provider) {
+                                            'mpesa' => 'success',
+                                            'airtel' => 'danger',
+                                            'tigo' => 'info',
+                                            'clickpesa' => 'primary',
+                                            'azampay' => 'warning',
+                                            default => 'secondary',
+                                        };
+                                    @endphp
+                                    <span class="badge badge-{{ $badgeClass }}">
                                         {{ ucfirst($config->provider) }}
                                     </span>
                                 </td>

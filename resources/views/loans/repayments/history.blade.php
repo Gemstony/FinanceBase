@@ -36,10 +36,24 @@
 @section('content')
     <div class="container-fluid">
         @if(session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> {{ session('success') }}
+            </div>
         @endif
         @if(session('error'))
-            <div class="alert alert-danger">{{ session('error') }}</div>
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
+            </div>
+        @endif
+        @if(session('info'))
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> {{ session('info') }}
+            </div>
+        @endif
+        @if(session('warning'))
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> {{ session('warning') }}
+            </div>
         @endif
 
         <div class="card mb-3">
@@ -121,21 +135,51 @@
                                     'confirmed' => 'badge-success',
                                     'reversed' => 'badge-secondary',
                                     'failed' => 'badge-danger',
+                                    'pending' => 'badge-warning',
                                     default => 'badge-info',
                                 };
                             @endphp
-                            <tr>
+                            <tr class="{{ (string) $p->status === 'pending' ? 'table-warning' : '' }}">
                                 <td>{{ $p->payment_date?->format('Y-m-d') }}</td>
                                 <td>{{ number_format((float) $p->amount, 2) }}</td>
                                 <td>{{ number_format($principal, 2) }}</td>
                                 <td>{{ number_format($interest, 2) }}</td>
                                 <td>{{ number_format($penalty, 2) }}</td>
                                 <td>{{ number_format($fee, 2) }}</td>
-                                <td>{{ $p->payment_method ?? '—' }}</td>
+                                <td>
+                                    @if(in_array($p->payment_method, ['azampay', 'mobile_money']))
+                                        <i class="fas fa-mobile-alt text-info"></i> 
+                                    @endif
+                                    {{ $p->payment_method ?? '—' }}
+                                    @if($p->provider)
+                                        <small class="text-muted">({{ $p->provider }})</small>
+                                    @endif
+                                </td>
                                 <td>{{ $p->user?->name ?? '—' }}</td>
-                                <td><span class="badge {{ $badge }}">{{ $p->status }}</span></td>
+                                <td>
+                                    <span class="badge {{ $badge }}">{{ $p->status }}</span>
+                                    @if($p->status === 'pending' && $p->external_id)
+                                        <small class="d-block text-muted" style="font-size: 0.7rem;">
+                                            Ref: {{ $p->external_id }}
+                                        </small>
+                                    @endif
+                                </td>
                                 <td class="text-right">
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ route('loan.repayments.receipt', $p->id) }}">Receipt</a>
+                                    @if((string) $p->status === 'pending')
+                                        <span class="btn btn-sm btn-outline-secondary" disabled title="Waiting for payment confirmation">
+                                            <i class="fas fa-clock"></i> Pending
+                                        </span>
+                                        @if($p->created_at && now()->diffInMinutes($p->created_at) > 5)
+                                            <form method="POST" action="{{ route('loan.repayments.check', $p->id) }}" class="d-inline">
+                                                @csrf
+                                                <button class="btn btn-sm btn-outline-warning" type="submit" title="Check payment status">
+                                                    <i class="fas fa-sync"></i> Check
+                                                </button>
+                                            </form>
+                                        @endif
+                                    @else
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ route('loan.repayments.receipt', $p->id) }}">Receipt</a>
+                                    @endif
                                     @if((string) $p->status === 'confirmed')
                                         <form method="POST" action="{{ route('loan.repayments.reverse', $p->id) }}" class="d-inline">
                                             @csrf

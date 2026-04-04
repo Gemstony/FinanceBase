@@ -2,7 +2,13 @@
 
 use App\Http\Controllers\AccountClassController;
 use App\Http\Controllers\AccountGroupsController;
+use App\Http\Controllers\Accounting\ManualJournalController;
+use App\Http\Controllers\Accounting\VoucherController;
 use App\Http\Controllers\AccountingSettingsController;
+use App\Http\Controllers\Admin\AdminUsersController;
+use App\Http\Controllers\BankAccountsController;
+use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\BanksController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ChartsOfAccountController;
 use App\Http\Controllers\CollateralTypesController;
@@ -13,65 +19,62 @@ use App\Http\Controllers\DataController;
 use App\Http\Controllers\Deposits\DepositAccountsController;
 use App\Http\Controllers\Deposits\DepositProductsController;
 use App\Http\Controllers\DisbursementMethodController;
+use App\Http\Controllers\ExpensesController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InterestCycleController;
 use App\Http\Controllers\InterestMethodsController;
+use App\Http\Controllers\InventoryReportController;
 use App\Http\Controllers\InvoicesController;
+use App\Http\Controllers\ItemsController;
 use App\Http\Controllers\LoanFeesController;
 use App\Http\Controllers\LoanGroupController;
 use App\Http\Controllers\LoanPenaltiesController;
 use App\Http\Controllers\LoanProductTypesController;
+use App\Http\Controllers\LoanRepaymentController;
+use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
+use App\Http\Controllers\Loans\Risk\CollectionsController;
+use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
+use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\LoansSettingsController;
-use App\Http\Controllers\Accounting\ManualJournalController;
-use App\Http\Controllers\Accounting\VoucherController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\Payments\AzamPayWebhookController;
+use App\Http\Controllers\Payments\ClickPesaWebhookController;
+use App\Http\Controllers\Payments\PaymentController;
+use App\Http\Controllers\Payments\PaymentController as PaymentsController;
+use App\Http\Controllers\Payments\PaymentSettingsController;
+use App\Http\Controllers\Payments\WebhookController;
+use App\Http\Controllers\PlanController;
+use App\Http\Controllers\PosController;
+use App\Http\Controllers\PrinterSettingsController;
+use App\Http\Controllers\PrintJobsController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProfitAndLossReportController;
 use App\Http\Controllers\PurchaseOrdersController;
 use App\Http\Controllers\PurchaseReturnsController;
+use App\Http\Controllers\PurchasesController;
+use App\Http\Controllers\PurchasesReportController;
 use App\Http\Controllers\RepaymentFrequenciesController;
 use App\Http\Controllers\RolesPermissionsController;
 use App\Http\Controllers\SalesReturnsController;
 use App\Http\Controllers\SecurityController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ShopsManagementController;
-use App\Http\Controllers\SubShopController;
-use App\Http\Controllers\SuppliersController;
-use App\Http\Controllers\ItemsController;
-use App\Http\Controllers\TransactionsController;
-use App\Http\Controllers\UISettingsController;
-use App\Http\Controllers\WriteOffsController;
-use App\Http\Controllers\ExpensesController;
-use App\Http\Controllers\BankAccountsController;
-use App\Http\Controllers\BanksController;
-use App\Http\Controllers\PosController;
-use App\Http\Controllers\PurchasesController;
-use App\Http\Controllers\UsersManagementController;
-use App\Http\Controllers\PlanController;
-use App\Http\Controllers\PaymentMethodController;
-use App\Http\Controllers\MessageController;
-use App\Http\Controllers\SubshopSelectionController;
-use App\Http\Controllers\InventoryReportController;
-use App\Http\Controllers\PurchasesReportController;
-use App\Http\Controllers\ProfitAndLossReportController;
-use App\Http\Controllers\PrinterSettingsController;
-use App\Http\Controllers\PrintJobsController;
-use App\Http\Controllers\SmsManagementController;
+use App\Http\Controllers\Sms\AnalyticsController;
 use App\Http\Controllers\Sms\SmsConfigController;
-use App\Http\Controllers\Sms\SmsTemplateController;
 use App\Http\Controllers\Sms\SmsEventController;
 use App\Http\Controllers\Sms\SmsLogController;
-use App\Http\Controllers\Sms\AnalyticsController;
-use App\Http\Controllers\Payments\PaymentController as PaymentsController;
-use App\Http\Controllers\Payments\WebhookController;
-use App\Http\Controllers\Payments\ClickPesaWebhookController;
-use App\Http\Controllers\LoanRepaymentController;
-use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
-use App\Http\Controllers\Loans\Risk\CollectionsController;
-use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
-use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
-use App\Http\Controllers\BankReconciliationController;
-use App\Http\Controllers\Admin\AdminUsersController;
-
+use App\Http\Controllers\Sms\SmsTemplateController;
+use App\Http\Controllers\SmsManagementController;
+use App\Http\Controllers\SubShopController;
+use App\Http\Controllers\SubshopSelectionController;
+use App\Http\Controllers\SuppliersController;
+use App\Http\Controllers\TransactionsController;
+use App\Http\Controllers\UISettingsController;
+use App\Http\Controllers\UsersManagementController;
+use App\Http\Controllers\WriteOffManagementController;
+use App\Http\Controllers\WriteOffsController;
 use Illuminate\Http\Request;
 
 Route::get('/', function () {
@@ -87,33 +90,39 @@ Route::prefix('risk')->group(function () {
     Route::get('/collections', [CollectionsController::class, 'index'])->name('risk.collections');
 });
 
-
+// Public Webhook Routes (outside auth middleware - no session required)
+Route::prefix('api/payments')->name('api.payments.')->group(function () {
+    Route::post('mpesa/webhook', [WebhookController::class, 'mpesa'])->name('mpesa.webhook');
+    Route::post('airtel/webhook', [WebhookController::class, 'airtel'])->name('airtel.webhook');
+    Route::post('tigo/webhook', [WebhookController::class, 'tigo'])->name('tigo.webhook');
+    Route::post('clickpesa/webhook', [ClickPesaWebhookController::class, 'handle'])->name('clickpesa.webhook');
+    Route::post('azampay/webhook', [AzamPayWebhookController::class, 'handle'])->name('azampay.webhook');
+    Route::post('azampay/repayment/callback', [LoanRepaymentController::class, 'handleWebhook'])->name('azampay.repayment.webhook');
+});
 
 Route::middleware(['auth'])->group(function () {
 
-
     // API Routes
     Route::get('/api/items/summary', [ItemsController::class, 'getSummaryData'])->name('api.items.summary');
-    
+
     // Shop setup routes
     Route::get('/shop/setup', [ShopController::class, 'create'])->name('shop.create');
     Route::post('/shop/setup', [ShopController::class, 'store'])->name('shop.store');
 
-    //General Settings routes
+    // General Settings routes
     Route::get('/settings/general_settings', [\App\Http\Controllers\Settings\GeneralSettingsController::class, 'index'])
-    ->middleware('can:view_general_settings')
-    ->name('settings.general_settings.index');
+        ->middleware('can:view_general_settings')
+        ->name('settings.general_settings.index');
 
     // SMS Settings routes
     Route::get('/settings/sms_settings', [\App\Http\Controllers\Sms_settings\SmsSettingsController::class, 'index'])
-    ->middleware('can:view_sms_settings')
-    ->name('settings.sms_settings.index');
-
+        ->middleware('can:view_sms_settings')
+        ->name('settings.sms_settings.index');
 
     // Payment Settings routes
     Route::get('/settings/payment_settings', [\App\Http\Controllers\Payments\PaymentSettingsController::class, 'index'])
-    ->middleware('can:view_payment_settings')
-    ->name('settings.payment_settings.index');
+        ->middleware('can:view_payment_settings')
+        ->name('settings.payment_settings.index');
 
     // Profile routes
     Route::get('/settings/profile', function () {
@@ -141,6 +150,7 @@ Route::middleware(['auth'])->group(function () {
                 $permissionNames = [];
             }
         }
+
         return view('settings.profile', compact('permissionNames'));
     })->name('settings.profile.show');
     Route::post('/settings/profile', [ProfileController::class, 'updateBasic'])->name('settings.profile.update');
@@ -150,7 +160,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/settings/password', function () {
         return view('settings.password');
     })->name('settings.password.show');
-    
+
     // Roles and Permissions routes
     Route::get('/settings/roles-permissions', [RolesPermissionsController::class, 'index'])->name('settings.roles-permissions.show');
     Route::post('/settings/roles-permissions/role', [RolesPermissionsController::class, 'createRole'])->name('settings.roles-permissions.create-role');
@@ -160,7 +170,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/settings/roles-permissions/role/{role}', [RolesPermissionsController::class, 'deleteRole'])->name('settings.roles-permissions.delete-role');
     Route::put('/settings/roles-permissions/permission/{permission}', [RolesPermissionsController::class, 'editPermission'])->name('settings.roles-permissions.edit-permission');
     Route::delete('/settings/roles-permissions/permission/{permission}', [RolesPermissionsController::class, 'deletePermission'])->name('settings.roles-permissions.delete-permission');
-    
+
     // Routes that require authentication but not necessarily shop ownership
     Route::middleware(['auth'])->group(function () {
         // Shop status page (for inactive/suspended shops - accessible even without active shop)
@@ -203,13 +213,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/admin/users/{user}/reset-password', [UsersManagementController::class, 'resetPassword'])->name('users.reset-password');
     });
 
-  
     // Protected routes - require shop setup or assignment, and enforce subshop access context
-    Route::middleware(['has.shop','subshop.access'])->group(function () {
+    Route::middleware(['has.shop', 'subshop.access'])->group(function () {
         // Route::get('/dashboard', [DashboardController::class, 'index'])
         //     ->middleware('can:view_dashboard')
         //     ->name('dashboard');
-        
+
         Route::get('/dashboard', [\App\Http\Controllers\Dashboard\FinancialDashboardController::class, 'index'])
             ->middleware('can:view_dashboard')
             ->name('dashboard');
@@ -294,15 +303,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/loans/{loan:loan_code}/security-deposit', [SecurityDepositsController::class, 'collect'])
             ->name('security-deposits.collect');
 
-        //Accounting routes
-        //charts of account
+        // Accounting routes
+        // charts of account
         Route::get('/accounting/charts_of_account/', [ChartsOfAccountController::class, 'index'])->name('accounting.charts_of_account.index');
         Route::get('/accounting/charts_of_account/export/{format}', [ChartsOfAccountController::class, 'export'])->name('accounting.charts_of_account.export');
         Route::post('/accounting/charts_of_account', [ChartsOfAccountController::class, 'store'])->name('accounting.charts_of_account.store');
         Route::put('/accounting/charts_of_account/{account}', [ChartsOfAccountController::class, 'update'])->name('accounting.charts_of_account.update');
         Route::delete('/accounting/charts_of_account/{account}', [ChartsOfAccountController::class, 'destroy'])->name('accounting.charts_of_account.destroy');
 
-        //accounting settings
+        // accounting settings
         Route::get('/accounting/accounting_settings', [AccountingSettingsController::class, 'index'])->name('accounting.accounting_settings.index');
 
         // Account Class Routes
@@ -315,7 +324,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/download-template', [AccountClassController::class, 'downloadTemplate'])->name('download-template');
             Route::post('/import', [AccountClassController::class, 'import'])->name('import');
         });
-
 
         // Account group Routes
         Route::prefix('accounting/account_groups')->name('accounting.account_groups.')->group(function () {
@@ -341,9 +349,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{id}', [VoucherController::class, 'show'])->whereNumber('id')->name('show');
         });
 
-
-
-        //loans settings
+        // loans settings
         Route::get('/loans/loans_settings', [LoansSettingsController::class, 'index'])->name('loans.loans_settings.index');
 
         // Loan product types Routes
@@ -356,8 +362,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/download-template', [LoanProductTypesController::class, 'downloadTemplate'])->name('download-template');
             Route::post('/import', [LoanProductTypesController::class, 'import'])->name('import');
         });
-
-
 
         // Repayment frequencies Routes
         Route::prefix('loans/loans_settings/repayment_frequencies')->name('loans.repayment_frequencies.')->group(function () {
@@ -424,11 +428,11 @@ Route::middleware(['auth'])->group(function () {
         });
 
         // Loan write-off & recovery
-        Route::prefix('loans/writeoffs')->group(function () {
-            Route::get('/', [WriteOffManagementController::class, 'index'])->name('writeoffs.index');
-            // Route::get('/{loan}/create', [LoanWriteOffController::class, 'create'])->name('writeoffs.create');
-            // Route::post('/{loan}/store', [LoanWriteOffController::class, 'store'])->name('writeoffs.store');
-        });
+        // Route::prefix('loans/writeoffs')->group(function () {
+        //     Route::get('/', [WriteOffManagementController::class, 'index'])->name('writeoffs.index');
+        //     // Route::get('/{loan}/create', [LoanWriteOffController::class, 'create'])->name('writeoffs.create');
+        //     // Route::post('/{loan}/store', [LoanWriteOffController::class, 'store'])->name('writeoffs.store');
+        // });
 
         // Completed Loans
         Route::get('loans/completed', [\App\Http\Controllers\Loans\CompletedLoansController::class, 'index'])->name('loans.completed.index');
@@ -443,7 +447,6 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/{method}', [DisbursementMethodController::class, 'update'])->name('update');
             Route::delete('/{method}', [DisbursementMethodController::class, 'destroy'])->name('destroy');
         });
-
 
         // Loan Penalties Routes
         Route::prefix('loans/loans_settings/loan_penalties')->name('loans.loan_penalties.')->group(function () {
@@ -504,27 +507,17 @@ Route::middleware(['auth'])->group(function () {
 
             // Transactions
             Route::get('transactions', [PaymentsController::class, 'transactions'])->name('transactions');
-            Route::get('transactions/{id}', [PaymentsController::class, 'showTransaction'])->name('transactions.show');
             Route::get('transactions/export', [PaymentsController::class, 'export'])->name('transactions.export');
+            Route::get('transactions/{id}', [PaymentsController::class, 'showTransaction'])->name('transactions.show');
             Route::get('stats', [PaymentsController::class, 'stats'])->name('stats');
 
             // Initiate Payment
             Route::post('initiate', [PaymentsController::class, 'initiatePayment'])->name('initiate');
+
+            // Test Provider
+            Route::get('configs/test', [PaymentSettingsController::class, 'showTestPage'])->name('configs.test');
+            Route::post('configs/test', [PaymentSettingsController::class, 'testProvider'])->name('configs.test.submit');
         });
-
-        // Webhook Routes (API)
-        Route::prefix('api/payments')->name('api.payments.')->group(function () {
-            Route::post('mpesa/webhook', [WebhookController::class, 'mpesa'])->name('mpesa.webhook');
-            Route::post('airtel/webhook', [WebhookController::class, 'airtel'])->name('airtel.webhook');
-            Route::post('tigo/webhook', [WebhookController::class, 'tigo'])->name('tigo.webhook');
-            Route::post('clickpesa/webhook', [ClickPesaWebhookController::class, 'handle'])->name('clickpesa.webhook');
-        });
-        
-
-
-
-
-
 
         // Collateral Types (the system adminstrator specify which collateral the system accept)
         Route::prefix('loans/loans_settings/collateral_types')->name('loans.collateral_types.')->group(function () {
@@ -595,6 +588,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/loans/repayments/create/{loan:loan_code}', [LoanRepaymentController::class, 'create'])->name('loan.repayments.create');
             Route::post('/loans/repayments/store', [LoanRepaymentController::class, 'store'])->name('loan.repayments.store');
             Route::get('/loans/repayments/history/{loan:loan_code}', [LoanRepaymentController::class, 'show'])->name('loan.repayments.show');
+            Route::post('/loans/repayments/check/{payment}', [LoanRepaymentController::class, 'checkStatus'])->name('loan.repayments.check');
             Route::get('/loans/repayments/receipt/{payment}', [LoanRepaymentController::class, 'receipt'])->name('loan.repayments.receipt');
             Route::post('/loans/repayments/reverse/{payment}', [LoanRepaymentController::class, 'reverse'])->name('loan.repayments.reverse');
         });
@@ -636,14 +630,13 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{loan:loan_code}/recoveries', [\App\Http\Controllers\LoanRecoveryPaymentsController::class, 'store'])->name('recoveries.store');
         });
 
-
-        // Customer Collaterals registry 
+        // Customer Collaterals registry
         Route::prefix('loans/loans_settings/customer_collaterals')->name('loans.customer_collaterals.')->group(function () {
             Route::get('/', [CustomerCollateralsController::class, 'index'])->name('index');
             Route::post('/', [CustomerCollateralsController::class, 'store'])->name('store');
             Route::put('/{customerCollateral}', [CustomerCollateralsController::class, 'update'])->name('update');
             Route::delete('/{customerCollateral}', [CustomerCollateralsController::class, 'destroy'])->name('destroy');
-            
+
             // Collateral Documents routes
             Route::get('/{customerCollateral}/documents', [CustomerCollateralsController::class, 'getDocuments'])->name('documents');
             Route::post('/{customerCollateral}/documents', [CustomerCollateralsController::class, 'storeDocument'])->name('documents.store');
@@ -652,9 +645,6 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/documents/{document}', [CustomerCollateralsController::class, 'deleteDocument'])->name('documents.delete');
         });
 
-
-
-        
         Route::get('/dashboard/analytics/payments-daily', [DashboardController::class, 'paymentsDaily'])->name('dashboard.analytics.payments');
         Route::get('/dashboard/analytics/orders-daily', [DashboardController::class, 'ordersDaily'])->name('dashboard.analytics.orders');
         Route::get('/dashboard/analytics/net-payments-refunds', [DashboardController::class, 'netPaymentsRefunds'])->name('dashboard.analytics.net');
@@ -706,7 +696,6 @@ Route::middleware(['auth'])->group(function () {
 
             // (moved UI Settings routes to owner|Super Admin group below)
 
-            
             Route::get('/shopsmanagement', [ShopsManagementController::class, 'show'])->name('shopsmanagement.show');
             Route::get('/shops/configure/{id}', [ShopsManagementController::class, 'configure'])->name('configure.shop');
             // Owners management routes
@@ -719,7 +708,7 @@ Route::middleware(['auth'])->group(function () {
             // SMS Management (usage per shop/subshop)
             Route::get('/sms-management', [SmsManagementController::class, 'index'])->name('sms.management.index');
 
-            //security controller routes
+            // security controller routes
             Route::get('/security', [SecurityController::class, 'index'])->name('admin.security');
             Route::post('/security/block-ip', [SecurityController::class, 'blockIP'])->name('admin.security.block-ip');
             Route::post('/security/unblock-ip', [SecurityController::class, 'unblockIP'])->name('admin.security.unblock-ip');
@@ -737,7 +726,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/security/timezone', [SecurityController::class, 'timezoneInfo'])->name('admin.security.timezone.info');
             Route::post('/security/timezone', [SecurityController::class, 'updateTimezone'])->name('admin.security.timezone.update');
 
-           
             // Admin Users Management routes
             Route::get('/superadmin/users', [AdminUsersController::class, 'index'])->name('superadmin.users.index');
             Route::post('/superadmin/users', [AdminUsersController::class, 'store'])->name('superadmin.users.store');
@@ -746,34 +734,33 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/superadmin/users/{user}/reset-password', [AdminUsersController::class, 'resetPassword'])->name('superadmin.users.reset-password');
             Route::post('/superadmin/users/bulk-action', [AdminUsersController::class, 'bulkAction'])->name('superadmin.users.bulk-action');
             Route::get('/superadmin/users/export', [AdminUsersController::class, 'export'])->name('superadmin.users.export');
-            
-            
+
         });
 
         // Payments management route (for owners and super admins)
         Route::middleware(['auth', 'role:owner|Super Admin'])->group(function () {
             Route::get('/payments', [ShopsManagementController::class, 'payments'])->name('payments');
-            
+
             // Payment resource routes
             Route::put('/payments/{payment}', [PaymentController::class, 'update'])->name('payments.update');
             Route::delete('/payments/{payment}', [PaymentController::class, 'destroy'])->name('payments.destroy');
         });
 
-        //ROUTES FOR OWNERS OR SUPER ADMINS
+        // ROUTES FOR OWNERS OR SUPER ADMINS
         Route::middleware(['auth', 'role:owner|Super Admin'])->group(function () {
             // owners management routes
             // Shop management routes
             Route::get('/shop', [ShopController::class, 'show'])
-                             ->middleware(['auth', 'can:view_shop'])
+                ->middleware(['auth', 'can:view_shop'])
 
                 ->name('shop.show');
             Route::get('/shop/edit', [ShopController::class, 'edit'])->name('shop.edit');
             Route::put('/shop', [ShopController::class, 'update'])->name('shop.update');
-            
+
             // UI Settings routes (per-shop), accessible to owners and Super Admins
             Route::get('settings/ui-settings', [UISettingsController::class, 'index'])->name('settings.ui');
             Route::post('settings/ui-settings', [UISettingsController::class, 'save'])->name('settings.ui.save');
-            
+
             // Users management (owners only)
             Route::get('/admin/users', [UsersManagementController::class, 'index'])->name('users.index');
             Route::get('/admin/users/create', [UsersManagementController::class, 'create'])->name('users.create');
@@ -784,10 +771,8 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/admin/users/{user}', [UsersManagementController::class, 'destroy'])->name('users.destroy');
             Route::post('/admin/users/{user}/assign-subshops', [UsersManagementController::class, 'assignSubshops'])->name('users.assign-subshops');
             Route::post('/admin/users/{user}/reset-password', [UsersManagementController::class, 'resetPassword'])->name('users.reset-password');
-            
 
         });
-
 
         // Plan Management routes
         Route::post('/plans', [PlanController::class, 'store'])->name('plans.store');
@@ -806,14 +791,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/subscriptions/{subscription}/renew', [\App\Http\Controllers\SubscriptionController::class, 'renew'])->name('subscriptions.renew');
         // Route::get('/shop/edit', [ShopController::class, 'edit'])->name('shop.edit');
         // Route::put('/shop', [ShopController::class, 'update'])->name('shop.update');
-        
 
         // SubShop management routes
         Route::post('/subshop', [SubShopController::class, 'store'])->name('subshop.store');
         Route::post('/subshops/create-modal', [SubShopController::class, 'createModal'])->name('subshops.create-modal');
         Route::put('/subshop/{subshop}', [SubShopController::class, 'update'])->name('subshop.update');
         Route::delete('/subshop/{subshop}', [SubShopController::class, 'destroy'])->name('subshop.destroy');
-        
+
         // Add other protected routes here
 
         Route::get('/admin', function () {
@@ -835,7 +819,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/admin/reports/sales', [\App\Http\Controllers\SalesReportController::class, 'index'])
             ->middleware('can:view_sales_report')
             ->name('reports.sales');
-            
+
         // Sales Report Export Routes
         Route::get('/admin/reports/sales/export/{format}', [\App\Http\Controllers\SalesReportController::class, 'export'])
             ->name('reports.sales.export');
@@ -957,8 +941,6 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_accounting_reports')
             ->name('reports.accounting_reports.index');
 
-            
-
         // Balance Sheet Report (Accounting)
         Route::get('/admin/reports/accounting/balance-sheet', [\App\Http\Controllers\Reports\Accounting\BalanceSheetController::class, 'index'])
             ->middleware('can:view_accounting_reports')
@@ -1075,76 +1057,78 @@ Route::middleware(['auth'])->group(function () {
             ->name('reports.purchases.analytics.pareto');
         Route::get('/admin/reports/purchases/analytics/returns-rate', [PurchasesReportController::class, 'analyticsReturnsRate'])->name('reports.purchases.analytics.returns_rate');
 
-    // Profit & Loss Report
-    Route::get('/admin/reports/profit-and-loss', [ProfitAndLossReportController::class, 'index'])
-        ->middleware('can:view_profit_and_loss_report')
-        ->name('reports.pl.index');
-    Route::get('/admin/reports/profit-and-loss/export/{format}', [ProfitAndLossReportController::class, 'export'])->name('reports.pl.export');
-    // P&L Analytics API
-    Route::get('/admin/reports/profit-and-loss/analytics/sales-vs-cogs', [ProfitAndLossReportController::class, 'analyticsSalesVsCogs'])->name('reports.pl.analytics.sales_cogs');
-    Route::get('/admin/reports/profit-and-loss/analytics/margin', [ProfitAndLossReportController::class, 'analyticsMargin'])->name('reports.pl.analytics.margin');
-    Route::get('/admin/reports/profit-and-loss/analytics/waterfall', [ProfitAndLossReportController::class, 'analyticsWaterfall'])->name('reports.pl.analytics.waterfall');
+        // Profit & Loss Report
+        Route::get('/admin/reports/profit-and-loss', [ProfitAndLossReportController::class, 'index'])
+            ->middleware('can:view_profit_and_loss_report')
+            ->name('reports.pl.index');
+        Route::get('/admin/reports/profit-and-loss/export/{format}', [ProfitAndLossReportController::class, 'export'])->name('reports.pl.export');
+        // P&L Analytics API
+        Route::get('/admin/reports/profit-and-loss/analytics/sales-vs-cogs', [ProfitAndLossReportController::class, 'analyticsSalesVsCogs'])->name('reports.pl.analytics.sales_cogs');
+        Route::get('/admin/reports/profit-and-loss/analytics/margin', [ProfitAndLossReportController::class, 'analyticsMargin'])->name('reports.pl.analytics.margin');
+        Route::get('/admin/reports/profit-and-loss/analytics/waterfall', [ProfitAndLossReportController::class, 'analyticsWaterfall'])->name('reports.pl.analytics.waterfall');
 
         // Customers Reports Hub
-    Route::get('/admin/reports/customers-reports', [\App\Http\Controllers\Reports\CustomersReportsController::class, 'index'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers_reports.index');
+        Route::get('/admin/reports/customers-reports', [\App\Http\Controllers\Reports\CustomersReportsController::class, 'index'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers_reports.index');
 
-    // Customer List Report
-    Route::get('/admin/reports/customers/customer-list', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'index'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_list.index');
-    Route::get('/admin/reports/customers/customer-list/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'export'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_list.export');
+        // Customer List Report
+        Route::get('/admin/reports/customers/customer-list', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'index'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_list.index');
+        Route::get('/admin/reports/customers/customer-list/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerListController::class, 'export'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_list.export');
 
-    // Customer Risk Report
-    Route::get('/admin/reports/customers/customer-risk', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'index'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_risk.index');
-    Route::get('/admin/reports/customers/customer-risk/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'export'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_risk.export');
+        // Customer Risk Report
+        Route::get('/admin/reports/customers/customer-risk', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'index'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_risk.index');
+        Route::get('/admin/reports/customers/customer-risk/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerRiskController::class, 'export'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_risk.export');
 
-    // Customer Demographics Report
-    Route::get('/admin/reports/customers/customer-demographics', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'index'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_demographics.index');
-    Route::get('/admin/reports/customers/customer-demographics/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'export'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_demographics.export');
-    Route::get('/admin/reports/customers/customer-demographics/by-region/{region}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byRegion'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_demographics.by_region');
-    Route::get('/admin/reports/customers/customer-demographics/by-gender/{gender}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byGender'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_demographics.by_gender');
+        // Customer Demographics Report
+        Route::get('/admin/reports/customers/customer-demographics', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'index'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_demographics.index');
+        Route::get('/admin/reports/customers/customer-demographics/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'export'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_demographics.export');
+        Route::get('/admin/reports/customers/customer-demographics/by-region/{region}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byRegion'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_demographics.by_region');
+        Route::get('/admin/reports/customers/customer-demographics/by-gender/{gender}', [\App\Http\Controllers\Reports\Customers\CustomerDemographicsController::class, 'byGender'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_demographics.by_gender');
 
-    // Customer Performance Report
-    Route::get('/admin/reports/customers/customer-performance', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'index'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_performance.index');
-    Route::get('/admin/reports/customers/customer-performance/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'export'])
-        ->middleware('can:view_customers_reports')
-        ->name('reports.customers.customer_performance.export');
+        // Customer Performance Report
+        Route::get('/admin/reports/customers/customer-performance', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'index'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_performance.index');
+        Route::get('/admin/reports/customers/customer-performance/export/{format}', [\App\Http\Controllers\Reports\Customers\CustomerPerformanceController::class, 'export'])
+            ->middleware('can:view_customers_reports')
+            ->name('reports.customers.customer_performance.export');
 
-        ///////////////////////////
-        ///    inventory        //
-        /////////////////////////
+        // /////////////////////////
+        // /    inventory        //
+        // ///////////////////////
         // Redirect legacy per-module choosers to the unified chooser
         Route::get('/admin/inventory/categories/subshops', function (Request $request, SubshopSelectionController $controller) {
             $request->merge(['intended' => route('categories.index')]);
+
             return $controller->index($request);
         })->name('categories.subshops');
         Route::get('/admin/inventory/categories', [CategoriesController::class, 'index'])
-        ->middleware('can:view_categories')
-         ->name('categories.index');
+            ->middleware('can:view_categories')
+            ->name('categories.index');
         Route::post('/admin/inventory/categories', [CategoriesController::class, 'store'])->name('categories.store');
         Route::put('/admin/inventory/categories/{category}', [CategoriesController::class, 'update'])->name('categories.update');
         Route::delete('/admin/inventory/categories/{category}', [CategoriesController::class, 'destroy'])->name('categories.destroy');
 
         Route::get('/admin/inventory/suppliers/subshops', function (Request $request, SubshopSelectionController $controller) {
             $request->merge(['intended' => route('suppliers.index')]);
+
             return $controller->index($request);
         })->name('suppliers.subshops');
         Route::get('/admin/inventory/suppliers', [SuppliersController::class, 'index'])
@@ -1164,9 +1148,10 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/admin/inventory/items/subshops', function (Request $request, SubshopSelectionController $controller) {
             $request->merge(['intended' => route('items.index')]);
+
             return $controller->index($request);
         })->name('items.subshops');
-        
+
         Route::get('/admin/inventory/items', [ItemsController::class, 'index'])
             ->middleware(['auth', 'can:view_items'])
             ->name('items.index');
@@ -1176,15 +1161,12 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/admin/inventory/items/{item}', [ItemsController::class, 'destroy'])->name('items.destroy');
         Route::post('/admin/inventory/items/{item}/write-off', [ItemsController::class, 'writeOff'])->name('items.write-off');
         Route::get('/admin/inventory/items/generate-batch', [ItemsController::class, 'generateBatchNumber'])->name('items.generate-batch');
-        
+
         // Import routes
         Route::get('/admin/inventory/items/import/sample', [ItemsController::class, 'downloadSample'])->name('items.import.sample');
         Route::post('/admin/inventory/items/import', [ItemsController::class, 'import'])->name('items.import');
-        
 
-        
-
-        //Write offs       
+        // Write offs
         Route::get('/admin/inventory/subshops', [WriteOffsController::class, 'subshops'])->name('writeoffs.subshops');
         Route::get('/admin/inventory/writeoffs', [WriteOffsController::class, 'index'])
             ->middleware('can:view_writeoffs')
@@ -1195,19 +1177,19 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/admin/inventory/writeoffs/{writeoff}', [WriteOffsController::class, 'destroy'])->name('writeoffs.destroy');
         Route::post('/admin/inventory/writeoffs/expired-batch', [WriteOffsController::class, 'writeOffExpiredBatch'])->name('writeoffs.expired-batch');
         Route::get('/admin/inventory/writeoffs/export/{format}', [WriteOffsController::class, 'export'])->name('writeoffs.export');
-        
+
         // Test route for debugging
-        Route::get('/test-writeoff-route/{writeoff}', function(\App\Models\WriteOff $writeoff) {
+        Route::get('/test-writeoff-route/{writeoff}', function (\App\Models\WriteOff $writeoff) {
             return response()->json([
                 'success' => true,
                 'message' => 'Route is working!',
                 'writeoff_id' => $writeoff->id,
-                'status' => $writeoff->status
+                'status' => $writeoff->status,
             ]);
         })->name('writeoffs.test');
 
         // Customer management routes
-        Route::get('/admin/sales/customers/subshops', [CustomersController  ::class, 'subshops'])->name('customers.subshops');
+        Route::get('/admin/sales/customers/subshops', [CustomersController::class, 'subshops'])->name('customers.subshops');
         Route::get('/admin/sales/customers', [CustomersController::class, 'index'])
             ->middleware('can:view_customers')
             ->name('customers.index');
@@ -1282,7 +1264,7 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('can:view_items_transfers')
             ->name('transfers.index');
         Route::get('/admin/inventory/transfers/{transfer}', [\App\Http\Controllers\TransfersController::class, 'show'])
-             ->middleware('can:view_items_transfers')
+            ->middleware('can:view_items_transfers')
             ->name('transfers.show');
         Route::post('/admin/inventory/transfers', [\App\Http\Controllers\TransfersController::class, 'store'])
             ->name('transfers.store');
@@ -1356,16 +1338,28 @@ Route::middleware(['auth'])->group(function () {
             ->name('purchase.transactions.index');
         Route::get('/admin/purchases/transactions/export/{format}', [TransactionsController::class, 'purchaseExport'])->name('purchase.transactions.export');
 
-
-        //Roles and permisions routes
+        // Roles and permisions routes
         // Assign permissions
         Route::get('/assign', [RolesPermissionsController::class, 'update']);
 
-     
     });
 });
 
+Route::get('/debug/azampay', function (\Illuminate\Http\Request $request) {
+    $shopId = $request->input('shop_id', 1);
 
+    try {
+        $provider = new \App\Services\Payments\Providers\AzamPayProvider((int) $shopId);
+        $debugInfo = $provider->getDebugInfo();
 
+        return response()->json($debugInfo);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => true,
+            'message' => $e->getMessage(),
+            'shop_id' => $shopId,
+        ]);
+    }
+});
 
 require __DIR__.'/auth.php';

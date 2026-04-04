@@ -18,6 +18,10 @@ class LoanPayments extends Model
         'reference_number',
         'notes',
         'status',
+        'external_id',
+        'phone',
+        'provider',
+        'transaction_reference',
     ];
 
     protected $casts = [

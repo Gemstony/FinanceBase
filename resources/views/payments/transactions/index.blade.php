@@ -67,6 +67,8 @@
                             <label for="provider">Provider</label>
                             <select name="provider" id="provider" class="form-control">
                                 <option value="">All Providers</option>
+                                <option value="clickpesa" {{ request('provider') === 'clickpesa' ? 'selected' : '' }}>ClickPesa</option>
+                                <option value="azampay" {{ request('provider') === 'azampay' ? 'selected' : '' }}>AzamPay</option>
                                 <option value="mpesa" {{ request('provider') === 'mpesa' ? 'selected' : '' }}>M-Pesa</option>
                                 <option value="airtel" {{ request('provider') === 'airtel' ? 'selected' : '' }}>Airtel Money</option>
                                 <option value="tigo" {{ request('provider') === 'tigo' ? 'selected' : '' }}>Tigo Pesa</option>
@@ -125,7 +127,17 @@
                                 <td>{{ $transaction->phone }}</td>
                                 <td>{{ number_format($transaction->amount, 2) }}</td>
                                 <td>
-                                    <span class="badge badge-{{ $transaction->provider === 'mpesa' ? 'success' : ($transaction->provider === 'airtel' ? 'danger' : 'info') }}">
+                                    @php
+                                        $badgeClass = match($transaction->provider) {
+                                            'mpesa' => 'success',
+                                            'airtel' => 'danger',
+                                            'tigo' => 'info',
+                                            'clickpesa' => 'primary',
+                                            'azampay' => 'warning',
+                                            default => 'secondary',
+                                        };
+                                    @endphp
+                                    <span class="badge badge-{{ $badgeClass }}">
                                         {{ ucfirst($transaction->provider) }}
                                     </span>
                                 </td>

@@ -41,6 +41,9 @@
             const paymentMethodEl = document.querySelector('select[name="payment_method"]');
             const bankAccountWrap = document.getElementById('bank_account_wrap');
             const bankAccountSelect = document.querySelector('select[name="bank_account_id"]');
+            const azampayFields = document.getElementById('azampay_fields');
+            const phoneInput = document.querySelector('input[name="phone_number"]');
+            const providerSelect = document.querySelector('select[name="provider"]');
 
             function update() {
                 if (!input || !box || !amountEl) return;
@@ -57,7 +60,7 @@
             function updateBankAccountVisibility() {
                 if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
                 const pm = String(paymentMethodEl.value || '');
-                const requiresBank = pm !== 'customer_credit' && pm !== 'savings';
+                const requiresBank = pm !== 'customer_credit' && pm !== 'savings' && pm !== 'azampay';
 
                 if (requiresBank) {
                     bankAccountWrap.style.display = '';
@@ -69,14 +72,39 @@
                 }
             }
 
+            function updateAzamPayFields() {
+                if (!paymentMethodEl || !azampayFields) return;
+                const pm = String(paymentMethodEl.value || '');
+                
+                if (pm === 'azampay') {
+                    azampayFields.style.display = '';
+                    if (phoneInput) phoneInput.required = true;
+                    if (providerSelect) providerSelect.required = true;
+                } else {
+                    azampayFields.style.display = 'none';
+                    if (phoneInput) {
+                        phoneInput.required = false;
+                        phoneInput.value = '';
+                    }
+                    if (providerSelect) {
+                        providerSelect.required = false;
+                        providerSelect.value = '';
+                    }
+                }
+            }
+
             if (input) {
                 input.addEventListener('input', update);
                 update();
             }
 
             if (paymentMethodEl) {
-                paymentMethodEl.addEventListener('change', updateBankAccountVisibility);
+                paymentMethodEl.addEventListener('change', function() {
+                    updateBankAccountVisibility();
+                    updateAzamPayFields();
+                });
                 updateBankAccountVisibility();
+                updateAzamPayFields();
             }
 
             // SweetAlert confirmation for Process Payment button
@@ -131,10 +159,24 @@
 @section('content')
     <div class="container-fluid">
         @if(session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> {{ session('success') }}
+            </div>
         @endif
         @if(session('error'))
-            <div class="alert alert-danger">{{ session('error') }}</div>
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
+            </div>
+        @endif
+        @if(session('info'))
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> {{ session('info') }}
+            </div>
+        @endif
+        @if(session('warning'))
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i> {{ session('warning') }}
+            </div>
         @endif
 
         @if($errors->any())
@@ -249,15 +291,44 @@
 
                             <div class="form-group">
                                 <label>Payment Method</label>
-                                <select name="payment_method" class="form-control" required>
+                                <select name="payment_method" class="form-control" id="payment_method" required>
                                     @php $pm = old('payment_method', 'cash'); @endphp
                                     <option value="cash" @selected($pm === 'cash')>Cash</option>
                                     <option value="bank_transfer" @selected($pm === 'bank_transfer')>Bank Transfer</option>
                                     <option value="mobile_money" @selected($pm === 'mobile_money')>Mobile Money</option>
+                                    <option value="azampay" @selected($pm === 'azampay')>AzamPay (Mobile Payment)</option>
                                     <!-- <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
                                     <option value="savings" @selected($pm === 'savings')>Savings</option> -->
                                     <option value="other" @selected($pm === 'other')>Other</option>
                                 </select>
+                            </div>
+
+                            <!-- AzamPay Dynamic Fields -->
+                            <div id="azampay_fields" style="display: none;">
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="text" name="phone_number" id="phone_number" class="form-control" 
+                                           value="{{ old('phone_number') }}" 
+                                           placeholder="2557XXXXXXX">
+                                    <small class="text-muted">Enter mobile number registered with mobile money</small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Network Provider</label>
+                                    <select name="provider" id="provider" class="form-control">
+                                        <option value="">Select Provider</option>
+                                        <option value="Mpesa" @selected(old('provider') === 'Mpesa')>Mpesa</option>
+                                        <option value="Airtel" @selected(old('provider') === 'Airtel')>Airtel</option>
+                                        <option value="Tigo" @selected(old('provider') === 'Tigo')>Tigo</option>
+                                        <option value="Halopesa" @selected(old('provider') === 'Halopesa')>Halopesa</option>
+                                        <option value="Azampesa" @selected(old('provider') === 'Azampesa')>Azampesa</option>
+                                    </select>
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    You will receive a payment prompt on your phone. Please complete the payment to finalize this transaction.
+                                </div>
                             </div>
 
                             <div class="form-group" id="bank_account_wrap" style="display:none;">

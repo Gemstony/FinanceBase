@@ -102,6 +102,26 @@
                 </div>
             </div>
 
+            <!-- Test Provider -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-vial"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Test Provider</span>
+                        <span class="info-box-number">
+                            Verify provider connectivity in sandbox
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('payments.configs.test') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-flask mr-1"></i> Test
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
         </div>
     </div>

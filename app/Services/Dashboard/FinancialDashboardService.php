@@ -383,9 +383,9 @@ class FinancialDashboardService
             ];
         }
 
-        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
-        $par60 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(60);
-        $par90 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(90);
+        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(1);
+        $par60 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
+        $par90 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(60);
 
         return [
             'par30' => round(($par30 / $totalOutstanding) * 100, 2),
@@ -402,7 +402,7 @@ class FinancialDashboardService
             return 0.0;
         }
 
-        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
+        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(1);
 
         return round(($par30 / $totalOutstanding) * 100, 2);
     }
@@ -561,11 +561,7 @@ class FinancialDashboardService
             ->whereIn('loan_payments.status', ['confirmed', 'completed'])
             ->sum('loan_payments.amount');
 
-        $totalDueAmount = Loans::query()
-            ->whereIn('subshop_id', $subshopIds)
-            ->where('is_active', true)
-            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->sum('outstanding_balance');
+        $totalDueAmount = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
 
         return [
             'loans_released' => [

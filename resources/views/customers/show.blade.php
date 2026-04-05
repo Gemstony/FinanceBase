@@ -6,10 +6,16 @@
     <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="d-none d-md-block text-light"><i class="fas fa-user"></i> {{ $customer->name }} [{{ $customer->customer_code }}] </h1>
-                    <h1 class="d-md-none text-light"><i class="fas fa-user"></i> {{ $customer->name }}</h1>
-                    <p class="mb-0 text-light">Customer Profile</p>
+                <div class="d-flex align-items-center">
+                    <img src="{{ $customer->avatar_url }}" 
+                         alt="{{ $customer->name }}" 
+                         class="rounded-circle mr-3"
+                         style="width: 60px; height: 60px; object-fit: cover; border: 3px solid white;">
+                    <div>
+                        <h1 class="d-none d-md-block text-light"><i class="fas fa-user"></i> {{ $customer->name }} [{{ $customer->customer_code }}] </h1>
+                        <h1 class="d-md-none text-light"><i class="fas fa-user"></i> {{ $customer->name }}</h1>
+                        <p class="mb-0 text-light">Customer Profile</p>
+                    </div>
                 </div>
                 <div>
                     @can('edit_customers')
@@ -149,6 +155,58 @@
 
                     <div class="small text-muted">Created At</div>
                     <div><strong>{{ $customer->created_at?->format('Y-m-d H:i') ?? '—' }}</strong></div>
+                </div>
+            </div>
+
+            <!-- Customer Files Section -->
+            <div class="card border-0 mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong><i class="fas fa-paperclip"></i> Customer Files</strong>
+                    <span class="badge badge-info">{{ $customer->files->count() }} Files</span>
+                </div>
+                <div class="card-body">
+                    @if($customer->files->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>File Name</th>
+                                        <th>Type</th>
+                                        <th>Size</th>
+                                        <th>Uploaded</th>
+                                        <th class="text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($customer->files as $file)
+                                        <tr>
+                                            <td>
+                                                <i class="fas fa-file-{{ str_contains($file->file_type, 'pdf') ? 'pdf' : (str_contains($file->file_type, 'image') ? 'image' : 'alt') }} text-{{ str_contains($file->file_type, 'pdf') ? 'danger' : (str_contains($file->file_type, 'image') ? 'success' : 'primary') }}"></i>
+                                                {{ $file->file_name ?? basename($file->file_path) }}
+                                            </td>
+                                            <td>{{ $file->file_type ?? '—' }}</td>
+                                            <td>{{ $file->file_size ? number_format($file->file_size / 1024, 1) . ' KB' : '—' }}</td>
+                                            <td>{{ $file->created_at?->format('Y-m-d H:i') ?? '—' }}</td>
+                                            <td class="text-right">
+                                                <a href="{{ route('customers.files.download', $file->id) }}" class="btn btn-sm btn-outline-primary" title="Download">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <form method="POST" action="{{ route('customers.files.destroy', $file->id) }}" class="d-inline js-delete-file">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <p class="text-muted mb-0">No files uploaded.</p>
+                    @endif
                 </div>
             </div>
 
@@ -468,4 +526,30 @@
         }
     }
 </style>
+@endpush
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+$(document).ready(function() {
+    $('.js-delete-file').on('submit', function (e) {
+        e.preventDefault();
+        const form = this;
+
+        Swal.fire({
+            title: 'Delete this file?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, delete'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                form.submit();
+            }
+        });
+    });
+});
+</script>
 @endpush

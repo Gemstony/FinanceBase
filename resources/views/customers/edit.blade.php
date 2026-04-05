@@ -36,7 +36,7 @@
 
     <div class="card  border-0">
         <div class="card-body">
-            <form method="POST" action="{{ route('customers.update', $customer->id) }}">
+            <form method="POST" action="{{ route('customers.update', $customer->id) }}" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
@@ -161,18 +161,56 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>ID Type <span class="text-danger">*</span></label>
-                            <select name="id_type" class="form-control" required>
+                            <select name="id_type" id="id_type" class="form-control" required>
                                 <option value="" disabled>Choose ID</option>
-                                <option value="NIDA" @selected(old('id_type', $customer->id_type) === 'NIDA')>NIDA Id</option>
-                                <option value="Driving Lesence" @selected(old('id_type', $customer->id_type) === 'Driving Lesence')>Driving Lesence Id</option>
-                                <option value="Voter Id" @selected(old('id_type', $customer->id_type) === 'Voter Id')>Voter Id</option>
+                                <option value="NIDA" @selected(old('id_type', $customer->id_type) === 'NIDA')>NIDA ID</option>
+                                <option value="Driving License" @selected(old('id_type', $customer->id_type) === 'Driving License')>Driving License ID</option>
+                                <option value="Voter ID" @selected(old('id_type', $customer->id_type) === 'Voter ID')>Voter ID</option>
                             </select>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>ID Number <span class="text-danger">*</span></label>
-                            <input type="text" name="id_number" class="form-control" value="{{ old('id_number', $customer->id_number) }}" required>
+                            <input type="text" name="id_number" id="id_number" class="form-control" value="{{ old('id_number', $customer->id_number) }}" required>
+                            <small class="text-muted" id="id-format-hint"></small>
+                            <div class="invalid-feedback" id="id_number_error"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Customer Image</label>
+                            @if($customer->customer_image)
+                                <div class="mb-2">
+                                    <img src="{{ asset('storage/' . $customer->customer_image) }}" alt="Current Image" class="rounded" style="width: 100px; height: 100px; object-fit: cover;">
+                                    <small class="d-block text-muted">Current image</small>
+                                </div>
+                            @endif
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="customer_image" name="customer_image" accept="image/jpeg,image/png,image/webp">
+                                <label class="custom-file-label" for="customer_image">Choose new image (max 2MB)</label>
+                            </div>
+                            <small class="text-muted">Allowed: jpg, jpeg, png, webp. Leave empty to keep current image.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Add Customer Files</label>
+                            <div id="file-inputs-container">
+                                <div class="input-group mb-2">
+                                    <input type="file" name="customer_files[]" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-success add-file-btn" title="Add more files"><i class="fas fa-plus"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">Allowed: pdf, doc, docx, jpg, jpeg, png (max 5 files, 5MB each)</small>
+                            <div class="mt-2" id="selected-files-count"></div>
                         </div>
                     </div>
                 </div>
@@ -190,4 +228,199 @@
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    var fileCount = 1;
+    var maxFiles = 5;
+    
+    // ID Number validation patterns
+
+    var idPatterns = {
+        'NIDA': { 
+            pattern: /^\d{8}-\d{5}-\d{5}-\d{2}$/, 
+            hint: 'Format: YYYYMMDD-XXXXX-XXXXX-XX', 
+            example: '19760517-37227-00002-17',
+            maxLength: 23
+        },
+        'Driving License': { 
+            // Allowing 7-12 alphanumeric to cover older and new versions
+            pattern: /^[A-Z0-9]{7,12}$/i, 
+            hint: 'Enter 7 to 12 characters', 
+            example: '1234567890',
+            maxLength: 12
+        },
+        'Voter ID': { 
+            // Allowing T or Z for Zanzibar/Mainland
+            pattern: /^[T|Z]-\d{4}-\d{4}-\d{3}-\d{1}$/, 
+            hint: 'Format: T-XXXX-XXXX-XXX-X', 
+            example: 'T-1234-5678-901-2',
+            maxLength: 17
+        },
+        'Other': { 
+            pattern: /^.+$/, 
+            hint: 'Enter your ID number', 
+            example: '',
+            maxLength: 50
+        }
+    };
+
+    
+    var isFormatting = false;
+    
+    function formatIdNumber(idType, value) {
+        if (!idType || !value) return value;
+        
+        // Clean input: Keep only digits for NIDA, Alphanumeric for others
+        var digits = value.replace(/\D/g, '');
+
+        if (idType === 'NIDA') {
+            let parts = [];
+            if (digits.length > 0) parts.push(digits.substring(0, 8));
+            if (digits.length > 8) parts.push(digits.substring(8, 13));
+            if (digits.length > 13) parts.push(digits.substring(13, 18));
+            if (digits.length > 18) parts.push(digits.substring(18, 20));
+            return parts.join('-');
+        }
+        
+        if (idType === 'Voter ID') {
+            // Ensure it starts with T (or Z), then add dashes between digit groups
+            let prefix = value.toUpperCase().startsWith('Z') ? 'Z' : 'T';
+            let parts = [prefix]; 
+            
+            if (digits.length > 0) parts.push(digits.substring(0, 4));
+            if (digits.length > 4) parts.push(digits.substring(4, 8));
+            if (digits.length > 8) parts.push(digits.substring(8, 11));
+            if (digits.length > 11) parts.push(digits.substring(11, 12));
+            
+            // This joins them as T-XXXX-XXXX-XXX-X
+            return parts.join('-');
+        }
+        
+        return value;
+    }
+
+    
+    function autoFormatIdNumber(idType, value) {
+        if (isFormatting) return value;
+        isFormatting = true;
+        var formatted = formatIdNumber(idType, value);
+        isFormatting = false;
+        return formatted;
+    }
+    
+    function validateIdNumber() {
+        var idType = $('#id_type').val();
+        var idNumber = $('#id_number').val();
+        var hintEl = $('#id-format-hint');
+        var errorEl = $('#id_number_error');
+        var inputEl = $('#id_number');
+        
+        hintEl.text('');
+        errorEl.text('');
+        inputEl.removeClass('is-invalid');
+        
+        if (!idType) {
+            return { valid: true, data: null };
+        }
+        
+        if (!idNumber) {
+            return { valid: true, data: null };
+        }
+        
+        var pattern = idPatterns[idType];
+        if (pattern) {
+            // Set max length
+            inputEl.attr('maxlength', pattern.maxLength);
+            hintEl.text(pattern.hint);
+            
+            if (!pattern.pattern.test(idNumber)) {
+                inputEl.addClass('is-invalid');
+                errorEl.text('Example: ' + pattern.example);
+                return { valid: false, data: pattern };
+            }
+        }
+        
+        return { valid: true, data: null };
+    }
+    
+    // When ID type changes, reformat the ID number
+    $('#id_type').on('change', function() {
+        var idType = $(this).val();
+        var inputEl = $('#id_number');
+        var pattern = idPatterns[idType];
+        
+        if (pattern) {
+            inputEl.attr('maxlength', pattern.maxLength);
+            $('#id-format-hint').text(pattern.hint);
+        }
+        
+        validateIdNumber();
+    });
+    
+    // Auto-format while typing and validate
+    $('#id_number').on('input', function() {
+        var idType = $('#id_type').val();
+        var value = $(this).val();
+        
+        // Auto-format
+        var formatted = autoFormatIdNumber(idType, value);
+        if (formatted !== value) {
+            $(this).val(formatted);
+        }
+        
+        // Validate
+        validateIdNumber();
+    });
+    
+    // Prevent form submission if invalid
+    $('form').on('submit', function(e) {
+        var result = validateIdNumber();
+        if (!result.valid) {
+            e.preventDefault();
+            $('#id_number').focus();
+            return false;
+        }
+    });
+    
+    // File inputs handling
+    $('#file-inputs-container').on('click', '.add-file-btn', function() {
+        if (fileCount >= maxFiles) {
+            alert('Maximum ' + maxFiles + ' files allowed.');
+            return;
+        }
+        fileCount++;
+        var html = '<div class="input-group mb-2">' +
+            '<input type="file" name="customer_files[]" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">' +
+            '<div class="input-group-append">' +
+            '<button type="button" class="btn btn-danger remove-file-btn" title="Remove"><i class="fas fa-minus"></i></button>' +
+            '</div></div>';
+        $('#file-inputs-container').append(html);
+        updateFileCount();
+    });
+    
+    $('#file-inputs-container').on('click', '.remove-file-btn', function() {
+        $(this).closest('.input-group').remove();
+        fileCount--;
+        updateFileCount();
+    });
+    
+    function updateFileCount() {
+        var count = $('#file-inputs-container input[type="file"]').length;
+        var filled = 0;
+        $('#file-inputs-container input[type="file"]').each(function() {
+            if (this.files.length > 0) filled++;
+        });
+        $('#selected-files-count').text(filled + ' file(s) selected');
+    }
+    
+    $('#file-inputs-container').on('change', 'input[type="file"]', function() {
+        updateFileCount();
+    });
+});
+</script>
 @endpush

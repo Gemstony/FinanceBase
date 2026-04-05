@@ -31,7 +31,7 @@ class PortfolioRiskCalculator
      */
     public function calculateLoanOutstanding(Loans $loan): float
     {
-        $latestVersion = (int) \App\Models\LoanInstallments::query()
+        $latestVersion = (int) LoanInstallments::query()
             ->where('loan_id', $loan->id)
             ->where('is_active', true)
             ->max('schedule_version');

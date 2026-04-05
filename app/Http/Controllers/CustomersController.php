@@ -2,59 +2,64 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerFile;
 use App\Models\Customers;
 use App\Models\DepositAccount;
+use App\Models\Item;
 use App\Models\Loans;
-use App\Services\Loans\Risk\PortfolioRiskCalculator;
-use App\Models\SubShop;
 use App\Models\SalesOrders;
 use App\Models\SalesOrdersItems;
-use App\Models\Item;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
 use App\Models\Shop;
+use App\Models\SubShop;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class CustomersController extends Controller
 {
     public function __construct(
         private readonly PortfolioRiskCalculator $portfolioRisk,
-    ) {
-    }
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $subshopId = session('subshop_id');
-        
-        if (!$subshopId) {
+
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.index')]);
         }
-        
+
         $subshop = SubShop::findOrFail($subshopId);
         $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
-        if($subshop->is_active != 1) {
+        if ($subshop->is_active != 1) {
             session()->forget('subshop_id');
+
             return redirect()->route('subshops.choose', ['intended' => route('customers.index')])
                 ->with('error', 'Shop is not active. Please contact the owner to activate it.');
         }
 
         $customers = Customers::whereIn('customers.subshop_id', $shopSubshopIds)
-            ->select('customers.*');
+            ->select('customers.*')
+            ->withCount('files');
 
         // Search by name, email, phone, contact person
         if ($request->filled('search')) {
             $search = $request->search;
-            $customers->where(function($q) use ($search){
+            $customers->where(function ($q) use ($search) {
                 $q->where('customers.name', 'like', "%{$search}%")
-                  ->orWhere('customers.email', 'like', "%{$search}%")
-                  ->orWhere('customers.phone', 'like', "%{$search}%");
+                    ->orWhere('customers.email', 'like', "%{$search}%")
+                    ->orWhere('customers.phone', 'like', "%{$search}%");
             });
         }
 
         // Status filter
-        if ($request->filled('status') && in_array($request->status, ['active','inactive'])) {
+        if ($request->filled('status') && in_array($request->status, ['active', 'inactive'])) {
             $customers->where('customers.is_active', $request->status === 'active' ? 1 : 0);
         }
 
@@ -101,13 +106,14 @@ class CustomersController extends Controller
     public function create()
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.create')]);
         }
 
         $subshop = SubShop::findOrFail($subshopId);
         if ($subshop->is_active != 1) {
             session()->forget('subshop_id');
+
             return redirect()->route('subshops.choose', ['intended' => route('customers.create')])
                 ->with('error', 'Shop is not active. Please contact the owner to activate it.');
         }
@@ -122,11 +128,11 @@ class CustomersController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'No subshop selected. Please select a shop first.'
+                        'message' => 'No subshop selected. Please select a shop first.',
                     ], 400);
                 }
 
@@ -137,20 +143,34 @@ class CustomersController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'nullable|string|max:20',
-                'altenative_phone'  => 'nullable|string|max:20',
-                'gender'  => 'required|string|max:20',
-                'birth_date'  => 'required|date',
+                'altenative_phone' => 'nullable|string|max:20',
+                'gender' => 'required|string|max:20',
+                'birth_date' => 'required|date',
                 'region' => 'required|string|max:255',
                 'district' => 'required|string|max:255',
                 'ward' => 'required|string|max:255',
                 'street' => 'required|string|max:255',
                 'house_no' => 'required|string|max:20',
-                'work'  => 'nullable|string|max:20',
-                'work_address'  => 'nullable|string|max:20',
-                'id_type'  => 'required|string|max:20',
-                'id_number'  => 'required|string|max:50',
-                'category'  => 'required|string|max:20',
-            
+                'work' => 'nullable|string|max:20',
+                'work_address' => 'nullable|string|max:20',
+                'id_type' => 'required|string|max:20',
+                'id_number' => ['required', 'string', 'max:50', function ($attribute, $value, $fail) use ($request) {
+                    $idType = $request->input('id_type');
+                    $patterns = [
+                        'NIDA' => '/^\d{8}-\d{5}-\d{5}-\d{2}$/',
+                        'Voter ID' => '/^T-\d{4}-\d{4}-\d{3}-\d{1}$/',
+                        'Driving License' => '/^\d{10,12}$/',
+                    ];
+                    if (isset($patterns[$idType])) {
+                        if (! preg_match($patterns[$idType], $value)) {
+                            $fail('The ID number format is invalid for '.$idType.'. Expected format: '.($idType === 'NIDA' ? 'YYYYMMDD-XXXXX-XXXXX-XX' : ($idType === 'Voter ID' ? 'T-XXXX-XXXX-XXX-X' : '10-12 digits')));
+                        }
+                    }
+                }],
+                'category' => 'required|string|max:20',
+                'customer_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+                'customer_files.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120',
+
             ]);
 
             $data = $request->only([
@@ -171,18 +191,25 @@ class CustomersController extends Controller
                 'id_type',
                 'id_number',
                 'category',
-            
-            
+
             ]);
             $data['subshop_id'] = $subshopId;
             $data['is_active'] = $request->has('is_active');
-            
+
             // Get the parent shop from the subshop
             $subshop = SubShop::findOrFail($subshopId);
             $data['shop_id'] = $subshop->shop_id;
-            
+
             // Generate unique customer_code
             $data['customer_code'] = $this->generateCustomerCode($subshop->shop_id);
+
+            // Handle customer image upload
+            if ($request->hasFile('customer_image')) {
+                $image = $request->file('customer_image');
+                $imageName = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
+                $imagePath = $image->storeAs('customers/images', $imageName, 'public');
+                $data['customer_image'] = $imagePath;
+            }
 
             // Check if there's a soft deleted customer with the same email in the same shop
             $existingCustomer = null;
@@ -206,12 +233,28 @@ class CustomersController extends Controller
                 $message = 'Customer created successfully.';
             }
 
+            // Handle customer files upload
+            if ($request->hasFile('customer_files')) {
+                foreach ($request->file('customer_files') as $file) {
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+                    $filePath = $file->storeAs('customers/files', $fileName, 'public');
+
+                    CustomerFile::create([
+                        'customer_id' => $customer->id,
+                        'file_path' => $filePath,
+                        'file_name' => $file->getClientOriginalName(),
+                        'file_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                    ]);
+                }
+            }
+
             // Check if this is an AJAX request
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
                     'message' => $message,
-                    'customer' => $customer
+                    'customer' => $customer,
                 ]);
             }
 
@@ -221,17 +264,19 @@ class CustomersController extends Controller
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
-                    'message' => 'Validation failed.'
+                    'message' => 'Validation failed.',
                 ], 422);
             }
+
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'An error occurred while saving the customer.'
+                    'message' => 'An error occurred while saving the customer.',
                 ], 500);
             }
+
             return redirect()->back()->with('error', 'An error occurred while saving the customer.');
         }
     }
@@ -242,16 +287,18 @@ class CustomersController extends Controller
     public function show(string $id)
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.show', $id)]);
         }
 
         $subshop = SubShop::findOrFail($subshopId);
         $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
-        $customer = Customers::withTrashed()->findOrFail($id);
+        $customer = Customers::withTrashed()
+            ->with('files')
+            ->findOrFail($id);
 
-        if (!$shopSubshopIds->contains((int) $customer->subshop_id)) {
+        if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
             abort(404);
         }
 
@@ -268,12 +315,12 @@ class CustomersController extends Controller
         // Calculate loan statistics
         $totalLoans = $allLoans->count();
         $activeLoans = $allLoans->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])->where('is_active', true);
-        $closedLoans = $allLoans->filter(function($loan) {
-            return in_array($loan->status, ['paid_off', 'closed']) || 
+        $closedLoans = $allLoans->filter(function ($loan) {
+            return in_array($loan->status, ['paid_off', 'closed']) ||
                    ($loan->status === 'disbursed' && $loan->installments_paid >= $loan->installments && $loan->installments > 0);
         });
         $writtenOffLoans = $allLoans->where('is_written_off', true);
-        
+
         // Calculate financial totals using actual outstanding from installments
         $totalDisbursed = 0;
         $totalRepaid = 0;
@@ -284,26 +331,26 @@ class CustomersController extends Controller
 
         foreach ($allLoans as $loan) {
             $totalDisbursed += (float) $loan->principal_amount;
-            
+
             // Calculate actual outstanding from installments
             $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
-            
+
             // Calculate repaid (disbursed - outstanding)
             $repaid = (float) $loan->principal_amount - $loan->calculated_outstanding;
             $totalRepaid += $repaid;
             $totalOutstanding += $loan->calculated_outstanding;
-            
+
             // Check for overdue installments to get days past due
             $overdueInstallment = $loan->installments()
                 ->where('is_active', true)
                 ->where('status', 'overdue')
                 ->orderBy('due_date', 'asc')
                 ->first();
-            
+
             if ($overdueInstallment) {
                 $daysPastDue = now()->diffInDays($overdueInstallment->due_date, false);
                 $loan->days_past_due = abs($daysPastDue);
-                
+
                 if ($loan->days_past_due > 0) {
                     $overdueLoansCount++;
                     $overdueAmount += $loan->calculated_outstanding;
@@ -353,7 +400,7 @@ class CustomersController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 return response()->json(['error' => 'No subshop selected'], 400);
             }
 
@@ -361,12 +408,12 @@ class CustomersController extends Controller
             if ($customer->subshop_id != $subshopId) {
                 return response()->json(['error' => 'Customer not found in current subshop'], 404);
             }
-            
+
             // Debug: Log the request and customer ID
             \Log::info('API Sales Request', [
                 'customer_id' => $customer->id,
                 'subshop_id' => $subshopId,
-                'request_data' => request()->all()
+                'request_data' => request()->all(),
             ]);
 
             // Sum of payments per order
@@ -377,14 +424,14 @@ class CustomersController extends Controller
 
             // First, get the sales with payment info
             $sales = SalesOrders::select([
-                    'sales_orders.id',
-                    'sales_orders.order_no',
-                    'sales_orders.created_at',
-                    'sales_orders.grand_total',
-                    'sales_orders.status',
-                    'payments.paid_total'
-                ])
-                ->leftJoinSub($paymentsSub, 'payments', function($join) {
+                'sales_orders.id',
+                'sales_orders.order_no',
+                'sales_orders.created_at',
+                'sales_orders.grand_total',
+                'sales_orders.status',
+                'payments.paid_total',
+            ])
+                ->leftJoinSub($paymentsSub, 'payments', function ($join) {
                     $join->on('sales_orders.id', '=', 'payments.order_id');
                 })
                 ->where('sales_orders.customer_id', $customer->id)
@@ -394,8 +441,8 @@ class CustomersController extends Controller
 
             // Get the order IDs to fetch items count
             $orderIds = $sales->pluck('id')->toArray();
-            
-            if (!empty($orderIds)) {
+
+            if (! empty($orderIds)) {
                 // Get items count for each order from sales_orders_items table
                 $itemsCount = DB::table('sales_orders_items')
                     ->select(
@@ -408,12 +455,12 @@ class CustomersController extends Controller
                     ->toArray();
 
                 // Add items_count to each sale
-                $sales->each(function($sale) use ($itemsCount) {
-                    $sale->items_count = isset($itemsCount[$sale->id]) ? (int)$itemsCount[$sale->id] : 0;
+                $sales->each(function ($sale) use ($itemsCount) {
+                    $sale->items_count = isset($itemsCount[$sale->id]) ? (int) $itemsCount[$sale->id] : 0;
                 });
             } else {
                 // If no orders, set items_count to 0 for all sales
-                $sales->each(function($sale) {
+                $sales->each(function ($sale) {
                     $sale->items_count = 0;
                 });
             }
@@ -421,20 +468,20 @@ class CustomersController extends Controller
             // Debug: Log the raw sales data
             \Log::info('Raw Sales Data', [
                 'sales' => $sales->toArray(),
-                'first_item' => $sales->first() ? $sales->first()->toArray() : null
+                'first_item' => $sales->first() ? $sales->first()->toArray() : null,
             ]);
 
-            $formattedSales = $sales->map(function($sale) {
+            $formattedSales = $sales->map(function ($sale) {
                 // Debug: Log each sale item
                 \Log::info('Processing Sale', [
                     'sale_id' => $sale->id,
-                    'sale_data' => $sale->toArray()
+                    'sale_data' => $sale->toArray(),
                 ]);
 
-                $grandTotal = (float)($sale->grand_total ?? 0);
-                $paid = (float)($sale->paid_total ?? 0);
+                $grandTotal = (float) ($sale->grand_total ?? 0);
+                $paid = (float) ($sale->paid_total ?? 0);
                 $remain = $grandTotal - $paid;
-                
+
                 // Determine payment status based on amounts
                 $status = 'pending';
                 if ($paid <= 0) {
@@ -444,22 +491,22 @@ class CustomersController extends Controller
                 } elseif ($paid > 0 && $remain > 0) {
                     $status = 'partial';
                 }
-                
+
                 // Get items count for this sale
                 $itemsCount = DB::table('sales_orders_items')
                     ->where('sales_order_id', $sale->id)
                     ->sum('quantity');
-                
+
                 return [
                     'id' => $sale->id,
                     'order_no' => $sale->order_no,
                     'date' => $sale->created_at ? $sale->created_at->toDateTimeString() : now()->toDateTimeString(),
-                    'grand_total' => (float)$sale->grand_total,
+                    'grand_total' => (float) $sale->grand_total,
                     'paid' => $paid,
                     'remaining' => $remain,
                     'status' => $status,
-                    'items_count' => (int)$itemsCount,
-                    'created_at' => $sale->created_at ? $sale->created_at->toDateTimeString() : null
+                    'items_count' => (int) $itemsCount,
+                    'created_at' => $sale->created_at ? $sale->created_at->toDateTimeString() : null,
                 ];
             });
 
@@ -478,12 +525,12 @@ class CustomersController extends Controller
                     'customer_id' => $customer->id,
                     'subshop_id' => $subshopId,
                     'total_sales' => $sales->total(),
-                    'first_sale' => $formattedSales->first()
-                ]
+                    'first_sale' => $formattedSales->first(),
+                ],
             ];
-            
+
             \Log::info('API Sales Response', $response);
-            
+
             return response()->json($response, 200, [], JSON_PRETTY_PRINT);
         } catch (\Throwable $e) {
             return response()->json(['sales' => [], 'error' => true, 'message' => $e->getMessage()], 200);
@@ -497,7 +544,7 @@ class CustomersController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 return response()->json(['error' => 'No subshop selected'], 400);
             }
 
@@ -514,7 +561,7 @@ class CustomersController extends Controller
             // Base orders query for this customer
             $base = SalesOrders::where('customer_id', $customer->id)
                 ->where('subshop_id', $subshopId)  // Ensure we only get orders from current subshop
-                ->leftJoinSub($paymentsSub, 'pays', function($join){
+                ->leftJoinSub($paymentsSub, 'pays', function ($join) {
                     $join->on('pays.order_id', '=', 'sales_orders.id');
                 })
                 ->select('sales_orders.*', DB::raw('COALESCE(pays.paid_total,0) as paid_total'));
@@ -530,23 +577,23 @@ class CustomersController extends Controller
             $since = now()->subMonths(11)->startOfMonth();
             $monthlyOrders = SalesOrders::where('customer_id', $customer->id)
                 ->where('created_at', '>=', $since)
-                ->get(['grand_total','created_at']);
+                ->get(['grand_total', 'created_at']);
 
             $monthMap = [];
-            for($i=11; $i>=0; $i--){
+            for ($i = 11; $i >= 0; $i--) {
                 $m = now()->subMonths($i);
                 $key = $m->format('Y-m');
                 $monthMap[$key] = 0.0;
             }
-            foreach($monthlyOrders as $o){
+            foreach ($monthlyOrders as $o) {
                 $key = optional($o->created_at)->format('Y-m');
-                if(isset($monthMap[$key])){
-                    $monthMap[$key] += (float)$o->grand_total;
+                if (isset($monthMap[$key])) {
+                    $monthMap[$key] += (float) $o->grand_total;
                 }
             }
             $labels = [];
             $values = [];
-            foreach($monthMap as $key => $val){
+            foreach ($monthMap as $key => $val) {
                 // $key is Y-m; build label from that (take month part)
                 $labels[] = \Carbon\Carbon::createFromFormat('Y-m', $key)->format('M');
                 $values[] = (float) $val;
@@ -565,19 +612,19 @@ class CustomersController extends Controller
                 ->get();
 
             $catTotal = (float) ($catRows->sum('total') ?: 1);
-            $categories = $catRows->map(function($r) use ($catTotal){
-                return [ 'label' => $r->category, 'value' => round(((float)$r->total / $catTotal) * 100, 2) ];
+            $categories = $catRows->map(function ($r) use ($catTotal) {
+                return ['label' => $r->category, 'value' => round(((float) $r->total / $catTotal) * 100, 2)];
             });
 
             // Recent activity: last 5 orders
             $recent = SalesOrders::where('customer_id', $customer->id)
                 ->orderByDesc('created_at')
                 ->limit(5)
-                ->get(['id','order_no','grand_total','created_at'])
-                ->map(function($o){
+                ->get(['id', 'order_no', 'grand_total', 'created_at'])
+                ->map(function ($o) {
                     return [
                         'order_no' => $o->order_no,
-                        'grand_total' => (float)$o->grand_total,
+                        'grand_total' => (float) $o->grand_total,
                         'date' => optional($o->created_at)->format('Y-m-d H:i'),
                     ];
                 });
@@ -589,14 +636,14 @@ class CustomersController extends Controller
                     'avg_order' => $avgOrder,
                     'last_order' => $lastOrder ? $lastOrder->format('Y-m-d') : null,
                 ],
-                'monthly' => [ 'labels' => $labels, 'values' => $values ],
+                'monthly' => ['labels' => $labels, 'values' => $values],
                 'categories' => $categories,
                 'recent' => $recent,
             ]);
         } catch (\Throwable $e) {
             return response()->json([
-                'quick' => [ 'total_orders' => 0, 'total_spent' => 0, 'avg_order' => 0, 'last_order' => null ],
-                'monthly' => [ 'labels' => [], 'values' => [] ],
+                'quick' => ['total_orders' => 0, 'total_spent' => 0, 'avg_order' => 0, 'last_order' => null],
+                'monthly' => ['labels' => [], 'values' => []],
                 'categories' => [],
                 'recent' => [],
                 'error' => true,
@@ -611,7 +658,7 @@ class CustomersController extends Controller
     public function edit(string $id)
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.edit', $id)]);
         }
 
@@ -619,7 +666,7 @@ class CustomersController extends Controller
         $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
         $customer = Customers::findOrFail($id);
-        if (!$shopSubshopIds->contains((int) $customer->subshop_id)) {
+        if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
             abort(404);
         }
 
@@ -633,11 +680,11 @@ class CustomersController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'No subshop selected. Please select a shop first.'
+                        'message' => 'No subshop selected. Please select a shop first.',
                     ], 400);
                 }
 
@@ -645,12 +692,12 @@ class CustomersController extends Controller
             }
 
             $customer = Customers::findOrFail($id);
-            
+
             // Verify customer belongs to the current subshop
             if ($customer->subshop_id != $subshopId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Customer not found in current subshop.'
+                    'message' => 'Customer not found in current subshop.',
                 ], 404);
             }
 
@@ -658,19 +705,33 @@ class CustomersController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'nullable|string|max:20',
-                'altenative_phone'  => 'nullable|string|max:20',
-                'gender'  => 'required|string|max:20',
-                'birth_date'  => 'required|date',
+                'altenative_phone' => 'nullable|string|max:20',
+                'gender' => 'required|string|max:20',
+                'birth_date' => 'required|date',
                 'region' => 'required|string|max:255',
                 'district' => 'required|string|max:255',
                 'ward' => 'required|string|max:255',
                 'street' => 'required|string|max:255',
                 'house_no' => 'required|string|max:20',
-                'work'  => 'nullable|string|max:20',
-                'work_address'  => 'nullable|string|max:20',
-                'id_type'  => 'required|string|max:20',
-                'id_number'  => 'required|string|max:50',
-                'category'  => 'required|string|max:20',
+                'work' => 'nullable|string|max:20',
+                'work_address' => 'nullable|string|max:20',
+                'id_type' => 'required|string|max:20',
+                'id_number' => ['required', 'string', 'max:50', function ($attribute, $value, $fail) use ($request) {
+                    $idType = $request->input('id_type');
+                    $patterns = [
+                        'NIDA' => '/^\d{8}-\d{5}-\d{5}-\d{2}$/',
+                        'Voter ID' => '/^T-\d{4}-\d{4}-\d{3}-\d{1}$/',
+                        'Driving License' => '/^\d{10,12}$/',
+                    ];
+                    if (isset($patterns[$idType])) {
+                        if (! preg_match($patterns[$idType], $value)) {
+                            $fail('The ID number format is invalid for '.$idType.'. Expected format: '.($idType === 'NIDA' ? 'YYYYMMDD-XXXXX-XXXXX-XX' : ($idType === 'Voter ID' ? 'T-XXXX-XXXX-XXX-X' : '10-12 digits')));
+                        }
+                    }
+                }],
+                'category' => 'required|string|max:20',
+                'customer_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+                'customer_files.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:5120',
             ]);
 
             $data = $request->only([
@@ -690,9 +751,37 @@ class CustomersController extends Controller
                 'id_type',
                 'id_number',
                 'category',
-                        
+
             ]);
             $data['is_active'] = $request->has('is_active');
+
+            // Handle customer image upload - replace old one if uploaded
+            if ($request->hasFile('customer_image')) {
+                // Delete old image if exists
+                if ($customer->customer_image) {
+                    Storage::disk('public')->delete($customer->customer_image);
+                }
+                $image = $request->file('customer_image');
+                $imageName = time().'_'.uniqid().'.'.$image->getClientOriginalExtension();
+                $imagePath = $image->storeAs('customers/images', $imageName, 'public');
+                $data['customer_image'] = $imagePath;
+            }
+
+            // Handle new customer files upload
+            if ($request->hasFile('customer_files')) {
+                foreach ($request->file('customer_files') as $file) {
+                    $fileName = time().'_'.uniqid().'.'.$file->getClientOriginalExtension();
+                    $filePath = $file->storeAs('customers/files', $fileName, 'public');
+
+                    CustomerFile::create([
+                        'customer_id' => $customer->id,
+                        'file_path' => $filePath,
+                        'file_name' => $file->getClientOriginalName(),
+                        'file_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                    ]);
+                }
+            }
 
             // Check if the email is being changed and if it already exists in the same shop
             if ($request->has('email') && $request->email !== $customer->email) {
@@ -712,7 +801,7 @@ class CustomersController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Customer updated successfully.',
-                    'customer' => $customer
+                    'customer' => $customer,
                 ]);
             }
 
@@ -722,17 +811,19 @@ class CustomersController extends Controller
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
-                    'message' => 'Validation failed.'
+                    'message' => 'Validation failed.',
                 ], 422);
             }
+
             return redirect()->back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
                 ], 500);
             }
+
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
@@ -744,35 +835,47 @@ class CustomersController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 if (request()->ajax() || request()->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'No subshop selected. Please select a shop first.'
+                        'message' => 'No subshop selected. Please select a shop first.',
                     ], 400);
                 }
+
                 return redirect()->route('subshops.choose', ['intended' => route('customers.index')]);
             }
 
             $customer = Customers::findOrFail($id);
-            
+
             // Verify customer belongs to the current subshop
             if ($customer->subshop_id != $subshopId) {
                 if (request()->ajax() || request()->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Customer not found in current subshop.'
+                        'message' => 'Customer not found in current subshop.',
                     ], 404);
                 }
+
                 return redirect()->back()->with('error', 'Customer not found in current subshop.');
             }
-            
-            $customer->delete();
+
+            // Delete customer image from storage
+            if ($customer->customer_image) {
+                Storage::disk('public')->delete($customer->customer_image);
+            }
+
+            // Delete all customer files from storage
+            foreach ($customer->files as $file) {
+                Storage::disk('public')->delete($file->file_path);
+            }
+
+            // Delete customer (soft delete - cascade will handle files deletion via foreign key)
 
             if (request()->ajax() || request()->wantsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Customer deleted successfully.'
+                    'message' => 'Customer deleted successfully.',
                 ]);
             }
 
@@ -781,9 +884,10 @@ class CustomersController extends Controller
             if (request()->ajax() || request()->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'An error occurred while deleting the customer.'
+                    'message' => 'An error occurred while deleting the customer.',
                 ], 500);
             }
+
             return redirect()->back()->with('error', 'An error occurred while deleting the customer.');
         }
     }
@@ -797,29 +901,91 @@ class CustomersController extends Controller
     }
 
     /**
+     * Download a customer file
+     */
+    public function downloadFile(string $id)
+    {
+        try {
+            $file = CustomerFile::findOrFail($id);
+            $customer = $file->customer;
+            $subshopId = session('subshop_id');
+
+            if (! $subshopId || $customer->subshop_id != $subshopId) {
+                abort(404);
+            }
+
+            $path = storage_path('app/public/'.$file->file_path);
+
+            if (! file_exists($path)) {
+                return back()->with('error', 'File not found.');
+            }
+
+            return response()->download($path, $file->file_name);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error downloading file.');
+        }
+    }
+
+    /**
+     * Delete a specific customer file
+     */
+    public function destroyFile(string $id)
+    {
+        try {
+            $subshopId = session('subshop_id');
+            if (! $subshopId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No subshop selected. Please select a shop first.',
+                ], 400);
+            }
+
+            $file = CustomerFile::findOrFail($id);
+            $customer = $file->customer;
+
+            // Verify customer belongs to the current subshop
+            if ($customer->subshop_id != $subshopId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File not found.',
+                ], 404);
+            }
+
+            // Delete file from storage
+            Storage::disk('public')->delete($file->file_path);
+
+            // Delete record from database
+            $file->delete();
+
+            return back()->with('success', 'File deleted successfully.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'An error occurred while deleting the file.');
+        }
+    }
+
+    /**
      * Generate a unique customer code
      * Format: {registration_number}-{YYMM}-{RAND}
-     * @param int $shopId
-     * @return string
      */
     private function generateCustomerCode(int $shopId): string
     {
         $shop = Shop::findOrFail($shopId);
         $registrationNumber = $shop->registration_number;
-        
+
         // Get current year and month in YYMM format
         $yearMonth = now()->format('ym');
-        
+
         // Generate random 4-character alphanumeric string (uppercase letters and numbers only)
         $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $randomString = '';
-        
+
         for ($i = 0; $i < 4; $i++) {
             $randomString .= $characters[random_int(0, strlen($characters) - 1)];
         }
-        
+
         $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
-        
+
         // Check if code already exists, regenerate if it does
         while (Customers::where('customer_code', $customerCode)->exists()) {
             $randomString = '';
@@ -828,14 +994,14 @@ class CustomersController extends Controller
             }
             $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
         }
-        
+
         return $customerCode;
     }
 
     public function export(Request $request, $format)
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.index')])
                 ->with('error', 'Please select a shop first');
         }
@@ -877,13 +1043,13 @@ class CustomersController extends Controller
 
         // Base customers query with loan stats
         $base = Customers::where('customers.subshop_id', $subshopId)
-            ->leftJoinSub($statsSub, 'stats', function($join){
+            ->leftJoinSub($statsSub, 'stats', function ($join) {
                 $join->on('stats.customer_id', '=', 'customers.id');
             })
-            ->leftJoinSub($outstandingSub, 'outstanding', function($join){
+            ->leftJoinSub($outstandingSub, 'outstanding', function ($join) {
                 $join->on('outstanding.customer_id', '=', 'customers.id');
             })
-            ->leftJoinSub($overdueSub, 'overdue', function($join){
+            ->leftJoinSub($overdueSub, 'overdue', function ($join) {
                 $join->on('overdue.customer_id', '=', 'customers.id');
             })
             ->select(
@@ -899,27 +1065,27 @@ class CustomersController extends Controller
         // Apply same filters as index
         if ($request->filled('search')) {
             $search = $request->search;
-            $base->where(function($q) use ($search){
+            $base->where(function ($q) use ($search) {
                 $q->where('customers.name', 'like', "%{$search}%")
-                  ->orWhere('customers.email', 'like', "%{$search}%")
-                  ->orWhere('customers.phone', 'like', "%{$search}%")
-                  ->orWhere('customers.contact_person', 'like', "%{$search}%");
+                    ->orWhere('customers.email', 'like', "%{$search}%")
+                    ->orWhere('customers.phone', 'like', "%{$search}%")
+                    ->orWhere('customers.contact_person', 'like', "%{$search}%");
             });
         }
-        if ($request->filled('status') && in_array($request->status, ['active','inactive'])) {
+        if ($request->filled('status') && in_array($request->status, ['active', 'inactive'])) {
             $base->where('customers.is_active', $request->status === 'active' ? 1 : 0);
         }
         if ($request->filled('min_loans')) {
-            $base->whereRaw('COALESCE(stats.total_loans,0) >= ?', [(int)$request->input('min_loans')]);
+            $base->whereRaw('COALESCE(stats.total_loans,0) >= ?', [(int) $request->input('min_loans')]);
         }
         if ($request->filled('max_loans')) {
-            $base->whereRaw('COALESCE(stats.total_loans,0) <= ?', [(int)$request->input('max_loans')]);
+            $base->whereRaw('COALESCE(stats.total_loans,0) <= ?', [(int) $request->input('max_loans')]);
         }
         if ($request->filled('min_outstanding')) {
-            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) >= ?', [(float)$request->input('min_outstanding')]);
+            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) >= ?', [(float) $request->input('min_outstanding')]);
         }
         if ($request->filled('max_outstanding')) {
-            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) <= ?', [(float)$request->input('max_outstanding')]);
+            $base->whereRaw('COALESCE(outstanding.outstanding_balance,0) <= ?', [(float) $request->input('max_outstanding')]);
         }
         if ($request->filled('date_from') || $request->filled('date_to')) {
             $base->whereRaw('COALESCE(stats.total_loans,0) > 0');
@@ -952,7 +1118,7 @@ class CustomersController extends Controller
         if ($format === 'csv') {
             return response()->stream(function () use ($rows) {
                 $h = fopen('php://output', 'w');
-                fputcsv($h, ['Name','Email','Phone','Gender','ID Type','ID Number','Region','District','Status','Total Loans','Outstanding Balance','Active Loans','Overdue Loans','Closed Loans','Written Off Loans','Joined']);
+                fputcsv($h, ['Name', 'Email', 'Phone', 'Gender', 'ID Type', 'ID Number', 'Region', 'District', 'Status', 'Total Loans', 'Outstanding Balance', 'Active Loans', 'Overdue Loans', 'Closed Loans', 'Written Off Loans', 'Joined']);
                 foreach ($rows as $e) {
                     fputcsv($h, [
                         $e->name,
@@ -964,12 +1130,12 @@ class CustomersController extends Controller
                         $e->region ?? '-',
                         $e->district ?? '-',
                         $e->is_active ? 'ACTIVE' : 'INACTIVE',
-                        (int)($e->total_loans ?? 0),
-                        number_format((float)($e->outstanding_balance ?? 0), 2, '.', ''),
-                        (int)($e->active_loans ?? 0),
-                        (int)($e->overdue_loans ?? 0),
-                        (int)($e->closed_loans ?? 0),
-                        (int)($e->written_off_loans ?? 0),
+                        (int) ($e->total_loans ?? 0),
+                        number_format((float) ($e->outstanding_balance ?? 0), 2, '.', ''),
+                        (int) ($e->active_loans ?? 0),
+                        (int) ($e->overdue_loans ?? 0),
+                        (int) ($e->closed_loans ?? 0),
+                        (int) ($e->written_off_loans ?? 0),
                         optional($e->created_at)->format('Y-m-d'),
                     ]);
                 }
@@ -981,7 +1147,7 @@ class CustomersController extends Controller
         }
 
         if ($format === 'excel') {
-            $exportRows = $rows->map(function($e){
+            $exportRows = $rows->map(function ($e) {
                 return [
                     'Name' => $e->name,
                     'Email' => $e->email ?? '-',
@@ -992,15 +1158,16 @@ class CustomersController extends Controller
                     'Region' => $e->region ?? '-',
                     'District' => $e->district ?? '-',
                     'Status' => $e->is_active ? 'ACTIVE' : 'INACTIVE',
-                    'Total Loans' => (int)($e->total_loans ?? 0),
-                    'Outstanding Balance' => (float)($e->outstanding_balance ?? 0),
-                    'Active Loans' => (int)($e->active_loans ?? 0),
-                    'Overdue Loans' => (int)($e->overdue_loans ?? 0),
-                    'Closed Loans' => (int)($e->closed_loans ?? 0),
-                    'Written Off Loans' => (int)($e->written_off_loans ?? 0),
+                    'Total Loans' => (int) ($e->total_loans ?? 0),
+                    'Outstanding Balance' => (float) ($e->outstanding_balance ?? 0),
+                    'Active Loans' => (int) ($e->active_loans ?? 0),
+                    'Overdue Loans' => (int) ($e->overdue_loans ?? 0),
+                    'Closed Loans' => (int) ($e->closed_loans ?? 0),
+                    'Written Off Loans' => (int) ($e->written_off_loans ?? 0),
                     'Joined' => optional($e->created_at)->format('Y-m-d'),
                 ];
             });
+
             return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\GenericArrayExport($exportRows->toArray(), 'Customers'), 'customers_'.now()->format('Y-m-d_H-i-s').'.xlsx');
         }
 
@@ -1009,12 +1176,24 @@ class CustomersController extends Controller
             $shop = $subshop ? Shop::find($subshop->shop_id) : null;
             $summary = [
                 'count' => $rows->count(),
-                'total_loans' => (int) $rows->sum(function($r){ return (int)($r->total_loans ?? 0); }),
-                'total_outstanding' => (float) $rows->sum(function($r){ return (float)($r->outstanding_balance ?? 0); }),
-                'total_active_loans' => (int) $rows->sum(function($r){ return (int)($r->active_loans ?? 0); }),
-                'total_overdue_loans' => (int) $rows->sum(function($r){ return (int)($r->overdue_loans ?? 0); }),
-                'total_closed_loans' => (int) $rows->sum(function($r){ return (int)($r->closed_loans ?? 0); }),
-                'total_written_off_loans' => (int) $rows->sum(function($r){ return (int)($r->written_off_loans ?? 0); }),
+                'total_loans' => (int) $rows->sum(function ($r) {
+                    return (int) ($r->total_loans ?? 0);
+                }),
+                'total_outstanding' => (float) $rows->sum(function ($r) {
+                    return (float) ($r->outstanding_balance ?? 0);
+                }),
+                'total_active_loans' => (int) $rows->sum(function ($r) {
+                    return (int) ($r->active_loans ?? 0);
+                }),
+                'total_overdue_loans' => (int) $rows->sum(function ($r) {
+                    return (int) ($r->overdue_loans ?? 0);
+                }),
+                'total_closed_loans' => (int) $rows->sum(function ($r) {
+                    return (int) ($r->closed_loans ?? 0);
+                }),
+                'total_written_off_loans' => (int) $rows->sum(function ($r) {
+                    return (int) ($r->written_off_loans ?? 0);
+                }),
                 'active_count' => (int) $rows->where('is_active', true)->count(),
                 'inactive_count' => (int) $rows->where('is_active', false)->count(),
             ];
@@ -1025,6 +1204,7 @@ class CustomersController extends Controller
                 'summary' => $summary,
                 'generatedBy' => optional(auth()->guard()->user())->name ?? 'System',
             ]);
+
             return $pdf->download('customers_'.now()->format('Y-m-d_H-i-s').'.pdf');
         }
 
@@ -1041,13 +1221,13 @@ class CustomersController extends Controller
             'Content-Disposition' => 'attachment; filename=customers_import_sample.csv',
             'Pragma' => 'no-cache',
             'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0'
+            'Expires' => '0',
         ];
 
         $callback = function () {
             $handle = fopen('php://output', 'w');
             // BOM for Excel
-            fputs($handle, "\xEF\xBB\xBF");
+            fwrite($handle, "\xEF\xBB\xBF");
             // Headers (exact column keys expected by importer)
             fputcsv($handle, [
                 'name',
@@ -1066,12 +1246,12 @@ class CustomersController extends Controller
                 'id_type',
                 'id_number',
                 'category',
-                'is_active' // 1 or 0
+                'is_active', // 1 or 0
             ]);
 
             // Sample rows (avoid commas in address for better CSV compatibility)
-            fputcsv($handle, ['Customer 1', 'customer1@gmail.com', '0600000001','0700000002', 'M', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', 'Teacher', 'Ubungo, Makuburi primary school', 'NIDA', '20030125-00000-00000-00', 'Borrower', '1' ]);
-            fputcsv($handle, ['customer 2', '', '0600000001','', 'F', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', '', '', 'NIDA', '20030125-00000-00000-00', 'Guarantor', '1' ]);
+            fputcsv($handle, ['Customer 1', 'customer1@gmail.com', '0600000001', '0700000002', 'M', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', 'Teacher', 'Ubungo, Makuburi primary school', 'NIDA', '20030125-00000-00000-00', 'Borrower', '1']);
+            fputcsv($handle, ['customer 2', '', '0600000001', '', 'F', '2002-01-25', 'Dar es salaam', 'Ubungo', 'Ubungo Maziwa', 'makuburi', '57', '', '', 'NIDA', '20030125-00000-00000-00', 'Guarantor', '1']);
             fclose($handle);
         };
 
@@ -1092,20 +1272,22 @@ class CustomersController extends Controller
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
-                    'message' => 'Import failed: Please upload a valid CSV file. Maximum file size is 2MB.'
+                    'message' => 'Import failed: Please upload a valid CSV file. Maximum file size is 2MB.',
                 ], 422);
             }
+
             return redirect()->back()->withErrors($e->errors())->withInput();
         }
 
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Import failed: No shop selected. Please select a shop first before importing customers.'
+                    'message' => 'Import failed: No shop selected. Please select a shop first before importing customers.',
                 ], 400);
             }
+
             return redirect()->route('subshops.choose', ['intended' => route('customers.create')]);
         }
 
@@ -1125,17 +1307,18 @@ class CustomersController extends Controller
             // Read all rows first
             while (($row = fgetcsv($handle)) !== false) {
                 $rowIndex++;
-                
+
                 // Strip BOM on first column for every row
                 if (isset($row[0])) {
-                    $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string)$row[0]);
+                    $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $row[0]);
                 }
 
                 // First row is headers
                 if ($rowIndex === 1) {
-                    $headers = array_map(function($h) {
+                    $headers = array_map(function ($h) {
                         return strtolower(trim($h));
                     }, $row);
+
                     continue;
                 }
 
@@ -1153,24 +1336,26 @@ class CustomersController extends Controller
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => $errorMsg
+                        'message' => $errorMsg,
                     ], 400);
                 }
+
                 return redirect()->back()->with('error', $errorMsg);
             }
 
             // Validate headers
             $requiredHeaders = ['name', 'gender', 'birth_date', 'phone', 'region', 'district', 'ward', 'street', 'house_no', 'id_type', 'id_number', 'category'];
             $missingHeaders = array_diff($requiredHeaders, $headers);
-            
-            if (!empty($missingHeaders)) {
-                $errorMsg = 'Import failed: Missing required columns in CSV file: ' . implode(', ', $missingHeaders) . '. Please download the template and ensure all required columns are present.';
+
+            if (! empty($missingHeaders)) {
+                $errorMsg = 'Import failed: Missing required columns in CSV file: '.implode(', ', $missingHeaders).'. Please download the template and ensure all required columns are present.';
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => $errorMsg
+                        'message' => $errorMsg,
                     ], 400);
                 }
+
                 return redirect()->back()->with('error', $errorMsg);
             }
 
@@ -1189,70 +1374,71 @@ class CustomersController extends Controller
 
                 // Validate required fields
                 $rowErrors = [];
-                
+
                 if (empty($rowData['name'])) {
-                    $rowErrors[] = "name is required and cannot be empty";
+                    $rowErrors[] = 'name is required and cannot be empty';
                 }
                 if (empty($rowData['gender'])) {
-                    $rowErrors[] = "gender is required and cannot be empty";
-                } elseif (!in_array(strtoupper($rowData['gender']), ['M', 'F'])) {
+                    $rowErrors[] = 'gender is required and cannot be empty';
+                } elseif (! in_array(strtoupper($rowData['gender']), ['M', 'F'])) {
                     $rowErrors[] = "gender must be M (Male) or F (Female), found '{$rowData['gender']}'";
                 }
                 if (empty($rowData['birth_date'])) {
-                    $rowErrors[] = "birth_date is required and cannot be empty";
-                } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rowData['birth_date'])) {
+                    $rowErrors[] = 'birth_date is required and cannot be empty';
+                } elseif (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $rowData['birth_date'])) {
                     $rowErrors[] = "birth_date must be in YYYY-MM-DD format, found '{$rowData['birth_date']}'";
                 }
                 if (empty($rowData['phone'])) {
-                    $rowErrors[] = "phone is required and cannot be empty";
+                    $rowErrors[] = 'phone is required and cannot be empty';
                 }
                 if (empty($rowData['region'])) {
-                    $rowErrors[] = "region is required and cannot be empty";
+                    $rowErrors[] = 'region is required and cannot be empty';
                 }
                 if (empty($rowData['district'])) {
-                    $rowErrors[] = "district is required and cannot be empty";
+                    $rowErrors[] = 'district is required and cannot be empty';
                 }
                 if (empty($rowData['ward'])) {
-                    $rowErrors[] = "ward is required and cannot be empty";
+                    $rowErrors[] = 'ward is required and cannot be empty';
                 }
                 if (empty($rowData['street'])) {
-                    $rowErrors[] = "street is required and cannot be empty";
+                    $rowErrors[] = 'street is required and cannot be empty';
                 }
                 if (empty($rowData['house_no'])) {
-                    $rowErrors[] = "house_no is required and cannot be empty";
+                    $rowErrors[] = 'house_no is required and cannot be empty';
                 }
                 if (empty($rowData['id_type'])) {
-                    $rowErrors[] = "id_type is required and cannot be empty";
-                } elseif (!in_array($rowData['id_type'], ['NIDA', 'Driving License', 'Voter Id', 'Other'])) {
+                    $rowErrors[] = 'id_type is required and cannot be empty';
+                } elseif (! in_array($rowData['id_type'], ['NIDA', 'Driving License', 'Voter Id', 'Other'])) {
                     $rowErrors[] = "id_type must be NIDA, Driving License, Voter Id, or Other, found '{$rowData['id_type']}'";
                 }
                 if (empty($rowData['id_number'])) {
-                    $rowErrors[] = "id_number is required and cannot be empty";
+                    $rowErrors[] = 'id_number is required and cannot be empty';
                 }
                 if (empty($rowData['category'])) {
-                    $rowErrors[] = "category is required and cannot be empty";
-                } elseif (!in_array(strtolower($rowData['category']), ['borrower', 'guarantor'])) {
+                    $rowErrors[] = 'category is required and cannot be empty';
+                } elseif (! in_array(strtolower($rowData['category']), ['borrower', 'guarantor'])) {
                     $rowErrors[] = "category must be borrower or guarantor, found '{$rowData['category']}'";
                 }
 
-                if (!empty($rowErrors)) {
-                    $errors[] = "Row {$rowIndex}: " . implode('; ', $rowErrors);
+                if (! empty($rowErrors)) {
+                    $errors[] = "Row {$rowIndex}: ".implode('; ', $rowErrors);
+
                     continue;
                 }
 
                 try {
                     // Get the parent shop from the subshop
                     $subshop = SubShop::findOrFail($subshopId);
-                    
+
                     // Prepare data for insertion
                     $data = [
                         'subshop_id' => $subshopId,
                         'shop_id' => $subshop->shop_id,
                         'customer_code' => $this->generateCustomerCode($subshop->shop_id),
                         'name' => $rowData['name'],
-                        'email' => !empty($rowData['email']) ? $rowData['email'] : null,
+                        'email' => ! empty($rowData['email']) ? $rowData['email'] : null,
                         'phone' => $rowData['phone'],
-                        'altenative_phone' => !empty($rowData['altenative_phone']) ? $rowData['altenative_phone'] : null,
+                        'altenative_phone' => ! empty($rowData['altenative_phone']) ? $rowData['altenative_phone'] : null,
                         'gender' => strtoupper($rowData['gender']),
                         'birth_date' => $rowData['birth_date'],
                         'region' => $rowData['region'],
@@ -1260,22 +1446,23 @@ class CustomersController extends Controller
                         'ward' => $rowData['ward'],
                         'street' => $rowData['street'],
                         'house_no' => $rowData['house_no'],
-                        'work' => !empty($rowData['work']) ? $rowData['work'] : null,
-                        'work_address' => !empty($rowData['work_address']) ? $rowData['work_address'] : null,
+                        'work' => ! empty($rowData['work']) ? $rowData['work'] : null,
+                        'work_address' => ! empty($rowData['work_address']) ? $rowData['work_address'] : null,
                         'id_type' => $rowData['id_type'],
                         'id_number' => $rowData['id_number'],
                         'category' => strtolower($rowData['category']),
-                        'is_active' => isset($rowData['is_active']) ? (int)$rowData['is_active'] : 1,
+                        'is_active' => isset($rowData['is_active']) ? (int) $rowData['is_active'] : 1,
                     ];
 
                     // Check for duplicate email in same subshop
-                    if (!empty($data['email'])) {
+                    if (! empty($data['email'])) {
                         $existing = Customers::where('subshop_id', $subshopId)
                             ->where('email', $data['email'])
                             ->first();
-                        
+
                         if ($existing) {
                             $errors[] = "Row {$rowIndex}: A customer with email '{$data['email']}' already exists in this shop. Please use a different email address.";
+
                             continue;
                         }
                     }
@@ -1283,17 +1470,17 @@ class CustomersController extends Controller
                     Customers::create($data);
                     $imported++;
                 } catch (\Exception $e) {
-                    $errors[] = "Row {$rowIndex}: Database error - " . $e->getMessage();
+                    $errors[] = "Row {$rowIndex}: Database error - ".$e->getMessage();
                 }
             }
 
             // If there are any errors, rollback the transaction
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 DB::rollBack();
-                
+
                 $errorCount = count($errors);
                 $errorMessage = "Import failed due to {$errorCount} error(s). All changes have been rolled back. Please fix the following issues and try again:";
-                
+
                 if ($request->ajax() || $request->wantsJson()) {
                     return response()->json([
                         'success' => false,
@@ -1302,7 +1489,7 @@ class CustomersController extends Controller
                         'imported' => 0,
                     ], 400);
                 }
-                
+
                 return redirect()->back()
                     ->with('error', $errorMessage)
                     ->with('import_errors', $errors);
@@ -1312,7 +1499,7 @@ class CustomersController extends Controller
             DB::commit();
 
             $message = "Successfully imported {$imported} customer(s). All data has been saved to the database.";
-            
+
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -1325,16 +1512,16 @@ class CustomersController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
-            $errorMessage = 'Import failed: ' . $e->getMessage();
-            
+
+            $errorMessage = 'Import failed: '.$e->getMessage();
+
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => $errorMessage,
                 ], 500);
             }
-            
+
             return redirect()->back()->with('error', $errorMessage);
         }
     }
@@ -1357,76 +1544,76 @@ class CustomersController extends Controller
             'Content-Disposition' => 'attachment; filename=customer_import_template.csv',
         ];
 
-$callback = function() {
-    // Clear any existing output buffer
-    if (ob_get_level()) {
-        ob_end_clean();
-    }
+        $callback = function () {
+            // Clear any existing output buffer
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
 
-    $handle = fopen('php://output', 'w');
+            $handle = fopen('php://output', 'w');
 
-    fputcsv($handle, [
-        'name','email',
-        'phone',
-        'altenative_phone',
-        'gender',
-        'birth_date',
-        'region',
-        'district',
-        'ward',
-        'street',
-        'house_no',
-        'work',
-        'work_address',
-        'id_type',
-        'id_number',
-        'category',
-        'is_active'
-    ]);
+            fputcsv($handle, [
+                'name', 'email',
+                'phone',
+                'altenative_phone',
+                'gender',
+                'birth_date',
+                'region',
+                'district',
+                'ward',
+                'street',
+                'house_no',
+                'work',
+                'work_address',
+                'id_type',
+                'id_number',
+                'category',
+                'is_active',
+            ]);
 
-    fputcsv($handle, [
-        'John Doe',
-        'john.doe@example.com',
-        '0712345678',
-        '0712345679',
-        'M',
-        '1990-01-15',
-        'Dar es Salaam',
-        'Kinondoni',
-        'Masaki',
-        'Slipway Road',
-        '123',
-        'Engineer',
-        'Slipway,
+            fputcsv($handle, [
+                'John Doe',
+                'john.doe@example.com',
+                '0712345678',
+                '0712345679',
+                'M',
+                '1990-01-15',
+                'Dar es Salaam',
+                'Kinondoni',
+                'Masaki',
+                'Slipway Road',
+                '123',
+                'Engineer',
+                'Slipway,
          Dar es Salaam',
-        'NIDA',
-        '19900115-12345-12345-12',
-        'borrower',
-        '1'
-    ]);
+                'NIDA',
+                '19900115-12345-12345-12',
+                'borrower',
+                '1',
+            ]);
 
-    fputcsv($handle, [
-        'Jane Smith',
-        'jane.smith@example.com',
-        '0712345680',
-        '',
-        'F',
-        '1985-05-20',
-        'Dar es Salaam',
-        'Ilala',
-        'Upanga',
-        'Samora Avenue',
-        '456',
-        'Teacher',
-        'Upanga Primary School',
-        'Driving License',
-        'DL123456789',
-        'guarantor',
-        '1'
-    ]);
+            fputcsv($handle, [
+                'Jane Smith',
+                'jane.smith@example.com',
+                '0712345680',
+                '',
+                'F',
+                '1985-05-20',
+                'Dar es Salaam',
+                'Ilala',
+                'Upanga',
+                'Samora Avenue',
+                '456',
+                'Teacher',
+                'Upanga Primary School',
+                'Driving License',
+                'DL123456789',
+                'guarantor',
+                '1',
+            ]);
 
-    fclose($handle);
-};
+            fclose($handle);
+        };
 
         return response()->stream($callback, 200, $headers);
     }
@@ -1437,7 +1624,7 @@ $callback = function() {
     public function exportCustomer(Request $request, $id, $format)
     {
         $subshopId = session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return redirect()->route('subshops.choose', ['intended' => route('customers.show', $id)])
                 ->with('error', 'Please select a shop first');
         }
@@ -1453,8 +1640,8 @@ $callback = function() {
         // Get shop logo path
         $shopLogoPath = null;
         if ($shop && $shop->logo) {
-            $shopLogoPath = public_path('storage/' . $shop->logo);
-            if (!file_exists($shopLogoPath)) {
+            $shopLogoPath = public_path('storage/'.$shop->logo);
+            if (! file_exists($shopLogoPath)) {
                 $shopLogoPath = null;
             }
         }
@@ -1468,12 +1655,12 @@ $callback = function() {
         // Calculate loan statistics using the same logic as show method
         $totalLoans = $allLoans->count();
         $activeLoans = $allLoans->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])->where('is_active', true);
-        $closedLoans = $allLoans->filter(function($loan) {
-            return in_array($loan->status, ['paid_off', 'closed']) || 
+        $closedLoans = $allLoans->filter(function ($loan) {
+            return in_array($loan->status, ['paid_off', 'closed']) ||
                    ($loan->status === 'disbursed' && $loan->installments_paid >= $loan->installments && $loan->installments > 0);
         });
         $writtenOffLoans = $allLoans->where('is_written_off', true);
-        
+
         // Calculate financial totals using actual outstanding from installments
         $totalDisbursed = 0;
         $totalRepaid = 0;
@@ -1484,26 +1671,26 @@ $callback = function() {
 
         foreach ($allLoans as $loan) {
             $totalDisbursed += (float) $loan->principal_amount;
-            
+
             // Calculate actual outstanding from installments
             $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
-            
+
             // Calculate repaid (disbursed - outstanding)
             $repaid = (float) $loan->principal_amount - $loan->calculated_outstanding;
             $totalRepaid += $repaid;
             $totalOutstanding += $loan->calculated_outstanding;
-            
+
             // Check for overdue installments to get days past due
             $overdueInstallment = $loan->installments()
                 ->where('is_active', true)
                 ->where('status', 'overdue')
                 ->orderBy('due_date', 'asc')
                 ->first();
-            
+
             if ($overdueInstallment) {
                 $daysPastDue = now()->diffInDays($overdueInstallment->due_date, false);
                 $loan->days_past_due = abs($daysPastDue);
-                
+
                 if ($loan->days_past_due > 0) {
                     $overdueLoansCount++;
                     $overdueAmount += $loan->calculated_outstanding;
@@ -1541,7 +1728,7 @@ $callback = function() {
 
         if ($format === 'excel') {
             $exportRows = [];
-            
+
             // Customer Information
             $exportRows[] = ['CUSTOMER INFORMATION', ''];
             $exportRows[] = ['Name', $customer->name];
@@ -1553,7 +1740,7 @@ $callback = function() {
             $exportRows[] = ['Category', $customer->category ?? '-'];
             $exportRows[] = ['Status', $customer->is_active ? 'Active' : 'Inactive'];
             $exportRows[] = ['', ''];
-            
+
             // Address Information
             $exportRows[] = ['ADDRESS INFORMATION', ''];
             $exportRows[] = ['Region', $customer->region ?? '-'];
@@ -1562,19 +1749,19 @@ $callback = function() {
             $exportRows[] = ['Street', $customer->street ?? '-'];
             $exportRows[] = ['House No', $customer->house_no ?? '-'];
             $exportRows[] = ['', ''];
-            
+
             // Work Information
             $exportRows[] = ['WORK INFORMATION', ''];
             $exportRows[] = ['Work', $customer->work ?? '-'];
             $exportRows[] = ['Work Address', $customer->work_address ?? '-'];
             $exportRows[] = ['', ''];
-            
+
             // Identification
             $exportRows[] = ['IDENTIFICATION', ''];
             $exportRows[] = ['ID Type', $customer->id_type ?? '-'];
             $exportRows[] = ['ID Number', $customer->id_number ?? '-'];
             $exportRows[] = ['', ''];
-            
+
             // Loan Statistics
             $exportRows[] = ['LOAN STATISTICS', ''];
             $exportRows[] = ['Total Loans', $stats['loans_count']];
@@ -1588,11 +1775,11 @@ $callback = function() {
             $exportRows[] = ['Overdue Amount', number_format($stats['overdue_amount'], 2)];
             $exportRows[] = ['Max Days Past Due', $stats['max_days_past_due']];
             $exportRows[] = ['', ''];
-            
+
             // Loan Details
             $exportRows[] = ['LOAN DETAILS', ''];
             $exportRows[] = ['Loan Code', 'Product', 'Status', 'Principal', 'Outstanding', 'Disbursed Date', 'Maturity Date', 'Installments', 'DPD'];
-            
+
             foreach ($allLoans as $loan) {
                 $status = $loan->status;
                 if ($loan->is_written_off) {
@@ -1600,7 +1787,7 @@ $callback = function() {
                 } elseif ($loan->days_past_due > 0) {
                     $status = 'Overdue';
                 }
-                
+
                 $exportRows[] = [
                     $loan->loan_code,
                     $loan->loanProduct->name ?? 'N/A',
@@ -1609,14 +1796,14 @@ $callback = function() {
                     number_format($loan->calculated_outstanding, 2),
                     $loan->disbursement_date?->format('Y-m-d') ?? '-',
                     $loan->maturity_date?->format('Y-m-d') ?? '-',
-                    ($loan->installments_paid ?? 0) . '/' . ($loan->installments ?? 0),
+                    ($loan->installments_paid ?? 0).'/'.($loan->installments ?? 0),
                     $loan->days_past_due > 0 ? $loan->days_past_due : '-',
                 ];
             }
-            
+
             return \Maatwebsite\Excel\Facades\Excel::download(
                 new \App\Exports\GenericArrayExport($exportRows, 'Customer Details'),
-                'customer_' . $customer->id . '_' . now()->format('Y-m-d_H-i-s') . '.xlsx'
+                'customer_'.$customer->id.'_'.now()->format('Y-m-d_H-i-s').'.xlsx'
             );
         }
 
@@ -1624,7 +1811,7 @@ $callback = function() {
             // Get shop logo path
             $shopLogoPath = null;
             if ($shop && $shop->logo) {
-                $logoPath = public_path('storage/' . $shop->logo);
+                $logoPath = public_path('storage/'.$shop->logo);
                 if (file_exists($logoPath)) {
                     $shopLogoPath = $logoPath;
                 }
@@ -1642,17 +1829,16 @@ $callback = function() {
 
             // Ensure directory exists
             $directory = storage_path('app/public/customers/pdf');
-            if (!file_exists($directory)) {
+            if (! file_exists($directory)) {
                 mkdir($directory, 0755, true);
             }
 
-            $filename = $customer->name. '_Report_' . now()->format('Y-m-d_H-i-s') . '.pdf';
-            $pdf->save($directory . '/' . $filename);
+            $filename = $customer->name.'_Report_'.now()->format('Y-m-d_H-i-s').'.pdf';
+            $pdf->save($directory.'/'.$filename);
 
-            return response()->download($directory . '/' . $filename)->deleteFileAfterSend(true);
+            return response()->download($directory.'/'.$filename)->deleteFileAfterSend(true);
         }
 
         return redirect()->back()->with('error', 'Unsupported export format');
     }
-
 }

@@ -31,6 +31,7 @@ class Customers extends Model
         'id_number',
         'category',
         'is_active',
+        'customer_image',
     ];
 
     protected $casts = [
@@ -40,25 +41,39 @@ class Customers extends Model
         'deleted_at' => 'datetime',
     ];
 
-    /**
-     * Get the subshop that owns this customer
-     */
     public function subshop()
     {
         return $this->belongsTo(SubShop::class);
     }
 
-    /**
-     * Get the shop that owns this customer
-     */
+    public function files()
+    {
+        return $this->hasMany(CustomerFile::class, 'customer_id');
+    }
+
     public function shop()
     {
         return $this->belongsTo(Shop::class);
     }
 
-    /**
-     * Scope to get only active customers
-     */
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->customer_image) {
+            return null;
+        }
+
+        return asset('storage/'.$this->customer_image);
+    }
+
+    public function getAvatarUrlAttribute(): string
+    {
+        if ($this->customer_image) {
+            return asset('storage/'.$this->customer_image);
+        }
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->name).'&background=random&color=fff&size=40';
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

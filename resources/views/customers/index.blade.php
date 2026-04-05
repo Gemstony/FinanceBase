@@ -160,11 +160,13 @@
                 <thead class="thead-light">
                     <tr>
                         <th>#</th>
+                        <th>Image</th>
                         <th>Name</th>
                         <th>Gender</th>
                         <th>Phone</th>
                         <th>Category</th>
                         <th>Region</th>
+                        <th>Files</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -177,6 +179,12 @@
                         <tr>
                             <td>{{ $counter++ }}</td>
                             <td>
+                                <img src="{{ $customer->avatar_url }}" 
+                                     alt="{{ $customer->name }}" 
+                                     class="rounded-circle"
+                                     style="width: 40px; height: 40px; object-fit: cover;">
+                            </td>
+                            <td>
                                 <a href="{{ route('customers.show', $customer->id) }}"><strong>{{ $customer->name }}</strong></a>
                                 @if($customer->email)
                                     <br><small class="text-muted"><i class="fas fa-envelope"></i> {{ $customer->email }}</small>
@@ -186,6 +194,9 @@
                             <td>{{ $customer->phone ?? '—' }}</td>
                             <td>{{ $customer->category ?? '—' }}</td>
                             <td>{{ $customer->region ?? '—' }}</td>
+                            <td>
+                                <span class="badge badge-info">{{ $customer->files_count ?? 0 }}</span>
+                            </td>
                             <td>
                                 <span class="badge {{ $customer->is_active ? 'badge-success' : 'badge-secondary' }}">
                                     {{ $customer->is_active ? 'Active' : 'Inactive' }}
@@ -213,7 +224,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No customers found.</td>
+                            <td colspan="10" class="text-center text-muted">No customers found.</td>
                         </tr>
                     @endforelse
                 </tbody>

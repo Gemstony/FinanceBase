@@ -620,7 +620,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/', [LoansController::class, 'index'])->name('index');
             Route::get('/create', [LoansController::class, 'create'])->name('create');
             Route::get('/calculator', [LoansController::class, 'calculator'])->name('calculator.index');
-            Route::post('/calculator/calculate', [LoansController::class, 'calculateLoan'])->name('calculator.calculate');
+            Route::post('/calculator/calculate', [LoansController::class, 'calculatLoan'])->name('calculator.calculate');
             Route::post('/', [LoansController::class, 'store'])->name('store');
             Route::get('/{loan:loan_code}', [LoansController::class, 'show'])->name('show');
             Route::get('/{loan:loan_code}/edit', [LoansController::class, 'edit'])->name('edit');
@@ -1208,6 +1208,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('customers.edit');
         Route::put('/admin/sales/customers/{customer}', [CustomersController::class, 'update'])->name('customers.update');
         Route::delete('/admin/sales/customers/{customer}', [CustomersController::class, 'destroy'])->name('customers.destroy');
+        Route::delete('/admin/sales/customers/files/{id}', [CustomersController::class, 'destroyFile'])->name('customers.files.destroy');
+        Route::get('/admin/sales/customers/files/{id}/download', [CustomersController::class, 'downloadFile'])->name('customers.files.download');
         Route::get('/admin/sales/customers/{customer}', [CustomersController::class, 'show'])->name('customers.show');
         // Customers APIs for modal data
         Route::get('/api/customers/{customer}/sales', [CustomersController::class, 'apiSales'])->name('api.customers.sales');

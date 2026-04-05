@@ -11,24 +11,22 @@ use App\Models\LoanProducts;
 use App\Models\Loans;
 use App\Models\SubShop;
 use App\Models\User;
-use App\Services\Loans\Account\LoanBalanceCalculator;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class LoanPortfolioReportService
 {
     public function __construct(
-        private readonly LoanBalanceCalculator $loanBalanceCalculator,
-    ) {
-    }
+        private readonly PortfolioRiskCalculator $portfolioRiskCalculator,
+    ) {}
 
     /**
      * Build the full loan portfolio report dataset.
      *
-     * @param array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds): array
     {
@@ -120,16 +118,16 @@ class LoanPortfolioReportService
     {
         $q = Loans::query()->whereIn('subshop_id', $subshopIds);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loan_product_id', (int) $filters['loan_product_id']);
         }
 
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('status', (string) $filters['loan_status']);
         }
 
         // Officer filter via latest disbursement processor.
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $officerId = (int) $filters['loan_officer_id'];
             $latestDisbursement = DB::table('loan_disbursements as ld')
                 ->selectRaw('MAX(ld.id) as id, ld.loan_id')
@@ -147,19 +145,9 @@ class LoanPortfolioReportService
 
     private function calculatePortfolioOutstanding(Builder $loanBase): float
     {
-        $total = 0.0;
+        $subshopIds = (clone $loanBase)->distinct()->pluck('subshop_id')->toArray();
 
-        (clone $loanBase)
-            ->select(['id'])
-            ->orderBy('id')
-            ->chunkById(200, function ($loans) use (&$total) {
-                foreach ($loans as $loan) {
-                    $balances = $this->loanBalanceCalculator->calculateBalances($loan);
-                    $total += (float) ($balances['total_balance'] ?? 0);
-                }
-            });
-
-        return round($total, 2);
+        return $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
     }
 
     private function compositionByProduct(Builder $loanBase): array
@@ -168,7 +156,7 @@ class LoanPortfolioReportService
 
         $rows = (clone $loanBase)
             ->whereIn('status', $activeStatuses)
-            ->selectRaw('loan_product_id, COUNT(*) as loans_count, SUM(COALESCE(outstanding_balance,0)) as outstanding')
+            ->selectRaw('loan_product_id, COUNT(*) as loans_count')
             ->groupBy('loan_product_id')
             ->get();
 
@@ -177,16 +165,29 @@ class LoanPortfolioReportService
             ->get(['id', 'name'])
             ->keyBy('id');
 
-        $portfolioTotal = (float) $rows->sum('outstanding');
+        $loansByProduct = (clone $loanBase)
+            ->whereIn('status', $activeStatuses)
+            ->selectRaw('loan_product_id, GROUP_CONCAT(id) as loan_ids')
+            ->groupBy('loan_product_id')
+            ->get()
+            ->keyBy('loan_product_id');
 
-        return $rows->map(function ($r) use ($products, $portfolioTotal) {
-            $out = (float) $r->outstanding;
+        return $rows->map(function ($r) use ($products, $loansByProduct) {
+            $loanIds = explode(',', $loansByProduct[(int) $r->loan_product_id]->loan_ids ?? '');
+            $outstanding = 0.0;
+            foreach ($loanIds as $loanId) {
+                $loan = Loans::find((int) $loanId);
+                if ($loan) {
+                    $outstanding += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            }
+
             return [
                 'product_id' => (int) $r->loan_product_id,
                 'product_name' => (string) ($products[(int) $r->loan_product_id]->name ?? 'Unknown'),
                 'loans_count' => (int) $r->loans_count,
-                'outstanding' => round($out, 2),
-                'pct' => $portfolioTotal > 0 ? round(($out / $portfolioTotal) * 100, 2) : 0.0,
+                'outstanding' => round($outstanding, 2),
+                'pct' => 0.0,
             ];
         })->sortByDesc('outstanding')->values()->all();
     }
@@ -197,7 +198,7 @@ class LoanPortfolioReportService
 
         $rows = (clone $loanBase)
             ->whereIn('status', $activeStatuses)
-            ->selectRaw('subshop_id, COUNT(*) as loans_count, SUM(COALESCE(outstanding_balance,0)) as outstanding')
+            ->selectRaw('subshop_id, COUNT(*) as loans_count')
             ->groupBy('subshop_id')
             ->get();
 
@@ -207,11 +208,13 @@ class LoanPortfolioReportService
 
         return $rows->map(function ($r) use ($subshops, $par30ByBranch) {
             $sid = (int) $r->subshop_id;
+            $outstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$sid]);
+
             return [
                 'subshop_id' => $sid,
                 'branch' => (string) ($subshops[$sid]->name ?? 'Unknown'),
                 'active_loans' => (int) $r->loans_count,
-                'outstanding' => round((float) $r->outstanding, 2),
+                'outstanding' => round($outstanding, 2),
                 'par30' => round((float) ($par30ByBranch[$sid] ?? 0.0), 2),
             ];
         })->sortByDesc('outstanding')->values()->all();
@@ -224,32 +227,55 @@ class LoanPortfolioReportService
     {
         $activeStatuses = ['disbursed', 'partially_paid', 'defaulted'];
 
-        $loansQ = Loans::query()
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->whereIn('loans.status', $activeStatuses);
-
-        if (!empty($filters['loan_product_id'])) {
-            $loansQ->where('loans.loan_product_id', (int) $filters['loan_product_id']);
-        }
-        if (!empty($filters['loan_status'])) {
-            $loansQ->where('loans.status', (string) $filters['loan_status']);
-        }
-
         $latestDisbursement = DB::table('loan_disbursements as ld')
             ->selectRaw('MAX(ld.id) as id, ld.loan_id')
             ->groupBy('ld.loan_id');
 
-        $rows = $loansQ
+        // Get loan counts by officer
+        $loansQ1 = Loans::query()
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', $activeStatuses);
+
+        if (! empty($filters['loan_product_id'])) {
+            $loansQ1->where('loans.loan_product_id', (int) $filters['loan_product_id']);
+        }
+        if (! empty($filters['loan_status'])) {
+            $loansQ1->where('loans.status', (string) $filters['loan_status']);
+        }
+
+        $rows = $loansQ1
             ->joinSub($latestDisbursement, 'ld_latest', function ($j) {
                 $j->on('ld_latest.loan_id', '=', 'loans.id');
             })
             ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
-            ->selectRaw('ld.processed_by as officer_id, COUNT(loans.id) as loans_count, SUM(COALESCE(loans.outstanding_balance,0)) as outstanding')
+            ->selectRaw('ld.processed_by as officer_id, COUNT(loans.id) as loans_count')
             ->groupBy('officer_id')
             ->get();
 
         $officerIds = $rows->pluck('officer_id')->filter()->unique()->values();
         $officers = User::query()->whereIn('id', $officerIds)->get(['id', 'name'])->keyBy('id');
+
+        // Get loan IDs by officer (fresh query)
+        $loansQ2 = Loans::query()
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', $activeStatuses);
+
+        if (! empty($filters['loan_product_id'])) {
+            $loansQ2->where('loans.loan_product_id', (int) $filters['loan_product_id']);
+        }
+        if (! empty($filters['loan_status'])) {
+            $loansQ2->where('loans.status', (string) $filters['loan_status']);
+        }
+
+        $loansByOfficer = $loansQ2
+            ->joinSub($latestDisbursement, 'ld_latest2', function ($j) {
+                $j->on('ld_latest2.loan_id', '=', 'loans.id');
+            })
+            ->join('loan_disbursements as ld2', 'ld2.id', '=', 'ld_latest2.id')
+            ->selectRaw('ld2.processed_by as officer_id, GROUP_CONCAT(loans.id) as loan_ids')
+            ->groupBy('officer_id')
+            ->get()
+            ->keyBy('officer_id');
 
         // repayments collected in period by officer's portfolio (loans mapped to officer)
         $repaymentsByLoan = DB::table('loan_payments as lp')
@@ -261,24 +287,33 @@ class LoanPortfolioReportService
         $collectedByOfficer = DB::table('loans')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereIn('loans.status', $activeStatuses)
-            ->joinSub($latestDisbursement, 'ld_latest', function ($j) {
-                $j->on('ld_latest.loan_id', '=', 'loans.id');
+            ->joinSub($latestDisbursement, 'ld_latest3', function ($j) {
+                $j->on('ld_latest3.loan_id', '=', 'loans.id');
             })
-            ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
+            ->join('loan_disbursements as ld3', 'ld3.id', '=', 'ld_latest3.id')
             ->leftJoinSub($repaymentsByLoan, 'rp', function ($j) {
                 $j->on('rp.loan_id', '=', 'loans.id');
             })
-            ->selectRaw('ld.processed_by as officer_id, SUM(COALESCE(rp.collected,0)) as collected')
+            ->selectRaw('ld3.processed_by as officer_id, SUM(COALESCE(rp.collected,0)) as collected')
             ->groupBy('officer_id')
             ->pluck('collected', 'officer_id');
 
-        return $rows->map(function ($r) use ($officers, $collectedByOfficer) {
+        return $rows->map(function ($r) use ($officers, $loansByOfficer, $collectedByOfficer) {
             $oid = (int) $r->officer_id;
+            $loanIds = explode(',', $loansByOfficer[$oid]->loan_ids ?? '');
+            $outstanding = 0.0;
+            foreach ($loanIds as $loanId) {
+                $loan = Loans::find((int) $loanId);
+                if ($loan) {
+                    $outstanding += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            }
+
             return [
                 'officer_id' => $oid,
                 'officer' => (string) ($officers[$oid]->name ?? 'Unknown'),
                 'loans_managed' => (int) $r->loans_count,
-                'outstanding' => round((float) $r->outstanding, 2),
+                'outstanding' => round($outstanding, 2),
                 'repayments_collected' => round((float) ($collectedByOfficer[$oid] ?? 0.0), 2),
             ];
         })->sortByDesc('outstanding')->values()->all();
@@ -291,13 +326,13 @@ class LoanPortfolioReportService
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereBetween('loan_disbursements.disbursement_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $q->where('loan_disbursements.processed_by', (int) $filters['loan_officer_id']);
         }
 
@@ -315,13 +350,13 @@ class LoanPortfolioReportService
             ->where('loan_payments.status', 'confirmed')
             ->whereBetween('loan_payments.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             // filter to loans belonging to officer portfolio
             $latestDisbursement = DB::table('loan_disbursements as ld')
                 ->selectRaw('MAX(ld.id) as id, ld.loan_id')
@@ -392,6 +427,7 @@ class LoanPortfolioReportService
         return array_map(function ($r) use ($portfolioOutstanding) {
             $out = (float) $r['outstanding'];
             $r['pct'] = $portfolioOutstanding > 0 ? round(($out / $portfolioOutstanding) * 100, 2) : 0.0;
+
             return $r;
         }, $rows);
     }
@@ -434,13 +470,13 @@ class LoanPortfolioReportService
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereBetween('ld.disbursement_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $q->where('ld.processed_by', (int) $filters['loan_officer_id']);
         }
 
@@ -453,6 +489,7 @@ class LoanPortfolioReportService
         return $rows->map(function ($r) {
             $loans = (int) $r->loans_disbursed;
             $amount = (float) $r->amount;
+
             return [
                 'month' => (string) $r->ym,
                 'loans_disbursed' => $loans,
@@ -495,9 +532,9 @@ class LoanPortfolioReportService
         $rows = (clone $loanBase)
             ->whereIn('status', $activeStatuses)
             ->whereNotNull('customer_id')
-            ->selectRaw('customer_id, COUNT(*) as loan_count, SUM(COALESCE(outstanding_balance,0)) as outstanding')
+            ->selectRaw('customer_id, COUNT(*) as loan_count')
             ->groupBy('customer_id')
-            ->orderByDesc('outstanding')
+            ->orderByDesc('loan_count')
             ->limit(10)
             ->get();
 
@@ -506,13 +543,30 @@ class LoanPortfolioReportService
             ->get(['id', 'name'])
             ->keyBy('id');
 
-        return $rows->map(function ($r) use ($customers) {
+        $loansByCustomer = (clone $loanBase)
+            ->whereIn('status', $activeStatuses)
+            ->whereNotNull('customer_id')
+            ->selectRaw('customer_id, GROUP_CONCAT(id) as loan_ids')
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        return $rows->map(function ($r) use ($customers, $loansByCustomer) {
             $cid = (int) $r->customer_id;
+            $loanIds = explode(',', $loansByCustomer[$cid]->loan_ids ?? '');
+            $outstanding = 0.0;
+            foreach ($loanIds as $loanId) {
+                $loan = Loans::find((int) $loanId);
+                if ($loan) {
+                    $outstanding += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            }
+
             return [
                 'customer_id' => $cid,
                 'customer' => (string) ($customers[$cid]->name ?? 'Unknown'),
                 'loan_count' => (int) $r->loan_count,
-                'outstanding' => round((float) $r->outstanding, 2),
+                'outstanding' => round($outstanding, 2),
             ];
         })->values()->all();
     }

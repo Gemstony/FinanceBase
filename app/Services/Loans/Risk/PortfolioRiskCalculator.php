@@ -14,44 +14,70 @@ class PortfolioRiskCalculator
      *
      * Financial logic (microfinance / banking standard):
      * Outstanding balance is the sum of unpaid components across all installments.
+     * Excludes penalties - they are tracked separately as "accrued penalties"
+     * and should not be included in core outstanding/receivable calculations.
+     *
+     * Calculation matches LoanOutstandingReportService:
+     * - Uses loan_payment_allocations table to get actual payments made
+     * - Uses MAX(schedule_version) to get the latest amortization schedule
+     * - Only includes payments with status = 'confirmed'
      *
      * For each installment:
      * (principal_due - principal_paid)
      * + (interest_due - interest_paid)
      * + (fees_due - fees_paid)
-     * + (penalty_due - penalty_paid)
      *
      * We never allow negative outstanding values (overpayments or data issues).
      */
     public function calculateLoanOutstanding(Loans $loan): float
     {
-        $total = 0.0;
-
-        LoanInstallments::query()
+        $latestVersion = (int) \App\Models\LoanInstallments::query()
             ->where('loan_id', $loan->id)
             ->where('is_active', true)
-            ->select([
-                'principal_due',
-                'principal_paid',
-                'interest_due',
-                'interest_paid',
-                'fees_due',
-                'fees_paid',
-                'penalty_due',
-                'penalty_paid',
-            ])
-            ->chunk(500, function ($installments) use (&$total) {
-                foreach ($installments as $i) {
-                    $principal = max(0.0, (float) $i->principal_due - (float) $i->principal_paid);
-                    $interest = max(0.0, (float) $i->interest_due - (float) $i->interest_paid);
-                    $fees = max(0.0, (float) $i->fees_due - (float) $i->fees_paid);
-                    $penalty = max(0.0, (float) $i->penalty_due - (float) $i->penalty_paid);
+            ->max('schedule_version');
 
-                    $total += ($principal + $interest + $fees + $penalty);
-                }
-            });
+        if ($latestVersion <= 0) {
+            return 0.0;
+        }
 
-        return round($total, 2);
+        $expected = \Illuminate\Support\Facades\DB::table('loan_installments as li')
+            ->where('li.loan_id', $loan->id)
+            ->where('li.is_active', true)
+            ->where('li.schedule_version', $latestVersion)
+            ->selectRaw('
+                SUM(COALESCE(li.principal_due,0)) as principal_expected,
+                SUM(COALESCE(li.interest_due,0)) as interest_expected,
+                SUM(COALESCE(li.fees_due,0)) as fees_expected
+            ')
+            ->groupBy('li.loan_id')
+            ->first();
+
+        $paid = \Illuminate\Support\Facades\DB::table('loan_payment_allocations as lpa')
+            ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
+            ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
+            ->where('li.loan_id', $loan->id)
+            ->where('lp.status', 'confirmed')
+            ->selectRaw('
+                SUM(COALESCE(lpa.principal_amount,0)) as principal_paid,
+                SUM(COALESCE(lpa.interest_amount,0)) as interest_paid,
+                SUM(COALESCE(lpa.fee_amount,0)) as fees_paid
+            ')
+            ->groupBy('li.loan_id')
+            ->first();
+
+        $principalExpected = (float) ($expected->principal_expected ?? 0);
+        $interestExpected = (float) ($expected->interest_expected ?? 0);
+        $feesExpected = (float) ($expected->fees_expected ?? 0);
+
+        $principalPaid = (float) ($paid->principal_paid ?? 0);
+        $interestPaid = (float) ($paid->interest_paid ?? 0);
+        $feesPaid = (float) ($paid->fees_paid ?? 0);
+
+        $principalOutstanding = max(0.0, $principalExpected - $principalPaid);
+        $interestOutstanding = max(0.0, $interestExpected - $interestPaid);
+        $feesOutstanding = max(0.0, $feesExpected - $feesPaid);
+
+        return round($principalOutstanding + $interestOutstanding + $feesOutstanding, 2);
     }
 
     /**
@@ -152,11 +178,21 @@ class PortfolioRiskCalculator
      * Active loans query used across calculations.
      *
      * In most microfinance systems, PAR is measured on the active portfolio.
+     * Outstanding should ONLY include disbursed loans:
+     * - disbursed: Loan has been disbursed, currently being repaid
+     * - partially_paid: Partially repaid, still active
+     * - defaulted: Overdue/written off
+     *
+     * Excludes:
+     * - pending/approved: Not yet disbursed, no outstanding yet
+     * - written_off: Already written off (tracked separately)
+     * - paid_off: Fully repaid
+     *
      * We exclude soft-deleted rows automatically (SoftDeletes).
      */
     public function activeLoansQuery(): Builder
     {
-        return \App\Models\Loans::query()
+        return Loans::query()
             ->where('is_active', true)
             ->whereIn('status', [
                 'disbursed',

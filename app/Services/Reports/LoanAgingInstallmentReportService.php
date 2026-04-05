@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -11,9 +12,16 @@ use Illuminate\Support\Facades\DB;
 
 class LoanAgingInstallmentReportService
 {
+    private readonly PortfolioRiskCalculator $portfolioRiskCalculator;
+
+    public function __construct(PortfolioRiskCalculator $portfolioRiskCalculator)
+    {
+        $this->portfolioRiskCalculator = $portfolioRiskCalculator;
+    }
+
     /**
-     * @param array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,customer?:string|null,page?:int|null,per_page?:int|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,customer?:string|null,page?:int|null,per_page?:int|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds): array
     {
@@ -22,9 +30,49 @@ class LoanAgingInstallmentReportService
 
         $base = $this->installmentsBase($filters, $subshopIds, $asAt);
 
+        $portfolioOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
+
+        $outstandingMap = $this->getLoanOutstandingMap($subshopIds);
+
+        $loanProductMap = [];
+        $loanBranchMap = [];
+        $loanOfficerMap = [];
+
+        $latestDisb = DB::table('loan_disbursements as ld')
+            ->selectRaw('MAX(ld.id) as id, ld.loan_id')
+            ->groupBy('ld.loan_id');
+
+        $loanDetails = DB::table('loans')
+            ->whereIn('loans.id', array_keys($outstandingMap))
+            ->leftJoinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
+            ->leftJoin('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
+            ->leftJoin('users as u', 'u.id', '=', 'ld.processed_by')
+            ->leftJoin('loan_products as lp', 'lp.id', '=', 'loans.loan_product_id')
+            ->leftJoin('sub_shops as ss', 'ss.id', '=', 'loans.subshop_id')
+            ->select([
+                'loans.id as loan_id',
+                'loans.loan_product_id',
+                'loans.subshop_id',
+                'ld.processed_by as officer_id',
+            ])
+            ->get();
+
+        foreach ($loanDetails as $ld) {
+            $loanProductMap[$ld->loan_id] = $ld->loan_product_id;
+            $loanBranchMap[$ld->loan_id] = $ld->subshop_id;
+            $loanOfficerMap[$ld->loan_id] = $ld->officer_id;
+        }
+
+        $products = \App\Models\LoanProducts::query()->whereIn('subshop_id', $subshopIds)->get(['id', 'name'])->keyBy('id');
+        $branches = \App\Models\SubShop::query()->whereIn('id', $subshopIds)->get(['id', 'name'])->keyBy('id');
+        $officers = \App\Models\User::query()->whereIn('id', array_filter($loanOfficerMap))->get(['id', 'name'])->keyBy('id');
+
+        $byProduct = $this->agingByProductFromMap($outstandingMap, $loanProductMap, $products);
+        $byBranch = $this->agingByBranchFromMap($outstandingMap, $loanBranchMap, $branches);
+        $byOfficer = $this->agingByOfficerFromMap($outstandingMap, $loanOfficerMap, $officers);
+
         $totals = DB::query()->fromSub($base, 'x')
             ->selectRaw('COUNT(*) as total_installments')
-            ->selectRaw('SUM(x.outstanding_balance) as total_outstanding_amount')
             ->selectRaw('SUM(CASE WHEN x.dpd > 0 THEN 1 ELSE 0 END) as total_overdue_installments')
             ->selectRaw('SUM(CASE WHEN x.dpd > 0 THEN x.outstanding_balance ELSE 0 END) as total_overdue_amount')
             ->selectRaw('AVG(x.dpd) as avg_dpd')
@@ -33,7 +81,7 @@ class LoanAgingInstallmentReportService
 
         $summary = [
             'total_outstanding_installments' => (int) ($totals->total_installments ?? 0),
-            'total_outstanding_amount' => round((float) ($totals->total_outstanding_amount ?? 0), 2),
+            'total_outstanding_amount' => round($portfolioOutstanding, 2),
             'total_overdue_installments' => (int) ($totals->total_overdue_installments ?? 0),
             'total_overdue_amount' => round((float) ($totals->total_overdue_amount ?? 0), 2),
             'avg_dpd' => round((float) ($totals->avg_dpd ?? 0), 2),
@@ -43,10 +91,6 @@ class LoanAgingInstallmentReportService
         $agingBuckets = $this->agingBuckets(DB::query()->fromSub($base, 'x'), (float) ($summary['total_outstanding_amount'] ?? 0));
         $installments = $this->installmentList($filters, $subshopIds, $asAt);
         $missedByLoan = $this->missedInstallmentsByLoan(DB::query()->fromSub($base, 'x'));
-
-        $byProduct = $this->agingByProduct(DB::query()->fromSub($base, 'x'));
-        $byBranch = $this->agingByBranch(DB::query()->fromSub($base, 'x'));
-        $byOfficer = $this->agingByOfficer(DB::query()->fromSub($base, 'x'));
 
         $partialPayment = $this->partialPaymentAnalysis(DB::query()->fromSub($base, 'x'));
         $highRisk = $this->highRiskInstallments(DB::query()->fromSub($base, 'x'));
@@ -62,7 +106,7 @@ class LoanAgingInstallmentReportService
             ->values()
             ->all();
 
-        $fifoIssues = !empty($loanIdsForFifo)
+        $fifoIssues = ! empty($loanIdsForFifo)
             ? $this->fifoAllocationIssues($loanIdsForFifo, $asAt, $subshopIds)
             : [];
 
@@ -112,10 +156,8 @@ class LoanAgingInstallmentReportService
     /**
      * Base dataset: one row per installment (unpaid/partial only), with DPD, bucket, officer, and allocation-issue flag.
      *
-     * Returns a QueryBuilder selecting:
-     * - installment_id, loan_id, loan_code, customer_id, customer, product, branch, officer
-     * - installment_number, due_date, installment_amount, paid_amount, outstanding_balance
-     * - dpd, aging_bucket, installment_status, allocation_issue
+     * Uses PortfolioRiskCalculator for loan-level outstanding calculation.
+     * Total outstanding sums loan-level outstanding (Expected - Paid), not installment-level.
      */
     private function installmentsBase(array $filters, array $subshopIds, Carbon $asAt): QueryBuilder
     {
@@ -124,6 +166,16 @@ class LoanAgingInstallmentReportService
         $latestDisb = DB::table('loan_disbursements as ld')
             ->selectRaw('MAX(ld.id) as id, ld.loan_id')
             ->groupBy('ld.loan_id');
+
+        $outstandingMap = [];
+        $this->portfolioRiskCalculator->activeLoansQuery()
+            ->whereIn('subshop_id', $subshopIds)
+            ->select(['id'])
+            ->chunkById(200, function ($loans) use (&$outstandingMap) {
+                foreach ($loans as $loan) {
+                    $outstandingMap[$loan->id] = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            });
 
         $q = DB::table('loan_installments as li')
             ->join('loans', 'loans.id', '=', 'li.loan_id')
@@ -137,14 +189,14 @@ class LoanAgingInstallmentReportService
             ->where('li.is_active', true)
             ->where('loans.is_active', true)
             ->where('loans.is_written_off', false)
-            ->where('li.outstanding_amount', '>', 0)
-            ->when(!empty($filters['loan_product_id']), fn ($qq) => $qq->where('loans.loan_product_id', (int) $filters['loan_product_id']))
-            ->when(!empty($filters['loan_status']), fn ($qq) => $qq->where('loans.status', (string) $filters['loan_status']))
-            ->when(!empty($filters['loan_officer_id']), fn ($qq) => $qq->where('ld.processed_by', (int) $filters['loan_officer_id']))
-            ->when(!empty($filters['customer']), function ($qq) use ($filters) {
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->when(! empty($filters['loan_product_id']), fn ($qq) => $qq->where('loans.loan_product_id', (int) $filters['loan_product_id']))
+            ->when(! empty($filters['loan_status']), fn ($qq) => $qq->where('loans.status', (string) $filters['loan_status']))
+            ->when(! empty($filters['loan_officer_id']), fn ($qq) => $qq->where('ld.processed_by', (int) $filters['loan_officer_id']))
+            ->when(! empty($filters['customer']), function ($qq) use ($filters) {
                 $search = trim((string) $filters['customer']);
                 if ($search !== '') {
-                    $qq->where('customers.name', 'like', '%' . $search . '%');
+                    $qq->where('customers.name', 'like', '%'.$search.'%');
                 }
             })
             ->selectRaw('li.id as installment_id')
@@ -163,23 +215,41 @@ class LoanAgingInstallmentReportService
             ->selectRaw('li.status as installment_status')
             ->selectRaw('CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END as dpd', [$asAtDate, $asAtDate])
             ->selectRaw(
-                "CASE \n" .
-                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 0 THEN 'Current'\n" .
-                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 30 THEN '1-30'\n" .
-                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 60 THEN '31-60'\n" .
-                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 90 THEN '61-90'\n" .
+                "CASE \n".
+                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 0 THEN 'Current'\n".
+                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 30 THEN '1-30'\n".
+                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 60 THEN '31-60'\n".
+                " WHEN (CASE WHEN li.outstanding_amount > 0 AND li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END) <= 90 THEN '61-90'\n".
                 " ELSE '90+' END as aging_bucket",
                 [$asAtDate, $asAtDate, $asAtDate, $asAtDate, $asAtDate, $asAtDate, $asAtDate, $asAtDate]
             );
 
-        if (!empty($filters['dpd_min'])) {
+        if (! empty($filters['dpd_min'])) {
             $q->having('dpd', '>=', (int) $filters['dpd_min']);
         }
-        if (!empty($filters['dpd_max'])) {
+        if (! empty($filters['dpd_max'])) {
             $q->having('dpd', '<=', (int) $filters['dpd_max']);
         }
 
         return $q;
+    }
+
+    /**
+     * Get loan-level outstanding map for use in aggregations.
+     */
+    private function getLoanOutstandingMap(array $subshopIds): array
+    {
+        $outstandingMap = [];
+        $this->portfolioRiskCalculator->activeLoansQuery()
+            ->whereIn('subshop_id', $subshopIds)
+            ->select(['id'])
+            ->chunkById(200, function ($loans) use (&$outstandingMap) {
+                foreach ($loans as $loan) {
+                    $outstandingMap[$loan->id] = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            });
+
+        return $outstandingMap;
     }
 
     /**
@@ -189,7 +259,7 @@ class LoanAgingInstallmentReportService
      * verify that allocations never target a later installment while an earlier installment
      * still has remaining due at that moment.
      *
-     * @param array<int> $loanIds
+     * @param  array<int>  $loanIds
      * @return array<int, true> installment_id => true
      */
     private function fifoAllocationIssues(array $loanIds, Carbon $asAt, array $subshopIds): array
@@ -297,7 +367,7 @@ class LoanAgingInstallmentReportService
                         if ($amt <= 0) {
                             continue;
                         }
-                        if (!isset($indexByInstallment[(int) $iid])) {
+                        if (! isset($indexByInstallment[(int) $iid])) {
                             continue;
                         }
                         $allocatedIndices[(int) $iid] = $indexByInstallment[(int) $iid];
@@ -320,7 +390,7 @@ class LoanAgingInstallmentReportService
                     $earliestAllocated = (float) ($allocMap[$earliestInsId] ?? 0.0);
                     $earliestSettledByThisPayment = $earliestAllocated >= $earliestRemainingBefore && $earliestRemainingBefore > 0;
 
-                    if (!$earliestSettledByThisPayment) {
+                    if (! $earliestSettledByThisPayment) {
                         foreach ($allocatedIndices as $iid => $idx) {
                             if ($idx > $earliestUnpaidIndex) {
                                 $issues[(int) $iid] = true;
@@ -338,7 +408,7 @@ class LoanAgingInstallmentReportService
 
                     foreach ($allocMap as $iid => $amt) {
                         $iid = (int) $iid;
-                        if (!array_key_exists($iid, $remaining)) {
+                        if (! array_key_exists($iid, $remaining)) {
                             continue;
                         }
                         if ($amt <= 0) {
@@ -495,6 +565,72 @@ class LoanAgingInstallmentReportService
         ])->all();
     }
 
+    private function agingByProductFromMap(array $outstandingMap, array $loanProductMap, $products): array
+    {
+        $productOutstanding = [];
+        foreach ($outstandingMap as $loanId => $outstanding) {
+            $productId = $loanProductMap[$loanId] ?? null;
+            if ($productId) {
+                $productOutstanding[$productId] = ($productOutstanding[$productId] ?? 0) + $outstanding;
+            }
+        }
+
+        return collect($productOutstanding)->map(function ($amt, $pid) use ($products) {
+            return [
+                'product' => (string) ($products[$pid]->name ?? 'Unknown'),
+                'current' => round($amt, 2),
+                'd1_30' => 0.0,
+                'd31_60' => 0.0,
+                'd61_90' => 0.0,
+                'd90p' => 0.0,
+            ];
+        })->values()->all();
+    }
+
+    private function agingByBranchFromMap(array $outstandingMap, array $loanBranchMap, $branches): array
+    {
+        $branchOutstanding = [];
+        foreach ($outstandingMap as $loanId => $outstanding) {
+            $branchId = $loanBranchMap[$loanId] ?? null;
+            if ($branchId) {
+                $branchOutstanding[$branchId] = ($branchOutstanding[$branchId] ?? 0) + $outstanding;
+            }
+        }
+
+        return collect($branchOutstanding)->map(function ($amt, $sid) use ($branches) {
+            return [
+                'branch' => (string) ($branches[$sid]->name ?? 'Unknown'),
+                'current' => round($amt, 2),
+                'd1_30' => 0.0,
+                'd31_60' => 0.0,
+                'd61_90' => 0.0,
+                'd90p' => 0.0,
+            ];
+        })->values()->all();
+    }
+
+    private function agingByOfficerFromMap(array $outstandingMap, array $loanOfficerMap, $officers): array
+    {
+        $officerOutstanding = [];
+        foreach ($outstandingMap as $loanId => $outstanding) {
+            $officerId = $loanOfficerMap[$loanId] ?? null;
+            if ($officerId) {
+                $officerOutstanding[$officerId] = ($officerOutstanding[$officerId] ?? 0) + $outstanding;
+            }
+        }
+
+        return collect($officerOutstanding)->map(function ($amt, $oid) use ($officers) {
+            return [
+                'officer' => (string) ($officers[$oid]->name ?? 'Unknown'),
+                'current' => round($amt, 2),
+                'd1_30' => 0.0,
+                'd31_60' => 0.0,
+                'd61_90' => 0.0,
+                'd90p' => 0.0,
+            ];
+        })->values()->all();
+    }
+
     private function partialPaymentAnalysis(QueryBuilder $base): array
     {
         $r = $base
@@ -565,10 +701,10 @@ class LoanAgingInstallmentReportService
     {
         $rows = $base
             ->selectRaw(
-                "CASE \n" .
-                " WHEN x.aging_bucket = 'Current' THEN 'Low Risk'\n" .
-                " WHEN x.aging_bucket = '1-30' THEN 'Medium Risk'\n" .
-                " WHEN x.aging_bucket IN ('31-60','61-90') THEN 'High Risk'\n" .
+                "CASE \n".
+                " WHEN x.aging_bucket = 'Current' THEN 'Low Risk'\n".
+                " WHEN x.aging_bucket = '1-30' THEN 'Medium Risk'\n".
+                " WHEN x.aging_bucket IN ('31-60','61-90') THEN 'High Risk'\n".
                 " ELSE 'Critical Risk' END as risk"
             )
             ->selectRaw('COUNT(*) as installments')

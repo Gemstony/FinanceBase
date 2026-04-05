@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
 class LoanOutstandingReportService
 {
     /**
-     * @param array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,customer_id?:int|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,customer_id?:int|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds, int $perPage = 50, bool $paginate = true): array
     {
@@ -66,19 +66,19 @@ class LoanOutstandingReportService
     {
         $q = \App\Models\Loans::query()->from('loans')->whereIn('loans.subshop_id', $subshopIds);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
 
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
 
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $q->where('loans.customer_id', (int) $filters['customer_id']);
         }
 
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $officerId = (int) $filters['loan_officer_id'];
 
             $latestDisbursement = DB::table('loan_disbursements as ld')
@@ -199,10 +199,7 @@ class LoanOutstandingReportService
 
         $wrapped = DB::query()->fromSub($base, 't');
 
-        return $wrapped->where(function ($q) use ($activeOrDefaulted) {
-            $q->where('total_outstanding', '>', 0)
-                ->orWhereIn('loan_status', $activeOrDefaulted);
-        });
+        return $wrapped->whereIn('loan_status', $activeOrDefaulted);
     }
 
     private function paginateLoanRows($loanRowsBase, int $perPage): LengthAwarePaginator
@@ -267,6 +264,7 @@ class LoanOutstandingReportService
 
         return $rows->map(function ($r) {
             $pid = (int) $r->loan_product_id;
+
             return [
                 'product_id' => $pid,
                 'product' => (string) ($r->loan_product_name ?? 'Unknown'),
@@ -289,6 +287,7 @@ class LoanOutstandingReportService
 
         return $rows->map(function ($r) {
             $sid = (int) $r->subshop_id;
+
             return [
                 'subshop_id' => $sid,
                 'branch' => (string) ($r->branch_name ?? 'Unknown'),
@@ -309,6 +308,7 @@ class LoanOutstandingReportService
 
         return $rows->map(function ($r) {
             $oid = (int) $r->officer_id;
+
             return [
                 'officer_id' => $oid,
                 'officer' => (string) ($r->officer_name ?? 'Unknown'),
@@ -336,6 +336,7 @@ class LoanOutstandingReportService
 
         return collect($order)->map(function ($b) use ($map) {
             $r = $map[$b] ?? null;
+
             return [
                 'range' => $b,
                 'loans_count' => (int) ($r->loans_count ?? 0),
@@ -361,6 +362,7 @@ class LoanOutstandingReportService
 
         return $rows->map(function ($r) use ($names) {
             $cid = (int) $r->customer_id;
+
             return [
                 'customer_id' => $cid,
                 'customer' => (string) ($names[$cid]->name ?? 'Unknown'),
@@ -394,16 +396,16 @@ class LoanOutstandingReportService
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereDate('ld.disbursement_date', '<=', $asAtDate);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $q->where('ld.processed_by', (int) $filters['loan_officer_id']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $q->where('loans.customer_id', (int) $filters['customer_id']);
         }
 

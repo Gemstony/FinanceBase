@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
-use App\Models\SubShop;
 use App\Models\User;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -13,9 +13,16 @@ use Illuminate\Support\Facades\DB;
 
 class NplReportService
 {
+    private readonly PortfolioRiskCalculator $portfolioRiskCalculator;
+
+    public function __construct(PortfolioRiskCalculator $portfolioRiskCalculator)
+    {
+        $this->portfolioRiskCalculator = $portfolioRiskCalculator;
+    }
+
     /**
-     * @param array{as_of:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,dpd_threshold?:int|null,page?:int|null,per_page?:int|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{as_of:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,dpd_threshold?:int|null,page?:int|null,per_page?:int|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds): array
     {
@@ -75,16 +82,19 @@ class NplReportService
     /**
      * Officer is derived from latest disbursement processor (loan_disbursements.processed_by).
      *
-     * @param array{loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null} $filters
+     * @param  array{loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null}  $filters
      */
     private function filteredLoanIds(array $filters, array $subshopIds)
     {
         $q = DB::table('loans')
             ->whereIn('loans.subshop_id', $subshopIds)
-            ->when(!empty($filters['loan_product_id']), fn ($qq) => $qq->where('loans.loan_product_id', (int) $filters['loan_product_id']))
-            ->when(!empty($filters['loan_status']), fn ($qq) => $qq->where('loans.status', (string) $filters['loan_status']));
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
+            ->when(! empty($filters['loan_product_id']), fn ($qq) => $qq->where('loans.loan_product_id', (int) $filters['loan_product_id']))
+            ->when(! empty($filters['loan_status']), fn ($qq) => $qq->where('loans.status', (string) $filters['loan_status']));
 
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $latestDisb = DB::table('loan_disbursements as ld')
                 ->selectRaw('MAX(ld.id) as id, ld.loan_id')
                 ->groupBy('ld.loan_id');
@@ -99,15 +109,7 @@ class NplReportService
 
     private function portfolioOutstanding(array $subshopIds, $loanIds): float
     {
-        return (float) DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('loans.is_active', true)
-            ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->sum('li.outstanding_amount');
+        return $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
     }
 
     private function delinquentLoansBase(array $subshopIds, $loanIds, Carbon $asOf): QueryBuilder
@@ -117,6 +119,9 @@ class NplReportService
         $overdue = DB::table('loan_installments as li')
             ->join('loans', 'loans.id', '=', 'li.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('li.is_active', true)
             ->where('li.status', 'overdue')
             ->where('li.outstanding_amount', '>', 0)
@@ -128,6 +133,11 @@ class NplReportService
             ->groupBy('li.loan_id');
 
         $allOutstanding = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('li.is_active', true)
             ->selectRaw('li.loan_id as loan_id')
             ->selectRaw('SUM(li.outstanding_amount) as outstanding_balance')
@@ -198,10 +208,15 @@ class NplReportService
         $dpdMin = array_key_exists('dpd_min', $filters) && $filters['dpd_min'] !== null ? (int) $filters['dpd_min'] : ($threshold + 1);
         $dpdMax = array_key_exists('dpd_max', $filters) && $filters['dpd_max'] !== null ? (int) $filters['dpd_max'] : null;
 
-        $perPage = !empty($filters['per_page']) ? max(5, min(200, (int) $filters['per_page'])) : 25;
-        $page = !empty($filters['page']) ? max(1, (int) $filters['page']) : null;
+        $perPage = ! empty($filters['per_page']) ? max(5, min(200, (int) $filters['per_page'])) : 25;
+        $page = ! empty($filters['page']) ? max(1, (int) $filters['page']) : null;
 
         $overdueAgg = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('li.is_active', true)
             ->where('li.status', 'overdue')
             ->where('li.outstanding_amount', '>', 0)
@@ -212,12 +227,22 @@ class NplReportService
             ->groupBy('li.loan_id');
 
         $allOutstanding = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('li.is_active', true)
             ->selectRaw('li.loan_id as loan_id')
             ->selectRaw('SUM(li.outstanding_amount) as outstanding_balance')
             ->groupBy('li.loan_id');
 
         $lastPayment = DB::table('loan_payments as lp')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('lp.status', 'confirmed')
             ->whereDate('lp.payment_date', '<=', $asOfDate)
             ->selectRaw('lp.loan_id as loan_id, MAX(lp.payment_date) as last_payment_date')
@@ -241,9 +266,9 @@ class NplReportService
             ->leftJoin('loan_products as p', 'p.id', '=', 'loans.loan_product_id')
             ->leftJoin('sub_shops as ss', 'ss.id', '=', 'loans.subshop_id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
             ->where('loans.is_active', true)
             ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
             ->when($loanIds->isNotEmpty(), fn ($qq) => $qq->whereIn('loans.id', $loanIds), fn ($qq) => $qq->whereRaw('1=0'))
             ->when($dpdMin !== null, fn ($qq) => $qq->where('od.dpd', '>=', $dpdMin))
             ->when($dpdMax !== null, fn ($qq) => $qq->where('od.dpd', '<=', $dpdMax))
@@ -270,46 +295,69 @@ class NplReportService
     {
         $delinq = $this->delinquentLoansBase($subshopIds, $loanIds, $asOf);
 
-        $portfolio = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('loans.is_active', true)
-            ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.loan_product_id as loan_product_id, SUM(li.outstanding_amount) as portfolio_outstanding')
-            ->groupBy('loans.loan_product_id');
+        $productLoanMap = DB::table('loans')
+            ->whereIn('subshop_id', $subshopIds)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('is_active', true)
+            ->where('is_written_off', false)
+            ->selectRaw('loan_product_id, GROUP_CONCAT(id) as loan_ids')
+            ->groupBy('loan_product_id')
+            ->get()
+            ->keyBy('loan_product_id');
 
-        $rows = DB::query()
+        $products = DB::table('loan_products')
+            ->whereIn('id', $productLoanMap->keys())
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
+        $productNplLoans = [];
+        $productNplAmount = [];
+
+        $nplLoanIds = DB::query()
             ->fromSub($delinq, 'd')
-            ->join('loans', 'loans.id', '=', 'd.loan_id')
             ->where('d.max_dpd', '>', $threshold)
-            ->selectRaw('loans.loan_product_id as loan_product_id')
-            ->selectRaw('COUNT(*) as npl_loans')
-            ->selectRaw('SUM(d.outstanding_balance) as npl_amount')
-            ->groupBy('loans.loan_product_id')
-            ->get();
+            ->pluck('d.loan_id');
 
-        $productIds = $rows->pluck('loan_product_id')->filter()->unique()->values();
-        $products = DB::table('loan_products')->whereIn('id', $productIds)->get(['id', 'name'])->keyBy('id');
-        $portfolioByProduct = DB::query()->fromSub($portfolio, 'p')->pluck('portfolio_outstanding', 'loan_product_id');
+        foreach ($productLoanMap as $pid => $row) {
+            $loanIdsArr = array_filter(explode(',', $row->loan_ids ?? ''));
+            $nplCount = 0;
+            $nplAmt = 0.0;
 
-        $mapped = $rows->map(function ($r) use ($products, $portfolioByProduct) {
-            $pid = (int) $r->loan_product_id;
-            $nplAmount = (float) ($r->npl_amount ?? 0);
-            $portOut = (float) ($portfolioByProduct[$pid] ?? 0);
-            $ratio = $portOut > 0 ? round(($nplAmount / $portOut) * 100, 2) : 0.0;
+            foreach ($loanIdsArr as $loanId) {
+                if ($nplLoanIds->contains((int) $loanId)) {
+                    $loan = \App\Models\Loans::find((int) $loanId);
+                    if ($loan) {
+                        $nplCount++;
+                        $nplAmt += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                    }
+                }
+            }
 
-            return [
-                'loan_product_id' => $pid,
+            $productNplLoans[$pid] = $nplCount;
+            $productNplAmount[$pid] = $nplAmt;
+        }
+
+        $mapped = [];
+        foreach ($productLoanMap as $pid => $row) {
+            $loanIdsArr = array_filter(explode(',', $row->loan_ids ?? ''));
+            $totalOut = 0.0;
+            foreach ($loanIdsArr as $loanId) {
+                $loan = \App\Models\Loans::find((int) $loanId);
+                if ($loan) {
+                    $totalOut += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                }
+            }
+
+            $nplAmt = $productNplAmount[$pid] ?? 0;
+            $mapped[] = [
+                'loan_product_id' => (int) $pid,
                 'product' => (string) ($products[$pid]->name ?? 'Unknown'),
-                'npl_loans' => (int) ($r->npl_loans ?? 0),
-                'npl_amount' => round($nplAmount, 2),
-                'portfolio_outstanding' => round($portOut, 2),
-                'npl_ratio_pct' => $ratio,
+                'npl_loans' => (int) ($productNplLoans[$pid] ?? 0),
+                'npl_amount' => round($nplAmt, 2),
+                'portfolio_outstanding' => round($totalOut, 2),
+                'npl_ratio_pct' => $totalOut > 0 ? round(($nplAmt / $totalOut) * 100, 2) : 0.0,
             ];
-        })->values()->all();
+        }
 
         usort($mapped, fn ($a, $b) => ($b['npl_amount'] <=> $a['npl_amount']));
 
@@ -320,45 +368,60 @@ class NplReportService
     {
         $delinq = $this->delinquentLoansBase($subshopIds, $loanIds, $asOf);
 
-        $portfolio = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('loans.is_active', true)
-            ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.subshop_id as subshop_id, SUM(li.outstanding_amount) as portfolio_outstanding')
-            ->groupBy('loans.subshop_id');
+        $subshops = \App\Models\SubShop::query()
+            ->whereIn('id', $subshopIds)
+            ->get(['id', 'name'])
+            ->keyBy('id');
 
-        $rows = DB::query()
+        $branchOutstanding = [];
+        $branchNplLoans = [];
+        $branchNplAmount = [];
+
+        $nplLoanIds = DB::query()
             ->fromSub($delinq, 'd')
-            ->join('loans', 'loans.id', '=', 'd.loan_id')
             ->where('d.max_dpd', '>', $threshold)
-            ->selectRaw('loans.subshop_id as subshop_id')
-            ->selectRaw('COUNT(*) as npl_loans')
-            ->selectRaw('SUM(d.outstanding_balance) as npl_amount')
-            ->groupBy('loans.subshop_id')
-            ->get();
+            ->pluck('d.loan_id');
 
-        $subshops = SubShop::query()->whereIn('id', $subshopIds)->get(['id', 'name'])->keyBy('id');
-        $portfolioByBranch = DB::query()->fromSub($portfolio, 'p')->pluck('portfolio_outstanding', 'subshop_id');
+        foreach ($subshopIds as $subshopId) {
+            $outstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$subshopId]);
+            $branchOutstanding[$subshopId] = $outstanding;
 
-        $mapped = $rows->map(function ($r) use ($subshops, $portfolioByBranch) {
-            $sid = (int) $r->subshop_id;
-            $nplAmount = (float) ($r->npl_amount ?? 0);
-            $portOut = (float) ($portfolioByBranch[$sid] ?? 0);
-            $ratio = $portOut > 0 ? round(($nplAmount / $portOut) * 100, 2) : 0.0;
+            $nplCount = 0;
+            $nplAmt = 0.0;
 
-            return [
-                'subshop_id' => $sid,
+            $loanIdsInBranch = DB::table('loans')
+                ->where('subshop_id', $subshopId)
+                ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+                ->where('is_active', true)
+                ->where('is_written_off', false)
+                ->pluck('id');
+
+            foreach ($loanIdsInBranch as $loanId) {
+                if ($nplLoanIds->contains($loanId)) {
+                    $loan = \App\Models\Loans::find($loanId);
+                    if ($loan) {
+                        $nplCount++;
+                        $nplAmt += $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                    }
+                }
+            }
+
+            $branchNplLoans[$subshopId] = $nplCount;
+            $branchNplAmount[$subshopId] = $nplAmt;
+        }
+
+        $mapped = [];
+        foreach ($branchOutstanding as $sid => $total) {
+            $nplAmt = $branchNplAmount[$sid] ?? 0;
+            $mapped[] = [
+                'subshop_id' => (int) $sid,
                 'branch' => (string) ($subshops[$sid]->name ?? 'Unknown'),
-                'npl_loans' => (int) ($r->npl_loans ?? 0),
-                'npl_amount' => round($nplAmount, 2),
-                'portfolio_outstanding' => round($portOut, 2),
-                'npl_ratio_pct' => $ratio,
+                'npl_loans' => (int) ($branchNplLoans[$sid] ?? 0),
+                'npl_amount' => round($nplAmt, 2),
+                'portfolio_outstanding' => round($total, 2),
+                'npl_ratio_pct' => $total > 0 ? round(($nplAmt / $total) * 100, 2) : 0.0,
             ];
-        })->values()->all();
+        }
 
         usort($mapped, fn ($a, $b) => ($b['npl_amount'] <=> $a['npl_amount']));
 
@@ -375,53 +438,64 @@ class NplReportService
             ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
             ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
             ->whereIn('loans.subshop_id', $subshopIds)
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loans.id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->select(['loans.id as loan_id', 'ld.processed_by as officer_id']);
-
-        $delinq = $this->delinquentLoansBase($subshopIds, $loanIds, $asOf);
-
-        $rows = DB::query()
-            ->fromSub($delinq, 'd')
-            ->joinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'd.loan_id'))
-            ->where('d.max_dpd', '>', $threshold)
-            ->selectRaw('lo.officer_id as officer_id')
-            ->selectRaw('COUNT(*) as npl_loans')
-            ->selectRaw('SUM(d.outstanding_balance) as npl_amount')
-            ->groupBy('lo.officer_id')
-            ->get();
-
-        $officerIds = $rows->pluck('officer_id')->filter()->unique()->values();
-        $users = User::query()->whereIn('id', $officerIds)->get(['id', 'name'])->keyBy('id');
-
-        $portfolio = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->joinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'loans.id'))
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
             ->where('loans.is_active', true)
             ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loans.id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('lo.officer_id as officer_id, SUM(li.outstanding_amount) as portfolio_outstanding')
-            ->groupBy('lo.officer_id');
+            ->selectRaw('loans.id as loan_id, ld.processed_by as officer_id')
+            ->get();
 
-        $portfolioByOfficer = DB::query()->fromSub($portfolio, 'p')->pluck('portfolio_outstanding', 'officer_id');
+        $delinq = $this->delinquentLoansBase($subshopIds, $loanIds, $asOf);
+        $nplLoanIds = DB::query()
+            ->fromSub($delinq, 'd')
+            ->where('d.max_dpd', '>', $threshold)
+            ->pluck('d.loan_id');
 
-        $mapped = $rows->map(function ($r) use ($users, $portfolioByOfficer) {
-            $oid = (int) $r->officer_id;
-            $nplAmount = (float) ($r->npl_amount ?? 0);
-            $portOut = (float) ($portfolioByOfficer[$oid] ?? 0);
-            $ratio = $portOut > 0 ? round(($nplAmount / $portOut) * 100, 2) : 0.0;
+        $officerOutstanding = [];
+        $officerNplLoans = [];
+        $officerNplAmount = [];
+        $officerLoanMap = [];
 
-            return [
+        foreach ($loanOfficer as $lo) {
+            $oid = (int) $lo->officer_id;
+            if (! isset($officerOutstanding[$oid])) {
+                $officerOutstanding[$oid] = 0.0;
+                $officerNplLoans[$oid] = 0;
+                $officerNplAmount[$oid] = 0.0;
+                $officerLoanMap[$oid] = [];
+            }
+            $officerLoanMap[$oid][] = (int) $lo->loan_id;
+        }
+
+        foreach ($officerLoanMap as $oid => $loanIdList) {
+            foreach ($loanIdList as $loanId) {
+                $loan = \App\Models\Loans::find($loanId);
+                if ($loan) {
+                    $out = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                    $officerOutstanding[$oid] += $out;
+
+                    if ($nplLoanIds->contains($loanId)) {
+                        $officerNplLoans[$oid]++;
+                        $officerNplAmount[$oid] += $out;
+                    }
+                }
+            }
+        }
+
+        $users = User::query()->whereIn('id', array_keys($officerOutstanding))->get(['id', 'name'])->keyBy('id');
+
+        $mapped = [];
+        foreach ($officerOutstanding as $oid => $total) {
+            $nplAmt = $officerNplAmount[$oid] ?? 0;
+            $mapped[] = [
                 'officer_id' => $oid,
                 'officer' => (string) ($users[$oid]->name ?? 'Unknown'),
-                'npl_loans' => (int) ($r->npl_loans ?? 0),
-                'npl_amount' => round($nplAmount, 2),
-                'portfolio_outstanding' => round($portOut, 2),
-                'npl_ratio_pct' => $ratio,
+                'npl_loans' => (int) ($officerNplLoans[$oid] ?? 0),
+                'npl_amount' => round($nplAmt, 2),
+                'portfolio_outstanding' => round($total, 2),
+                'npl_ratio_pct' => $total > 0 ? round(($nplAmt / $total) * 100, 2) : 0.0,
             ];
-        })->values()->all();
+        }
 
         usort($mapped, fn ($a, $b) => ($b['npl_amount'] <=> $a['npl_amount']));
 
@@ -468,7 +542,7 @@ class NplReportService
         $ratios = [];
 
         foreach ($months as $m) {
-            $monthEnd = Carbon::parse($m . '-01')->endOfMonth();
+            $monthEnd = Carbon::parse($m.'-01')->endOfMonth();
             if ($monthEnd->greaterThan($asOf)) {
                 $monthEnd = $asOf->copy();
             }
@@ -523,7 +597,7 @@ class NplReportService
             ->whereIn('lp.loan_id', $nplLoanIds)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$from, $asOfDate])
-            ->selectRaw($sumExpr . ' as recovered_amount')
+            ->selectRaw($sumExpr.' as recovered_amount')
             ->value('recovered_amount');
 
         $rate = $totalNplAmount > 0 ? round(($recovered / $totalNplAmount) * 100, 2) : 0.0;
@@ -540,6 +614,11 @@ class NplReportService
         $delinq = $this->delinquentLoansBase($subshopIds, $loanIds, $asOf);
 
         $lastPayment = DB::table('loan_payments as lp')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('lp.status', 'confirmed')
             ->whereDate('lp.payment_date', '<=', $asOfDate)
             ->selectRaw('lp.loan_id as loan_id, MAX(lp.payment_date) as last_payment_date')

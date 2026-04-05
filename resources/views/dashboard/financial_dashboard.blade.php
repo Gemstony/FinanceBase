@@ -193,7 +193,7 @@
                         <div class="col-lg-2 col-md-3 col-sm-4 col-6">
                             <a href="{{ route('deposits.index') }}" class="btn btn-outline-secondary btn-block btn-sm">
                                 <i class="fas fa-credit-card"></i><br>
-                                <small>Loans Reports</small>
+                                <small>Customers Deposits</small>
                             </a>
                         </div>
                         <div class="col-lg-2 col-md-3 col-sm-4 col-6">
@@ -214,154 +214,213 @@
             </div>
         </div>
     </div>
-    <!-- KPI Summary Cards -->
+    <!-- Top KPI Summary Cards -->
     <div class="row mb-4">
-
-        <div class="col-md-4 mb-2">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Loan Portfolio</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['loan_portfolio'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-money-check-alt"></i>
-                        </div>
-                    </div>
-                    <small class="opacity-75">Total Disbursed</small>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.loan_portfolio.index') }}" class="text-white text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4 mb-2">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Outstanding</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['total_outstanding'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-file-invoice-dollar"></i>
+        <div class="col-md-4">
+            <a href="{{ route('reports.loan_portfolio.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Loan Portfolio</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['loan_portfolio'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-money-check-alt fa-2x opacity-50"></i>
                         </div>
                     </div>
-                    <small class="opacity-75">Total Receivable</small>
                 </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.loan_outstanding.index') }}" class="text-white text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4 mb-2">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Total Income</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['total_income'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-arrow-trend-up"></i>
-                        </div>
-                    </div>
-                    <small class="opacity-75">Revenue</small>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.accounting.income_summary.index') }}" class="text-white text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
+            </a>
         </div>
 
+        <div class="col-md-4">
+            <a href="{{ route('reports.loan_outstanding.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Outstanding</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['total_outstanding'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-file-invoice-dollar fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ route('reports.accounting.income_summary.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Total Income</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['total_income'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-arrow-trend-up fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <a href="{{ route('reports.accounting.expenses_summary.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Total Expenses</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['total_expenses'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-arrow-trend-down fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ route('reports.accounting.profit_loss.index') }}" class="text-decoration-none">
+                <div class="card text-white {{ ($dashboardData['kpis']['net_profit'] ?? 0) >= 0 ? 'bg-success' : 'bg-danger' }}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Net Profit</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['net_profit'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-chart-line fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ route('reports.accounting.cash_flow.index') }}" class="text-decoration-none">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Cash Balance</div>
+                                <div class="h4 mb-0">{{ number_format($dashboardData['kpis']['cash_balance'] ?? 0, 0) }}</div>
+                            </div>
+                            <i class="fas fa-wallet fa-2x text-muted"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
 
+    <!-- End Top KPI Summary Cards Row -->
+
+    <!-- Bottom Summary Cards Row -->
+         <div class="row mb-4">
+        <div class="col-md-4">
+            <a href="{{ route('customers.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Registered Customers</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($dashboardData['customer_stats']['total_registered_customers'] ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-users fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ route('deposits.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Customer Deposits</div>
+                                <div class="h5 mb-0">{{ number_format((float) ($dashboardData['customer_stats']['total_customer_deposits'] ?? 0), 0) }}</div>
+                            </div>
+                            <i class="fas fa-piggy-bank fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ route('loans.loans.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Released Loans</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($dashboardData['loan_portfolio']['total_released_loans'] ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-hand-holding-usd fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
     <div class="row mb-4">
-        
-        
-        <div class="col-md-4 mb-2">
-            <div class="card bg-danger text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Total Expenses</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['total_expenses'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-arrow-trend-down"></i>
+        <div class="col-md-4">
+            <a href="{{ route('loan.repayments.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Active Loans</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($dashboardData['loan_portfolio']['total_active_loans'] ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-credit-card fa-2x opacity-50"></i>
                         </div>
                     </div>
-                    <small class="opacity-75">Costs</small>
                 </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.accounting.expenses_summary.index') }}" class="text-white text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4 mb-2">
-            <div class="card {{ ($dashboardData['kpis']['net_profit'] ?? 0) >= 0 ? 'bg-success' : 'bg-danger' }} text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Net Profit</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['net_profit'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                    </div>
-                    <small class="opacity-75">{{ ($dashboardData['kpis']['net_profit'] ?? 0) >= 0 ? 'Surplus' : 'Deficit' }}</small>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.accounting.profit_loss.index') }}" class="text-white text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-4 mb-2">
-            <div class="card bg-warning text-dark">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-0">Cash Balance</h6>
-                            <h4 class="mb-0">{{ number_format($dashboardData['kpis']['cash_balance'] ?? 0, 0) }}</h4>
-                        </div>
-                        <div class="fs-1 opacity-50">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                    </div>
-                    <small class="opacity-75">Available Funds</small>
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{{ route('reports.accounting.cash_flow.index') }}" class="text-dark text-decoration-none small">
-                        View Report <i class="fas fa-arrow-right ms-1"></i>
-                    </a>
-                </div>
-            </div>
+            </a>
         </div>
 
+        <div class="col-md-4">
+            <a href="{{ route('loans.completed.index') }}" class="text-decoration-none">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Completed Loans</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($dashboardData['loan_portfolio']['total_completed_loans'] ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
 
+        <div class="col-md-4">
+            <a href="{{ route('loan.restructures.managed') }}" class="text-decoration-none">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-uppercase small">Restructured Loans</div>
+                                <div class="h4 mb-0">{{ number_format((int) ($dashboardData['loan_portfolio']['total_restructured_loans'] ?? 0)) }}</div>
+                            </div>
+                            <i class="fas fa-retweet fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
 
     <!-- PAR Card -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <div class="card border-danger">
-                <div class="card-header bg-danger text-white">
+            <div class="card ">
+                <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Portfolio at Risk (PAR)</h5>
                 </div>
                 <div class="card-body">
@@ -432,6 +491,90 @@
                             <h6>Paid Off Loans</h6>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Loan Charts Row 1 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Loans Released</h5>
+                </div>
+                <div class="card-body">
+                    @if(!empty($dashboardData['loan_charts']['loans_released']['labels']))
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="loansReleasedChart"></canvas>
+                    </div>
+                    @else
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>No loans released data available</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-money-bill-wave me-2"></i>Loans Collections</h5>
+                </div>
+                <div class="card-body">
+                    @if(!empty($dashboardData['loan_charts']['loans_collections']['labels']))
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="loansCollectionsChart"></canvas>
+                    </div>
+                    @else
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>No collections data available</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Loan Charts Row 2 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Active vs Inactive Customers</h5>
+                </div>
+                <div class="card-body">
+                    @if(($dashboardData['loan_charts']['customer_status']['active'] ?? 0) > 0 || ($dashboardData['loan_charts']['customer_status']['inactive'] ?? 0) > 0)
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="customerStatusChart"></canvas>
+                    </div>
+                    @else
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                        <p>No customer data available</p>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-percentage me-2"></i>Paid vs Due Loan Amount</h5>
+                </div>
+                <div class="card-body">
+                    @if(($dashboardData['loan_charts']['loan_amount_status']['paid'] ?? 0) > 0 || ($dashboardData['loan_charts']['loan_amount_status']['due'] ?? 0) > 0)
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="loanAmountStatusChart"></canvas>
+                    </div>
+                    @else
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                        <p>No loan amount data available</p>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -793,6 +936,114 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 scales: {
                     y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // Loans Released Line Chart
+    const loansReleasedCtx = document.getElementById('loansReleasedChart');
+    if (loansReleasedCtx) {
+        new Chart(loansReleasedCtx, {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($dashboardData['loan_charts']['loans_released']['labels'] ?? []) !!},
+                datasets: [{
+                    label: 'Loans Released',
+                    data: {!! json_encode($dashboardData['loan_charts']['loans_released']['values'] ?? []) !!},
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // Loans Collections Line Chart
+    const loansCollectionsCtx = document.getElementById('loansCollectionsChart');
+    if (loansCollectionsCtx) {
+        new Chart(loansCollectionsCtx, {
+            type: 'line',
+            data: {
+                labels: {!! json_encode($dashboardData['loan_charts']['loans_collections']['labels'] ?? []) !!},
+                datasets: [{
+                    label: 'Collections',
+                    data: {!! json_encode($dashboardData['loan_charts']['loans_collections']['values'] ?? []) !!},
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // Customer Status Pie Chart
+    const customerStatusCtx = document.getElementById('customerStatusChart');
+    if (customerStatusCtx) {
+        new Chart(customerStatusCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Active', 'Inactive'],
+                datasets: [{
+                    data: [
+                        {!! $dashboardData['loan_charts']['customer_status']['active'] ?? 0 !!},
+                        {!! $dashboardData['loan_charts']['customer_status']['inactive'] ?? 0 !!}
+                    ],
+                    backgroundColor: ['#10b981', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    // Loan Amount Status Pie Chart
+    const loanAmountStatusCtx = document.getElementById('loanAmountStatusChart');
+    if (loanAmountStatusCtx) {
+        new Chart(loanAmountStatusCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Paid', 'Due'],
+                datasets: [{
+                    data: [
+                        {!! $dashboardData['loan_charts']['loan_amount_status']['paid'] ?? 0 !!},
+                        {!! $dashboardData['loan_charts']['loan_amount_status']['due'] ?? 0 !!}
+                    ],
+                    backgroundColor: ['#3b82f6', '#f59e0b']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
                 }
             }
         });

@@ -2,37 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankAccounts;
 use App\Models\CustomerCollaterals;
 use App\Models\Customers;
 use App\Models\LoanApprovals;
 use App\Models\LoanCollaterals;
 use App\Models\LoanFeeApplications;
 use App\Models\LoanGroups;
-use App\Models\LoanInstallments;
-use App\Models\LoanPenalties;
-use App\Models\LoanProductAccounts;
-use App\Models\LoanProductApprovalLevels;
-use App\Models\LoanProductFees;
-use App\Models\LoanProductPenalties;
-use App\Models\LoanProductRules;
-use App\Models\LoanProductTypes;
-use App\Models\LoanProducts;
-use App\Models\LoanSecurityDeposit;
-use App\Models\Loans;
-use App\Models\BankAccounts;
 use App\Models\loanGuarantors;
-use App\Models\Messages;
-use App\Models\Permission;
-use App\Models\Role;
-use App\Models\Shop;
+use App\Models\LoanInstallments;
+use App\Models\LoanProductApprovalLevels;
+use App\Models\LoanProducts;
+use App\Models\Loans;
+use App\Models\LoanSecurityDeposit;
 use App\Models\SubShop;
 use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\LoanScheduleEngine;
 use App\Services\Loans\Penalties\PenaltyEngine;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -42,6 +33,13 @@ use InvalidArgumentException;
 
 class LoansController extends Controller
 {
+    private readonly PortfolioRiskCalculator $portfolioRisk;
+
+    public function __construct(PortfolioRiskCalculator $portfolioRisk)
+    {
+        $this->portfolioRisk = $portfolioRisk;
+    }
+
     public function apiCustomers(Request $request): JsonResponse
     {
         $request->validate([
@@ -51,7 +49,7 @@ class LoansController extends Controller
         ]);
 
         $subshopId = session('subshop_id') ?? $request->input('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
@@ -87,7 +85,7 @@ class LoansController extends Controller
         ]);
 
         $subshopId = session('subshop_id') ?? $request->input('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
@@ -120,7 +118,7 @@ class LoansController extends Controller
         ]);
 
         $subshopId = session('subshop_id') ?? $request->input('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
@@ -172,16 +170,16 @@ class LoansController extends Controller
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
-                $w->where('loan_code', 'like', '%' . $q . '%')
+                $w->where('loan_code', 'like', '%'.$q.'%')
                     ->orWhere('id', $q)
                     ->orWhereHas('customer', function ($c) use ($q) {
-                        $c->where('name', 'like', '%' . $q . '%');
+                        $c->where('name', 'like', '%'.$q.'%');
                     })
                     ->orWhereHas('loanGroup', function ($g) use ($q) {
-                        $g->where('name', 'like', '%' . $q . '%');
+                        $g->where('name', 'like', '%'.$q.'%');
                     })
                     ->orWhereHas('loanProduct', function ($p) use ($q) {
-                        $p->where('name', 'like', '%' . $q . '%');
+                        $p->where('name', 'like', '%'.$q.'%');
                     });
             });
         }
@@ -206,14 +204,20 @@ class LoansController extends Controller
             $query->whereDate('disbursement_date', '<=', $dateTo);
         }
 
+        $outstandingSum = $this->portfolioRisk->calculateTotalPortfolioOutstandingForSubshops([$subshopId]);
+
+        $disbursedLoansQuery = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted']);
+
+        $principalSum = (float) $disbursedLoansQuery->sum('principal_amount');
+
         $summaryBase = (clone $query)->selectRaw(
-            "COUNT(*) as total,\n" .
-            "SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,\n" .
-            "SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,\n" .
-            "SUM(CASE WHEN status = 'disbursed' THEN 1 ELSE 0 END) as disbursed,\n" .
-            "SUM(CASE WHEN status = 'paid_off' THEN 1 ELSE 0 END) as paid_off,\n" .
-            "COALESCE(SUM(principal_amount), 0) as principal_sum,\n" .
-            "COALESCE(SUM(outstanding_balance), 0) as outstanding_sum"
+            "COUNT(*) as total,\n".
+            "SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,\n".
+            "SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,\n".
+            "SUM(CASE WHEN status = 'disbursed' THEN 1 ELSE 0 END) as disbursed,\n".
+            "SUM(CASE WHEN status = 'paid_off' THEN 1 ELSE 0 END) as paid_off"
         )->first();
 
         $summary = [
@@ -222,8 +226,8 @@ class LoansController extends Controller
             'approved' => (int) ($summaryBase->approved ?? 0),
             'disbursed' => (int) ($summaryBase->disbursed ?? 0),
             'paid_off' => (int) ($summaryBase->paid_off ?? 0),
-            'principal_sum' => (float) ($summaryBase->principal_sum ?? 0),
-            'outstanding_sum' => (float) ($summaryBase->outstanding_sum ?? 0),
+            'principal_sum' => $principalSum,
+            'outstanding_sum' => $outstandingSum,
         ];
 
         $loans = $query
@@ -323,10 +327,10 @@ class LoansController extends Controller
         return view('loans.loans.calculator.loan_calculator', compact('subshop', 'loanProducts'));
     }
 
-    public function calculateLoan(Request $request, LoanScheduleEngine $scheduleEngine): JsonResponse
+    public function calculatLoan(Request $request, LoanScheduleEngine $scheduleEngine): JsonResponse
     {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return response()->json(['message' => 'Branch session not found. Please login again.'], 422);
         }
 
@@ -346,7 +350,7 @@ class LoansController extends Controller
             ->with(['rules', 'repaymentFrequency', 'interestMethod'])
             ->find((int) $validated['loan_product_id']);
 
-        if (!$product) {
+        if (! $product) {
             return response()->json(['message' => 'Invalid loan product for this branch.'], 422);
         }
 
@@ -356,22 +360,22 @@ class LoansController extends Controller
         $interestRate = (float) $validated['interest_rate'];
 
         if ($rules) {
-            if (!is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
+            if (! is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
                 return response()->json(['message' => 'Principal amount is below the product minimum.'], 422);
             }
-            if (!is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
+            if (! is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
                 return response()->json(['message' => 'Principal amount is above the product maximum.'], 422);
             }
-            if (!is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
+            if (! is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
                 return response()->json(['message' => 'Installments are below the product minimum.'], 422);
             }
-            if (!is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
+            if (! is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
                 return response()->json(['message' => 'Installments are above the product maximum.'], 422);
             }
-            if (!is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
+            if (! is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
                 return response()->json(['message' => 'Interest rate is below the product minimum.'], 422);
             }
-            if (!is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
+            if (! is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
                 return response()->json(['message' => 'Interest rate is above the product maximum.'], 422);
             }
         }
@@ -386,7 +390,7 @@ class LoansController extends Controller
 
         $scheduleAnchorDate = $repaymentStartDate ?? $disbursementDate;
 
-        $loan = new Loans();
+        $loan = new Loans;
         $loan->subshop_id = $subshopId;
         $loan->loan_product_id = (int) $product->id;
         $loan->borrower_type = (string) $validated['borrower_type'];
@@ -413,7 +417,7 @@ class LoansController extends Controller
         }
 
         $last = collect($schedule)->last();
-        $maturity = is_array($last) && !empty($last['due_date'])
+        $maturity = is_array($last) && ! empty($last['due_date'])
             ? Carbon::parse((string) $last['due_date'])->toDateString()
             : null;
 
@@ -438,7 +442,7 @@ class LoansController extends Controller
         PenaltyEngine $penaltyEngine,
     ): RedirectResponse {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return back()->withInput()->with('error', 'Branch session not found. Please login again.');
         }
 
@@ -466,16 +470,15 @@ class LoansController extends Controller
             'security_deposit_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-
         // dd($validator);
         // exit;
 
         $validator->after(function ($v) use ($request, $subshopId) {
             $loanType = $request->input('loan_type');
-            if ($loanType === 'individual' && !$request->filled('customer_id')) {
+            if ($loanType === 'individual' && ! $request->filled('customer_id')) {
                 $v->errors()->add('customer_id', 'Customer is required for individual loans.');
             }
-            if ($loanType === 'group' && !$request->filled('loan_group_id')) {
+            if ($loanType === 'group' && ! $request->filled('loan_group_id')) {
                 $v->errors()->add('loan_group_id', 'Loan group is required for group loans.');
             }
             if ($loanType === 'individual' && $request->filled('loan_group_id')) {
@@ -491,13 +494,14 @@ class LoansController extends Controller
                 ->with(['rules'])
                 ->find((int) $request->input('loan_product_id'));
 
-            if (!$product) {
+            if (! $product) {
                 $v->errors()->add('loan_product_id', 'Invalid loan product.');
+
                 return;
             }
 
             $rules = $product->rules;
-            if (!$rules) {
+            if (! $rules) {
                 return;
             }
 
@@ -506,22 +510,22 @@ class LoansController extends Controller
             $interestRate = (float) $request->input('interest_rate');
 
             // Business rule enforcement (policy guardrails).
-            if (!is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
+            if (! is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
                 $v->errors()->add('principal_amount', 'Principal amount is below the product minimum.');
             }
-            if (!is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
+            if (! is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
                 $v->errors()->add('principal_amount', 'Principal amount is above the product maximum.');
             }
-            if (!is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
+            if (! is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
                 $v->errors()->add('installments', 'Installments are below the product minimum.');
             }
-            if (!is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
+            if (! is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
                 $v->errors()->add('installments', 'Installments are above the product maximum.');
             }
-            if (!is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
+            if (! is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
                 $v->errors()->add('interest_rate', 'Interest rate is below the product minimum.');
             }
-            if (!is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
+            if (! is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
                 $v->errors()->add('interest_rate', 'Interest rate is above the product maximum.');
             }
 
@@ -531,14 +535,13 @@ class LoansController extends Controller
             if ($rules->requires_guarantor && empty($request->input('guarantor_ids', []))) {
                 $v->errors()->add('guarantor_ids', 'Guarantors are required for this product.');
             }
-            if ($rules->requires_security_deposit && !$request->filled('security_deposit_amount')) {
+            if ($rules->requires_security_deposit && ! $request->filled('security_deposit_amount')) {
                 $v->errors()->add('security_deposit_amount', 'Security deposit amount is required for this product.');
             }
         });
 
         $validated = $validator->validate();
         $loanId = null;
-      
 
         try {
             $loanId = DB::transaction(fn () => $this->storeLoanWithinTransaction(
@@ -558,7 +561,7 @@ class LoansController extends Controller
 
             $message = 'Failed to create loan. Please review the form and try again.';
             if (config('app.debug')) {
-                $message .= ' (' . $e->getMessage() . ')';
+                $message .= ' ('.$e->getMessage().')';
             }
 
             return back()->withInput()->with('error', $message);
@@ -586,7 +589,7 @@ class LoansController extends Controller
         // Schedule anchor: if repayment_start_date is specified, use it.
         $scheduleAnchorDate = $repaymentStartDate ?? $disbursementDate;
 
-        //creating laon to the laon table
+        // creating laon to the laon table
         $loan = $this->createLoan($validated, $request, $subshopId, $loanProduct, $disbursementDate);
 
         // Guarantors
@@ -644,11 +647,11 @@ class LoansController extends Controller
         $accounts = $loanProduct->accounts;
         $repaymentFrequency = $loanProduct->repaymentFrequency;
 
-        if (!$repaymentFrequency || empty($repaymentFrequency->code)) {
+        if (! $repaymentFrequency || empty($repaymentFrequency->code)) {
             throw new \RuntimeException('Loan product is missing repayment frequency configuration.');
         }
 
-        if (!$accounts) {
+        if (! $accounts) {
             throw new \RuntimeException('Loan product is missing account configuration.');
         }
 
@@ -663,7 +666,7 @@ class LoansController extends Controller
 
         foreach ($requiredAccountIds as $key => $val) {
             if (is_null($val) || (int) $val <= 0) {
-                throw new \RuntimeException('Loan product has invalid account configuration: ' . $key);
+                throw new \RuntimeException('Loan product has invalid account configuration: '.$key);
             }
         }
 
@@ -711,7 +714,7 @@ class LoansController extends Controller
     private function storeGuarantors(Request $request, Loans $loan): void
     {
         $guarantorIds = $request->input('guarantor_ids', []);
-        if (!is_array($guarantorIds) || empty($guarantorIds)) {
+        if (! is_array($guarantorIds) || empty($guarantorIds)) {
             return;
         }
 
@@ -727,7 +730,7 @@ class LoansController extends Controller
     private function storeCollaterals(Request $request, int $subshopId, Loans $loan): void
     {
         $collateralIds = $request->input('collateral_ids', []);
-        if (!is_array($collateralIds) || empty($collateralIds)) {
+        if (! is_array($collateralIds) || empty($collateralIds)) {
             return;
         }
 
@@ -775,7 +778,7 @@ class LoansController extends Controller
 
         // Maturity date = last due date
         $last = collect($schedule)->last();
-        if (is_array($last) && !empty($last['due_date'])) {
+        if (is_array($last) && ! empty($last['due_date'])) {
             $loan->maturity_date = Carbon::parse($last['due_date'])->toDateString();
             $loan->save();
         }
@@ -783,7 +786,7 @@ class LoansController extends Controller
 
     private function storeApprovalLevelsIfRequired(int $subshopId, LoanProducts $loanProduct, Loans $loan): void
     {
-        if (!$loanProduct->requires_approval) {
+        if (! $loanProduct->requires_approval) {
             return;
         }
 
@@ -988,7 +991,7 @@ class LoansController extends Controller
     public function update(Request $request, Loans $loan)
     {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return back()->withInput()->with('error', 'Branch session not found. Please login again.');
         }
 
@@ -1045,10 +1048,10 @@ class LoansController extends Controller
 
         $validator->after(function ($v) use ($request, $subshopId) {
             $loanType = $request->input('loan_type');
-            if ($loanType === 'individual' && !$request->filled('customer_id')) {
+            if ($loanType === 'individual' && ! $request->filled('customer_id')) {
                 $v->errors()->add('customer_id', 'Customer is required for individual loans.');
             }
-            if ($loanType === 'group' && !$request->filled('loan_group_id')) {
+            if ($loanType === 'group' && ! $request->filled('loan_group_id')) {
                 $v->errors()->add('loan_group_id', 'Loan group is required for group loans.');
             }
             if ($loanType === 'individual' && $request->filled('loan_group_id')) {
@@ -1063,13 +1066,14 @@ class LoansController extends Controller
                 ->with(['rules'])
                 ->find((int) $request->input('loan_product_id'));
 
-            if (!$product) {
+            if (! $product) {
                 $v->errors()->add('loan_product_id', 'Invalid loan product.');
+
                 return;
             }
 
             $rules = $product->rules;
-            if (!$rules) {
+            if (! $rules) {
                 return;
             }
 
@@ -1077,22 +1081,22 @@ class LoansController extends Controller
             $installments = (int) $request->input('installments');
             $interestRate = (float) $request->input('interest_rate');
 
-            if (!is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
+            if (! is_null($rules->min_loan_amount) && $principal < (float) $rules->min_loan_amount) {
                 $v->errors()->add('principal_amount', 'Principal amount is below the product minimum.');
             }
-            if (!is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
+            if (! is_null($rules->max_loan_amount) && $principal > (float) $rules->max_loan_amount) {
                 $v->errors()->add('principal_amount', 'Principal amount is above the product maximum.');
             }
-            if (!is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
+            if (! is_null($rules->min_installments) && $installments < (int) $rules->min_installments) {
                 $v->errors()->add('installments', 'Installments are below the product minimum.');
             }
-            if (!is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
+            if (! is_null($rules->max_installments) && $installments > (int) $rules->max_installments) {
                 $v->errors()->add('installments', 'Installments are above the product maximum.');
             }
-            if (!is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
+            if (! is_null($rules->min_interest_rate) && $interestRate < (float) $rules->min_interest_rate) {
                 $v->errors()->add('interest_rate', 'Interest rate is below the product minimum.');
             }
-            if (!is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
+            if (! is_null($rules->max_interest_rate) && $interestRate > (float) $rules->max_interest_rate) {
                 $v->errors()->add('interest_rate', 'Interest rate is above the product maximum.');
             }
 
@@ -1102,7 +1106,7 @@ class LoansController extends Controller
             if ($rules->requires_guarantor && empty($request->input('guarantor_ids', []))) {
                 $v->errors()->add('guarantor_ids', 'Guarantors are required for this product.');
             }
-            if ($rules->requires_security_deposit && !$request->filled('security_deposit_amount')) {
+            if ($rules->requires_security_deposit && ! $request->filled('security_deposit_amount')) {
                 $v->errors()->add('security_deposit_amount', 'Security deposit amount is required for this product.');
             }
         });
@@ -1125,10 +1129,10 @@ class LoansController extends Controller
                 $accounts = $loanProduct->accounts;
                 $repaymentFrequency = $loanProduct->repaymentFrequency;
 
-                if (!$repaymentFrequency || empty($repaymentFrequency->code)) {
+                if (! $repaymentFrequency || empty($repaymentFrequency->code)) {
                     throw new \RuntimeException('Loan product is missing repayment frequency configuration.');
                 }
-                if (!$accounts) {
+                if (! $accounts) {
                     throw new \RuntimeException('Loan product is missing account configuration.');
                 }
 
@@ -1198,7 +1202,7 @@ class LoansController extends Controller
 
             $message = 'Failed to update loan. Please review the form and try again.';
             if (config('app.debug')) {
-                $message .= ' (' . $e->getMessage() . ')';
+                $message .= ' ('.$e->getMessage().')';
             }
 
             return back()->withInput()->with('error', $message);
@@ -1214,7 +1218,7 @@ class LoansController extends Controller
     public function destroy(Loans $loan)
     {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
+        if (! $subshopId) {
             return back()->with('error', 'Branch session not found. Please login again.');
         }
 
@@ -1233,8 +1237,8 @@ class LoansController extends Controller
             ->where('loan_id', $loan->id)
             ->where(function ($q) {
                 $q->where('amount_paid', '>', 0)
-                  ->orWhereNotNull('paid_date')
-                  ->orWhereIn('status', ['paid', 'partial']);
+                    ->orWhereNotNull('paid_date')
+                    ->orWhereIn('status', ['paid', 'partial']);
             })
             ->exists();
 
@@ -1258,7 +1262,8 @@ class LoansController extends Controller
             return redirect()->route('loans.loans.index')->with('success', 'Loan deleted successfully.');
         } catch (\Exception $e) {
             \DB::rollBack();
-            \Log::error('Loan delete error: ' . $e->getMessage());
+            \Log::error('Loan delete error: '.$e->getMessage());
+
             return back()->with('error', 'Failed to delete loan. Please try again.');
         }
     }

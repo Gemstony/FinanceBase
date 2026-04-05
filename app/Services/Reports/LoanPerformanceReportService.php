@@ -6,20 +6,28 @@ namespace App\Services\Reports;
 
 use App\Models\LoanInstallments;
 use App\Models\LoanPayments;
-use App\Models\LoanWriteoffs;
-use App\Models\LoanWriteoffRecoveries;
 use App\Models\LoanProducts;
-use App\Models\User;
 use App\Models\Loans;
+use App\Models\LoanWriteoffRecoveries;
+use App\Models\LoanWriteoffs;
+use App\Models\User;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class LoanPerformanceReportService
 {
+    private readonly PortfolioRiskCalculator $portfolioRiskCalculator;
+
+    public function __construct(PortfolioRiskCalculator $portfolioRiskCalculator)
+    {
+        $this->portfolioRiskCalculator = $portfolioRiskCalculator;
+    }
+
     /**
-     * @param array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds): array
     {
@@ -76,18 +84,22 @@ class LoanPerformanceReportService
 
     private function filteredLoansQuery(array $filters, array $subshopIds): Builder
     {
-        $q = Loans::query()->from('loans')->whereIn('loans.subshop_id', $subshopIds);
+        $q = Loans::query()
+            ->from('loans')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
 
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
 
-        // Officer filter via latest disbursement processor (same approach as Loan Portfolio Report).
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $officerId = (int) $filters['loan_officer_id'];
 
             $latestDisbursement = DB::table('loan_disbursements as ld')
@@ -106,7 +118,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function summaryMetrics(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
@@ -160,19 +172,21 @@ class LoanPerformanceReportService
             ->value('avg_days');
         $avgDaysLate = round($avgDaysLate ?: 0.0, 2);
 
-        $totalLoans = (int) Loans::query()
+        $totalLoans = (int) $this->portfolioRiskCalculator->activeLoansQuery()
             ->whereIn('subshop_id', $subshopIds)
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->count('id');
 
         $defaultedLoans = (int) LoanInstallments::query()
-            ->whereIn('subshop_id', $subshopIds)
-            ->where('is_active', true)
-            ->where('status', 'overdue')
-            ->whereDate('due_date', '<', Carbon::today()->subDays(90)->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loan_installments.is_active', true)
+            ->where('loan_installments.status', 'overdue')
+            ->whereDate('loan_installments.due_date', '<', Carbon::today()->subDays(90)->toDateString())
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->distinct()
-            ->count('loan_id');
+            ->count('loan_installments.loan_id');
 
         $defaultRate = $totalLoans > 0 ? round(($defaultedLoans / $totalLoans) * 100, 2) : 0.0;
 
@@ -188,7 +202,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function repaymentTrends(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
@@ -244,7 +258,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function collectionEfficiency(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
@@ -282,7 +296,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function onTimeVsLate(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
@@ -300,13 +314,13 @@ class LoanPerformanceReportService
         $onTime = (array) (clone $alloc)
             ->whereRaw('lp.payment_date <= li.due_date')
             ->selectRaw('COUNT(DISTINCT lp.id) as payments_count')
-            ->selectRaw($sumExpr . ' as amount')
+            ->selectRaw($sumExpr.' as amount')
             ->first();
 
         $late = (array) (clone $alloc)
             ->whereRaw('lp.payment_date > li.due_date')
             ->selectRaw('COUNT(DISTINCT lp.id) as payments_count')
-            ->selectRaw($sumExpr . ' as amount')
+            ->selectRaw($sumExpr.' as amount')
             ->first();
 
         $missed = (array) DB::table('loan_installments as li')
@@ -337,35 +351,41 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function delinquencyAndDefaults(array $subshopIds, $loanIds): array
     {
         $overdueLoans = (int) LoanInstallments::query()
-            ->whereIn('subshop_id', $subshopIds)
-            ->where('is_active', true)
-            ->where('status', 'overdue')
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loan_installments.is_active', true)
+            ->where('loan_installments.status', 'overdue')
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->distinct()
-            ->count('loan_id');
+            ->count('loan_installments.loan_id');
 
         $overdueAmount = (float) LoanInstallments::query()
-            ->whereIn('subshop_id', $subshopIds)
-            ->where('is_active', true)
-            ->where('status', 'overdue')
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->sum('outstanding_amount');
+            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loan_installments.is_active', true)
+            ->where('loan_installments.status', 'overdue')
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->sum('loan_installments.outstanding_amount');
 
         $loans90 = (int) LoanInstallments::query()
-            ->whereIn('subshop_id', $subshopIds)
-            ->where('is_active', true)
-            ->where('status', 'overdue')
-            ->whereDate('due_date', '<', Carbon::today()->subDays(90)->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loan_installments.is_active', true)
+            ->where('loan_installments.status', 'overdue')
+            ->whereDate('loan_installments.due_date', '<', Carbon::today()->subDays(90)->toDateString())
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->distinct()
-            ->count('loan_id');
+            ->count('loan_installments.loan_id');
 
-        $totalLoans = (int) Loans::query()
+        $totalLoans = (int) $this->portfolioRiskCalculator->activeLoansQuery()
             ->whereIn('subshop_id', $subshopIds)
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->count('id');
@@ -381,7 +401,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      * @return array<int, array{product_id:int,product_name:string,total_loans:int,expected:float,collected:float,efficiency_pct:float,par30:float}>
      */
     private function performanceByProduct(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
@@ -392,48 +412,84 @@ class LoanPerformanceReportService
             ->get(['id', 'name'])
             ->keyBy('id');
 
+        $productLoanMap = DB::table('loans')
+            ->whereIn('subshop_id', $subshopIds)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('is_active', true)
+            ->where('is_written_off', false)
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->selectRaw('loan_product_id, GROUP_CONCAT(id) as loan_ids')
+            ->groupBy('loan_product_id')
+            ->get()
+            ->keyBy('loan_product_id');
+
+        $productExpected = [];
+        $productCollected = [];
+        $productPar30 = [];
+        $productOutstanding = [];
+
+        $dateFromStr = $dateFrom->toDateString();
+        $dateToStr = $dateTo->toDateString();
+        $par30Cutoff = Carbon::today()->subDays(30)->toDateString();
+
+        foreach ($productLoanMap as $pid => $row) {
+            $loanIdsArr = array_filter(explode(',', $row->loan_ids ?? ''));
+            $totalOut = 0.0;
+            $expSum = 0.0;
+            $colSum = 0.0;
+            $par30Sum = 0.0;
+
+            foreach ($loanIdsArr as $loanId) {
+                $loan = \App\Models\Loans::find((int) $loanId);
+                if ($loan) {
+                    $out = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                    $totalOut += $out;
+                    $productOutstanding[$pid] = $totalOut;
+
+                    $exp = DB::table('loan_installments as li')
+                        ->where('li.loan_id', $loanId)
+                        ->where('li.is_active', true)
+                        ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
+                        ->sum('li.total_due');
+                    $expSum += (float) $exp;
+
+                    $col = DB::table('loan_payments as lp')
+                        ->join('loans', 'loans.id', '=', 'lp.loan_id')
+                        ->where('lp.loan_id', $loanId)
+                        ->where('lp.status', 'confirmed')
+                        ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
+                        ->sum('lp.amount');
+                    $colSum += (float) $col;
+
+                    $par30 = DB::table('loan_installments as li')
+                        ->where('li.loan_id', $loanId)
+                        ->where('li.is_active', true)
+                        ->where('li.status', 'overdue')
+                        ->whereDate('li.due_date', '<', $par30Cutoff)
+                        ->sum('li.outstanding_amount');
+                    $par30Sum += (float) $par30;
+                }
+            }
+
+            $productExpected[$pid] = $expSum;
+            $productCollected[$pid] = $colSum;
+            $productPar30[$pid] = $par30Sum;
+        }
+
         $loanCounts = DB::table('loans')
             ->whereIn('subshop_id', $subshopIds)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('is_active', true)
+            ->where('is_written_off', false)
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->selectRaw('loan_product_id, COUNT(*) as total_loans')
             ->groupBy('loan_product_id')
             ->pluck('total_loans', 'loan_product_id');
 
-        $expected = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->whereBetween('li.due_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.loan_product_id as product_id, SUM(li.total_due) as expected')
-            ->groupBy('product_id')
-            ->pluck('expected', 'product_id');
-
-        $collected = DB::table('loan_payments as lp')
-            ->join('loans', 'loans.id', '=', 'lp.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('lp.status', 'confirmed')
-            ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.loan_product_id as product_id, SUM(lp.amount) as collected')
-            ->groupBy('product_id')
-            ->pluck('collected', 'product_id');
-
-        $par30 = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('li.status', 'overdue')
-            ->whereDate('li.due_date', '<', Carbon::today()->subDays(30)->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.loan_product_id as product_id, SUM(li.outstanding_amount) as par30')
-            ->groupBy('product_id')
-            ->pluck('par30', 'product_id');
-
         $result = [];
         foreach ($products as $pid => $p) {
-            $exp = (float) ($expected[$pid] ?? 0);
-            $col = (float) ($collected[$pid] ?? 0);
+            $exp = (float) ($productExpected[$pid] ?? 0);
+            $col = (float) ($productCollected[$pid] ?? 0);
 
             $result[] = [
                 'product_id' => (int) $pid,
@@ -442,7 +498,7 @@ class LoanPerformanceReportService
                 'expected' => round($exp, 2),
                 'collected' => round($col, 2),
                 'efficiency_pct' => $exp > 0 ? round(($col / $exp) * 100, 2) : 0.0,
-                'par30' => round((float) ($par30[$pid] ?? 0), 2),
+                'par30' => round((float) ($productPar30[$pid] ?? 0), 2),
             ];
         }
 
@@ -454,7 +510,7 @@ class LoanPerformanceReportService
      * - loans managed: loan_disbursements.processed_by (latest per loan)
      * - collections: loan_payments.user_id (who recorded payment)
      *
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      * @return array<int, array{officer_id:int,officer:string,loans_managed:int,collected:float,expected:float,efficiency_pct:float,par30:float}>
      */
     private function performanceByOfficer(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
@@ -467,76 +523,95 @@ class LoanPerformanceReportService
             ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
             ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loans.id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->select(['loans.id as loan_id', 'ld.processed_by as officer_id']);
+            ->selectRaw('loans.id as loan_id, ld.processed_by as officer_id')
+            ->get();
 
-        $loansManaged = DB::query()
-            ->fromSub($loanOfficer, 'lo')
-            ->selectRaw('lo.officer_id as officer_id, COUNT(*) as loans_managed')
-            ->groupBy('lo.officer_id')
-            ->pluck('loans_managed', 'officer_id');
+        $officerLoanMap = [];
+        $officerExpected = [];
+        $officerCollected = [];
+        $officerPar30 = [];
+        $officerOutstanding = [];
+        $officerLoansManaged = [];
 
-        $expected = DB::table('loan_installments as li')
-            ->joinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'li.loan_id'))
-            ->whereIn('li.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->whereBetween('li.due_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
-            ->selectRaw('lo.officer_id as officer_id, SUM(li.total_due) as expected')
-            ->groupBy('officer_id')
-            ->pluck('expected', 'officer_id');
+        $dateFromStr = $dateFrom->toDateString();
+        $dateToStr = $dateTo->toDateString();
+        $par30Cutoff = Carbon::today()->subDays(30)->toDateString();
 
-        $par30 = DB::table('loan_installments as li')
-            ->joinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'li.loan_id'))
-            ->whereIn('li.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('li.status', 'overdue')
-            ->whereDate('li.due_date', '<', Carbon::today()->subDays(30)->toDateString())
-            ->selectRaw('lo.officer_id as officer_id, SUM(li.outstanding_amount) as par30')
-            ->groupBy('officer_id')
-            ->pluck('par30', 'officer_id');
+        foreach ($loanOfficer as $lo) {
+            $oid = (int) $lo->officer_id;
+            if (! isset($officerExpected[$oid])) {
+                $officerExpected[$oid] = 0.0;
+                $officerCollected[$oid] = 0.0;
+                $officerPar30[$oid] = 0.0;
+                $officerOutstanding[$oid] = 0.0;
+                $officerLoansManaged[$oid] = 0;
+                $officerLoanMap[$oid] = [];
+            }
+            $officerLoanMap[$oid][] = (int) $lo->loan_id;
+        }
 
-        $collected = DB::table('loan_payments as lp')
-            ->join('loans', 'loans.id', '=', 'lp.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('lp.status', 'confirmed')
-            ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->whereNotNull('lp.user_id')
-            ->selectRaw('lp.user_id as officer_id, SUM(lp.amount) as collected')
-            ->groupBy('officer_id')
-            ->pluck('collected', 'officer_id');
+        foreach ($officerLoanMap as $oid => $loanIdList) {
+            foreach ($loanIdList as $loanId) {
+                $loan = \App\Models\Loans::find($loanId);
+                if ($loan) {
+                    $out = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
+                    $officerOutstanding[$oid] += $out;
+                    $officerLoansManaged[$oid]++;
 
-        $officerIds = collect([$loansManaged->keys(), $expected->keys(), $collected->keys(), $par30->keys()])
-            ->flatten()
-            ->filter()
-            ->unique()
-            ->values();
+                    $exp = DB::table('loan_installments as li')
+                        ->where('li.loan_id', $loanId)
+                        ->where('li.is_active', true)
+                        ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
+                        ->sum('li.total_due');
+                    $officerExpected[$oid] += (float) $exp;
 
-        $users = User::query()->whereIn('id', $officerIds)->get(['id', 'name'])->keyBy('id');
+                    $col = DB::table('loan_payments as lp')
+                        ->where('lp.loan_id', $loanId)
+                        ->where('lp.status', 'confirmed')
+                        ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
+                        ->sum('lp.amount');
+                    $officerCollected[$oid] += (float) $col;
+
+                    $par30 = DB::table('loan_installments as li')
+                        ->where('li.loan_id', $loanId)
+                        ->where('li.is_active', true)
+                        ->where('li.status', 'overdue')
+                        ->whereDate('li.due_date', '<', $par30Cutoff)
+                        ->sum('li.outstanding_amount');
+                    $officerPar30[$oid] += (float) $par30;
+                }
+            }
+        }
+
+        $users = User::query()->whereIn('id', array_keys($officerOutstanding))->get(['id', 'name'])->keyBy('id');
 
         $rows = [];
-        foreach ($officerIds as $oid) {
-            $exp = (float) ($expected[$oid] ?? 0);
-            $col = (float) ($collected[$oid] ?? 0);
+        foreach ($officerOutstanding as $oid => $total) {
+            $exp = $officerExpected[$oid] ?? 0;
+            $col = $officerCollected[$oid] ?? 0;
 
             $rows[] = [
-                'officer_id' => (int) $oid,
+                'officer_id' => $oid,
                 'officer' => (string) ($users[$oid]->name ?? 'Unknown'),
-                'loans_managed' => (int) ($loansManaged[$oid] ?? 0),
+                'loans_managed' => (int) ($officerLoansManaged[$oid] ?? 0),
                 'expected' => round($exp, 2),
                 'collected' => round($col, 2),
                 'efficiency_pct' => $exp > 0 ? round(($col / $exp) * 100, 2) : 0.0,
-                'par30' => round((float) ($par30[$oid] ?? 0), 2),
+                'par30' => round((float) ($officerPar30[$oid] ?? 0), 2),
             ];
         }
 
-        usort($rows, fn ($a, $b) => ($b['collected'] <=> $a['collected']));
+        usort($rows, fn ($a, $b) => ($b['expected'] <=> $a['expected']));
 
         return $rows;
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function repaymentBehavior(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
@@ -545,6 +620,9 @@ class LoanPerformanceReportService
             ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
             ->join('loans', 'loans.id', '=', 'lp.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'));
@@ -564,6 +642,9 @@ class LoanPerformanceReportService
             ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
             ->join('loans', 'loans.id', '=', 'lp.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->whereRaw('lp.payment_date > li.due_date')
@@ -582,6 +663,7 @@ class LoanPerformanceReportService
 
         $repeatLateRows = $repeatLate->map(function ($r) use ($customerNames) {
             $cid = (int) $r->customer_id;
+
             return [
                 'customer_id' => $cid,
                 'customer' => (string) ($customerNames[$cid]->name ?? 'Unknown'),
@@ -598,13 +680,16 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function topAndWorstLoans(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {
         $loanAgg = DB::table('loan_installments as li')
             ->join('loans', 'loans.id', '=', 'li.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('li.is_active', true)
             ->whereBetween('li.due_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
@@ -614,11 +699,16 @@ class LoanPerformanceReportService
         $allocAgg = DB::table('loan_payment_allocations as lpa')
             ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
             ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->selectRaw('lp.loan_id as loan_id')
             ->selectRaw('SUM(COALESCE(lpa.principal_amount,0)+COALESCE(lpa.interest_amount,0)+COALESCE(lpa.fee_amount,0)+COALESCE(lpa.penalty_amount,0)) as collected_alloc')
-            ->selectRaw("SUM(CASE WHEN lp.payment_date > li.due_date THEN (COALESCE(lpa.principal_amount,0)+COALESCE(lpa.interest_amount,0)+COALESCE(lpa.fee_amount,0)+COALESCE(lpa.penalty_amount,0)) ELSE 0 END) as late_alloc")
+            ->selectRaw('SUM(CASE WHEN lp.payment_date > li.due_date THEN (COALESCE(lpa.principal_amount,0)+COALESCE(lpa.interest_amount,0)+COALESCE(lpa.fee_amount,0)+COALESCE(lpa.penalty_amount,0)) ELSE 0 END) as late_alloc')
             ->groupBy('lp.loan_id');
 
         $rows = DB::query()
@@ -696,7 +786,7 @@ class LoanPerformanceReportService
     }
 
     /**
-     * @param \Illuminate\Support\Collection<int,int> $loanIds
+     * @param  \Illuminate\Support\Collection<int,int>  $loanIds
      */
     private function writeOffAndRecovery(array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIds): array
     {

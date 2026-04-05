@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Dashboard;
 
 use App\Models\ChartsOfAccount;
+use App\Models\Customers;
+use App\Models\DepositAccount;
 use App\Models\JournalEntries;
+use App\Models\LoanPayments;
+use App\Models\LoanRestructures;
 use App\Models\Loans;
 use App\Models\SubShop;
 use App\Services\Loans\Account\LoanBalanceCalculator;
@@ -22,8 +26,7 @@ class FinancialDashboardService
         private readonly PortfolioRiskCalculator $portfolioRiskCalculator,
         private readonly IncomeSummaryService $incomeSummaryService,
         private readonly ExpensesSummaryService $expensesSummaryService
-    ) {
-    }
+    ) {}
 
     /**
      * Build the financial dashboard data.
@@ -50,6 +53,9 @@ class FinancialDashboardService
         // Loan Portfolio Data
         $loanPortfolio = $this->calculateLoanPortfolio($subshopIds);
 
+        // Customer Stats
+        $customerStats = $this->calculateCustomerStats($subshopIds);
+
         // PAR Data
         $parData = $this->calculatePAR($subshopIds);
 
@@ -71,6 +77,9 @@ class FinancialDashboardService
         // Alerts
         $alerts = $this->generateAlerts($kpis, $parData);
 
+        // Loan Charts Data
+        $loanCharts = $this->calculateLoanCharts($subshopIds, $fromDate, $toDate);
+
         return [
             'filters' => [
                 'from_date' => $fromDate?->toDateString(),
@@ -81,6 +90,7 @@ class FinancialDashboardService
             'profitability' => $profitability,
             'cash_flow' => $cashFlow,
             'loan_portfolio' => $loanPortfolio,
+            'customer_stats' => $customerStats,
             'par_data' => $parData,
             'income_distribution' => $incomeDistribution,
             'expense_distribution' => $expenseDistribution,
@@ -88,6 +98,7 @@ class FinancialDashboardService
             'branch_performance' => $branchPerformance,
             'recent_transactions' => $recentTransactions,
             'alerts' => $alerts,
+            'loan_charts' => $loanCharts,
             'charts' => $this->buildChartData($profitability, $cashFlow, $incomeDistribution, $expenseDistribution, $monthlyTrends, $branchPerformance),
         ];
     }
@@ -113,6 +124,14 @@ class FinancialDashboardService
                 'total_outstanding' => 0.0,
                 'active_loans_count' => 0,
                 'paid_off_count' => 0,
+                'total_released_loans' => 0,
+                'total_active_loans' => 0,
+                'total_completed_loans' => 0,
+                'total_restructured_loans' => 0,
+            ],
+            'customer_stats' => [
+                'total_registered_customers' => 0,
+                'total_customer_deposits' => 0.0,
             ],
             'par_data' => ['par30' => 0.0, 'par60' => 0.0, 'par90' => 0.0],
             'income_distribution' => ['labels' => [], 'values' => []],
@@ -121,6 +140,12 @@ class FinancialDashboardService
             'branch_performance' => ['labels' => [], 'income' => [], 'expenses' => [], 'profit' => []],
             'recent_transactions' => [],
             'alerts' => [],
+            'loan_charts' => [
+                'loans_released' => ['labels' => [], 'values' => []],
+                'loans_collections' => ['labels' => [], 'values' => []],
+                'customer_status' => ['active' => 0, 'inactive' => 0],
+                'loan_amount_status' => ['paid' => 0.0, 'due' => 0.0],
+            ],
             'charts' => [],
         ];
     }
@@ -184,7 +209,7 @@ class FinancialDashboardService
      */
     private function calculateProfitability(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
     {
-        if (!$fromDate || !$toDate) {
+        if (! $fromDate || ! $toDate) {
             // Default to last 12 months
             $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
             $toDate = Carbon::now()->endOfMonth();
@@ -192,14 +217,14 @@ class FinancialDashboardService
 
         $months = $this->generateMonthLabels($fromDate, $toDate);
         $labels = $months['labels'];
-        
+
         $incomeData = [];
         $expensesData = [];
         $profitData = [];
 
         foreach ($labels as $month) {
-            $monthStart = Carbon::parse($month . '-01')->startOfMonth();
-            $monthEnd = Carbon::parse($month . '-01')->endOfMonth();
+            $monthStart = Carbon::parse($month.'-01')->startOfMonth();
+            $monthEnd = Carbon::parse($month.'-01')->endOfMonth();
 
             $income = $this->getTotalIncome($subshopIds, $monthStart, $monthEnd);
             $expenses = $this->getTotalExpenses($subshopIds, $monthStart, $monthEnd);
@@ -223,20 +248,20 @@ class FinancialDashboardService
      */
     private function calculateCashFlow(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
     {
-        if (!$fromDate || !$toDate) {
+        if (! $fromDate || ! $toDate) {
             $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
             $toDate = Carbon::now()->endOfMonth();
         }
 
         $months = $this->generateMonthLabels($fromDate, $toDate);
         $labels = $months['labels'];
-        
+
         $inflows = [];
         $outflows = [];
 
         foreach ($labels as $month) {
-            $monthStart = Carbon::parse($month . '-01')->startOfMonth();
-            $monthEnd = Carbon::parse($month . '-01')->endOfMonth();
+            $monthStart = Carbon::parse($month.'-01')->startOfMonth();
+            $monthEnd = Carbon::parse($month.'-01')->endOfMonth();
 
             $inflow = $this->getCashInflows($subshopIds, $monthStart, $monthEnd);
             $outflow = $this->getCashOutflows($subshopIds, $monthStart, $monthEnd);
@@ -281,11 +306,65 @@ class FinancialDashboardService
             ->where('status', 'paid_off')
             ->count();
 
+        // Total Released Loans
+        $totalReleasedLoans = Loans::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->where('is_active', true)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted', 'paid_off', 'written_off'])
+            ->count();
+
+        // Total Active Loans (status: disbursed, partially_paid)
+        $activeLoanCount = Loans::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->where('is_active', true)
+            ->whereIn('status', ['disbursed', 'partially_paid'])
+            ->count();
+
+        // Total Completed Loans (status: paid_off)
+        $completedLoansCount = Loans::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->where('is_active', true)
+            ->where('status', 'paid_off')
+            ->count();
+
+        // Total Restructured Loans (status: executed)
+        $restructuredLoansCount = LoanRestructures::query()
+            ->join('loans as l', 'l.id', '=', 'loan_restructures.loan_id')
+            ->whereIn('l.subshop_id', $subshopIds)
+            ->where('loan_restructures.status', 'executed')
+            ->count();
+
         return [
             'total_disbursed' => round($totalDisbursed, 2),
             'total_outstanding' => round($totalOutstanding, 2),
             'active_loans_count' => $activeLoansCount,
             'paid_off_count' => $paidOffCount,
+            'total_released_loans' => $totalReleasedLoans,
+            'total_active_loans' => $activeLoanCount,
+            'total_completed_loans' => $completedLoansCount,
+            'total_restructured_loans' => $restructuredLoansCount,
+        ];
+    }
+
+    /**
+     * Calculate Customer statistics.
+     */
+    private function calculateCustomerStats(array $subshopIds): array
+    {
+        // Total Registered Customers
+        $totalCustomers = Customers::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->count();
+
+        // Total Customer Deposits
+        $totalDeposits = DepositAccount::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->where('status', 'active')
+            ->sum('balance');
+
+        return [
+            'total_registered_customers' => $totalCustomers,
+            'total_customer_deposits' => round((float) $totalDeposits, 2),
         ];
     }
 
@@ -295,7 +374,7 @@ class FinancialDashboardService
     private function calculatePAR(array $subshopIds): array
     {
         $totalOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
-        
+
         if ($totalOutstanding <= 0) {
             return [
                 'par30' => 0.0,
@@ -318,12 +397,13 @@ class FinancialDashboardService
     private function calculatePAR30(array $subshopIds): float
     {
         $totalOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
-        
+
         if ($totalOutstanding <= 0) {
             return 0.0;
         }
 
         $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
+
         return round(($par30 / $totalOutstanding) * 100, 2);
     }
 
@@ -332,7 +412,7 @@ class FinancialDashboardService
      */
     private function calculateIncomeDistribution(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
     {
-        if (!$fromDate || !$toDate) {
+        if (! $fromDate || ! $toDate) {
             $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
             $toDate = Carbon::now()->endOfMonth();
         }
@@ -348,10 +428,10 @@ class FinancialDashboardService
 
         $labels = [];
         $values = [];
-        $totalIncome = array_sum(array_map(fn($i) => $i['amount'] ?? 0, $topIncome));
+        $totalIncome = array_sum(array_map(fn ($i) => $i['amount'] ?? 0, $topIncome));
 
         foreach ($topIncome as $item) {
-            $labels[] = trim(($item['account_code'] ?? '') . ' ' . ($item['account_name'] ?? ''));
+            $labels[] = trim(($item['account_code'] ?? '').' '.($item['account_name'] ?? ''));
             $values[] = round((float) ($item['amount'] ?? 0), 2);
         }
 
@@ -367,7 +447,7 @@ class FinancialDashboardService
      */
     private function calculateExpenseDistribution(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
     {
-        if (!$fromDate || !$toDate) {
+        if (! $fromDate || ! $toDate) {
             $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
             $toDate = Carbon::now()->endOfMonth();
         }
@@ -383,10 +463,10 @@ class FinancialDashboardService
 
         $labels = [];
         $values = [];
-        $totalExpenses = array_sum(array_map(fn($i) => $i['amount'] ?? 0, $topExpenses));
+        $totalExpenses = array_sum(array_map(fn ($i) => $i['amount'] ?? 0, $topExpenses));
 
         foreach ($topExpenses as $item) {
-            $labels[] = trim(($item['account_code'] ?? '') . ' ' . ($item['account_name'] ?? ''));
+            $labels[] = trim(($item['account_code'] ?? '').' '.($item['account_name'] ?? ''));
             $values[] = round((float) ($item['amount'] ?? 0), 2);
         }
 
@@ -413,11 +493,106 @@ class FinancialDashboardService
     }
 
     /**
+     * Calculate Loan Charts Data.
+     */
+    private function calculateLoanCharts(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
+    {
+        if (! $fromDate || ! $toDate) {
+            $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
+            $toDate = Carbon::now()->endOfMonth();
+        }
+
+        $months = $this->generateMonthLabels($fromDate, $toDate);
+        $labels = $months['labels'];
+
+        $loansReleased = [];
+        $loansCollections = [];
+
+        foreach ($labels as $month) {
+            $monthStart = Carbon::parse($month.'-01')->startOfMonth();
+            $monthEnd = Carbon::parse($month.'-01')->endOfMonth();
+
+            $released = Loans::query()
+                ->whereIn('subshop_id', $subshopIds)
+                ->where('is_active', true)
+                ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted', 'paid_off', 'written_off'])
+                ->whereBetween('disbursement_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+                ->count();
+            $loansReleased[] = $released;
+
+            $collected = LoanPayments::query()
+                ->join('loans as l', 'l.id', '=', 'loan_payments.loan_id')
+                ->whereIn('l.subshop_id', $subshopIds)
+                ->whereIn('loan_payments.status', ['confirmed', 'completed'])
+                ->whereBetween('loan_payments.payment_date', [$monthStart->toDateString(), $monthEnd->toDateString()])
+                ->sum('loan_payments.amount');
+            $loansCollections[] = round((float) $collected, 2);
+        }
+
+        $activeCustomers = Customers::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->whereExists(function ($query) use ($subshopIds, $fromDate, $toDate) {
+                $query->select(DB::raw(1))
+                    ->from('loans')
+                    ->whereColumn('loans.customer_id', 'customers.id')
+                    ->whereIn('loans.subshop_id', $subshopIds);
+                if ($fromDate && $toDate) {
+                    $query->whereBetween('loans.disbursement_date', [$fromDate->toDateString(), $toDate->toDateString()]);
+                }
+            })
+            ->count();
+
+        $inactiveCustomers = Customers::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->whereNotExists(function ($query) use ($subshopIds, $fromDate, $toDate) {
+                $query->select(DB::raw(1))
+                    ->from('loans')
+                    ->whereColumn('loans.customer_id', 'customers.id')
+                    ->whereIn('loans.subshop_id', $subshopIds);
+                if ($fromDate && $toDate) {
+                    $query->whereBetween('loans.disbursement_date', [$fromDate->toDateString(), $toDate->toDateString()]);
+                }
+            })
+            ->count();
+
+        $totalPaidAmount = LoanPayments::query()
+            ->join('loans as l', 'l.id', '=', 'loan_payments.loan_id')
+            ->whereIn('l.subshop_id', $subshopIds)
+            ->whereIn('loan_payments.status', ['confirmed', 'completed'])
+            ->sum('loan_payments.amount');
+
+        $totalDueAmount = Loans::query()
+            ->whereIn('subshop_id', $subshopIds)
+            ->where('is_active', true)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->sum('outstanding_balance');
+
+        return [
+            'loans_released' => [
+                'labels' => $labels,
+                'values' => $loansReleased,
+            ],
+            'loans_collections' => [
+                'labels' => $labels,
+                'values' => $loansCollections,
+            ],
+            'customer_status' => [
+                'active' => $activeCustomers,
+                'inactive' => $inactiveCustomers,
+            ],
+            'loan_amount_status' => [
+                'paid' => round((float) $totalPaidAmount, 2),
+                'due' => round((float) $totalDueAmount, 2),
+            ],
+        ];
+    }
+
+    /**
      * Calculate Branch Performance.
      */
     private function calculateBranchPerformance(array $subshopIds, ?Carbon $fromDate, ?Carbon $toDate): array
     {
-        if (!$fromDate || !$toDate) {
+        if (! $fromDate || ! $toDate) {
             $fromDate = Carbon::now()->subMonths(11)->startOfMonth();
             $toDate = Carbon::now()->endOfMonth();
         }
@@ -467,11 +642,11 @@ class FinancialDashboardService
         return $transactions->map(function ($entry) {
             $debit = $entry->lines->sum('debit');
             $credit = $entry->lines->sum('credit');
-            
+
             return [
                 'id' => $entry->id,
                 'date' => $entry->transaction_date?->toDateString(),
-                'reference' => $entry->reference_type ? ($entry->reference_type . ' #' . $entry->reference_id) : 'JE #' . $entry->id,
+                'reference' => $entry->reference_type ? ($entry->reference_type.' #'.$entry->reference_id) : 'JE #'.$entry->id,
                 'description' => $entry->description,
                 'amount' => round($debit, 2),
                 'type' => $debit > 0 ? 'debit' : 'credit',
@@ -689,6 +864,7 @@ class FinancialDashboardService
         }
 
         $result = $query->selectRaw('SUM(jel.credit - jel.debit) as amount')->first();
+
         return max(0.0, round((float) ($result->amount ?? 0), 2));
     }
 
@@ -715,6 +891,7 @@ class FinancialDashboardService
         }
 
         $result = $query->selectRaw('SUM(jel.debit - jel.credit) as amount')->first();
+
         return max(0.0, round((float) ($result->amount ?? 0), 2));
     }
 
@@ -772,6 +949,7 @@ class FinancialDashboardService
         }
 
         $result = $query->selectRaw('SUM(jel.debit) as total')->first();
+
         return round((float) ($result->total ?? 0), 2);
     }
 
@@ -796,6 +974,7 @@ class FinancialDashboardService
         }
 
         $result = $query->selectRaw('SUM(jel.credit) as total')->first();
+
         return round((float) ($result->total ?? 0), 2);
     }
 

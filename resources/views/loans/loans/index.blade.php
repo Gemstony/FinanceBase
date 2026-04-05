@@ -86,7 +86,7 @@
                 <div class="col-md-6 col-12">
                     <div class="small-box bg-secondary">
                         <div class="inner">
-                            <h3 class="mb-0">{{ number_format((float)($summary['principal_sum'] ?? 0), 2) }}</h3>
+                            <h3 class="mb-0">{{ number_format((float)($summary['principal_sum'] ?? 0), 0) }}</h3>
                             <p>Total Principal</p>
                         </div>
                         <div class="icon"><i class="fas fa-coins"></i></div>
@@ -95,7 +95,7 @@
                 <div class="col-md-6 col-12">
                     <div class="small-box bg-dark">
                         <div class="inner">
-                            <h3 class="mb-0">{{ number_format((float)($summary['outstanding_sum'] ?? 0), 2) }}</h3>
+                            <h3 class="mb-0">{{ number_format((float)($summary['outstanding_sum'] ?? 0), 0) }}</h3>
                             <p>Total Outstanding</p>
                         </div>
                         <div class="icon"><i class="fas fa-wallet"></i></div>

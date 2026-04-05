@@ -7,10 +7,8 @@ namespace App\Services\Reports;
 use App\Models\LoanInstallments;
 use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPayments;
-use App\Models\LoanProducts;
 use App\Models\Loans;
-use App\Models\SubShop;
-use App\Models\User;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,9 +16,13 @@ use Illuminate\Support\Facades\DB;
 
 class LoanRepaymentReportService
 {
+    public function __construct(
+        private readonly PortfolioRiskCalculator $portfolioRiskCalculator,
+    ) {}
+
     /**
-     * @param array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,payment_method?:string|null,loan_status?:string|null,customer_id?:int|null,per_page?:int|null,page?:int|null,drilldown?:array|null} $filters
-     * @param array<int> $accessibleSubshopIds
+     * @param  array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,payment_method?:string|null,loan_status?:string|null,customer_id?:int|null,per_page?:int|null,page?:int|null,drilldown?:array|null}  $filters
+     * @param  array<int>  $accessibleSubshopIds
      */
     public function build(array $filters, array $accessibleSubshopIds): array
     {
@@ -103,19 +105,19 @@ class LoanRepaymentReportService
             ->whereIn('loans.subshop_id', $subshopIds)
             ->where('loan_payments.status', 'confirmed');
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $q->where('loan_payments.user_id', (int) $filters['loan_officer_id']);
         }
-        if (!empty($filters['payment_method'])) {
+        if (! empty($filters['payment_method'])) {
             $q->where('loan_payments.payment_method', (string) $filters['payment_method']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $q->where('loan_payments.customer_id', (int) $filters['customer_id']);
         }
 
@@ -126,13 +128,13 @@ class LoanRepaymentReportService
     {
         $q = Loans::query()->from('loans')->whereIn('loans.subshop_id', $subshopIds);
 
-        if (!empty($filters['loan_product_id'])) {
+        if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
-        if (!empty($filters['loan_status'])) {
+        if (! empty($filters['loan_status'])) {
             $q->where('loans.status', (string) $filters['loan_status']);
         }
-        if (!empty($filters['customer_id'])) {
+        if (! empty($filters['customer_id'])) {
             $q->where('loans.customer_id', (int) $filters['customer_id']);
         }
 
@@ -192,7 +194,7 @@ class LoanRepaymentReportService
                 ->get();
 
             $mapped = $rows->map(fn ($r) => [
-                'period' => (string) ($r->week_start ?? '') . ' to ' . (string) ($r->week_end ?? ''),
+                'period' => (string) ($r->week_start ?? '').' to '.(string) ($r->week_end ?? ''),
                 'payments' => (int) ($r->payments_count ?? 0),
                 'amount' => round((float) ($r->amount ?? 0), 2),
             ])->all();
@@ -352,10 +354,10 @@ class LoanRepaymentReportService
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $base->where('lp.user_id', (int) $filters['loan_officer_id']);
         }
-        if (!empty($filters['payment_method'])) {
+        if (! empty($filters['payment_method'])) {
             $base->where('lp.payment_method', (string) $filters['payment_method']);
         }
 
@@ -395,10 +397,10 @@ class LoanRepaymentReportService
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->whereRaw('lp.payment_date > li.due_date');
 
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $base->where('lp.user_id', (int) $filters['loan_officer_id']);
         }
-        if (!empty($filters['payment_method'])) {
+        if (! empty($filters['payment_method'])) {
             $base->where('lp.payment_method', (string) $filters['payment_method']);
         }
 
@@ -507,10 +509,10 @@ class LoanRepaymentReportService
             ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->where('li.due_date', '<', $asOf);
 
-        if (!empty($filters['loan_officer_id'])) {
+        if (! empty($filters['loan_officer_id'])) {
             $recoveredQ->where('lp.user_id', (int) $filters['loan_officer_id']);
         }
-        if (!empty($filters['payment_method'])) {
+        if (! empty($filters['payment_method'])) {
             $recoveredQ->where('lp.payment_method', (string) $filters['payment_method']);
         }
 
@@ -533,8 +535,8 @@ class LoanRepaymentReportService
 
     private function loanLevelTable(array $filters, array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIdsScope): LengthAwarePaginator
     {
-        $perPage = !empty($filters['per_page']) ? max(1, (int) $filters['per_page']) : 15;
-        $page = !empty($filters['page']) ? max(1, (int) $filters['page']) : 1;
+        $perPage = ! empty($filters['per_page']) ? max(1, (int) $filters['per_page']) : 15;
+        $page = ! empty($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paymentsInPeriodSub = $this->filteredPaymentsQuery($filters, $subshopIds)
             ->whereBetween('loan_payments.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
@@ -602,8 +604,8 @@ class LoanRepaymentReportService
 
     private function installmentLevelTable(array $filters, array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIdsScope): LengthAwarePaginator
     {
-        $perPage = !empty($filters['per_page']) ? max(1, (int) $filters['per_page']) : 15;
-        $page = !empty($filters['page']) ? max(1, (int) $filters['page']) : 1;
+        $perPage = ! empty($filters['per_page']) ? max(1, (int) $filters['per_page']) : 15;
+        $page = ! empty($filters['page']) ? max(1, (int) $filters['page']) : 1;
 
         $paidInPeriodSub = LoanPaymentAllocations::query()
             ->from('loan_payment_allocations as lpa')

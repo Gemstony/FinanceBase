@@ -152,7 +152,7 @@ class CustomersController extends Controller
                 'street' => 'required|string|max:255',
                 'house_no' => 'required|string|max:20',
                 'work' => 'nullable|string|max:20',
-                'work_address' => 'nullable|string|max:20',
+                'work_address' => 'nullable|string|max:50',
                 'id_type' => 'required|string|max:20',
                 'id_number' => ['required', 'string', 'max:50', function ($attribute, $value, $fail) use ($request) {
                     $idType = $request->input('id_type');
@@ -714,7 +714,7 @@ class CustomersController extends Controller
                 'street' => 'required|string|max:255',
                 'house_no' => 'required|string|max:20',
                 'work' => 'nullable|string|max:20',
-                'work_address' => 'nullable|string|max:20',
+                'work_address' => 'nullable|string|max:50',
                 'id_type' => 'required|string|max:20',
                 'id_number' => ['required', 'string', 'max:50', function ($attribute, $value, $fail) use ($request) {
                     $idType = $request->input('id_type');

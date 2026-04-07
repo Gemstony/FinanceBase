@@ -162,6 +162,26 @@
                 </div>
             </div>
 
+            <!--  Send Reminder SMS -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-bell"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text"> Send Reminder SMS</span>
+                        <span class="info-box-number">
+                            Send SMS reminders to customers based on loan status
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ Route('sms.reminders.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
 
 

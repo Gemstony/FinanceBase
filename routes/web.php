@@ -492,6 +492,9 @@ Route::middleware(['auth'])->group(function () {
                     'show' => 'logs.show',
                 ]);
             Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+            Route::get('reminders', [\App\Http\Controllers\Sms\ReminderSmsController::class, 'index'])->name('reminders.index');
+            Route::post('reminders/preview', [\App\Http\Controllers\Sms\ReminderSmsController::class, 'preview'])->name('reminders.preview');
+            Route::post('reminders/send', [\App\Http\Controllers\Sms\ReminderSmsController::class, 'send'])->name('reminders.send');
         });
 
         // Payment Management Routes

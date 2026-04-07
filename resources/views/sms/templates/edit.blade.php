@@ -87,6 +87,11 @@
                                     <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="insertVariable('phone')">@{{phone}}</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="insertVariable('reference')">@{{reference}}</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="insertVariable('loan_code')">@{{loan_code}}</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="insertVariable('outstanding_balance')">@{{outstanding_balance}}</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="insertVariable('principal_amount')">@{{principal_amount}}</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="insertVariable('overdue_days')">@{{overdue_days}}</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="insertVariable('days_until_due')">@{{days_until_due}}</button>
+
                                 </div>
                                 <textarea name="message_template" id="message_template" class="form-control" rows="4" required oninput="autoDetectVariables()">{!! $smsTemplate->message_template !!}</textarea>
                                 <small class="text-muted">Use @{{variable_name}} for dynamic content. Variables are auto-detected.</small>

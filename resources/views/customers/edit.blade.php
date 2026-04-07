@@ -30,10 +30,19 @@
 
 @section('content')
 <div class="container-fluid">
+    @if($errors->any())
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if(session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
-
     <div class="card  border-0">
         <div class="card-body">
             <form method="POST" action="{{ route('customers.update', $customer->id) }}" enctype="multipart/form-data">

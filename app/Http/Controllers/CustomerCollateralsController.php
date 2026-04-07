@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CustomerCollaterals;
 use App\Models\CollateralDocuments;
-use App\Models\SubShop;
-use App\Models\Customers;
 use App\Models\CollateralTypes;
+use App\Models\CustomerCollaterals;
+use App\Models\Customers;
+use App\Models\SubShop;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class CustomerCollateralsController extends Controller
 {
@@ -21,15 +20,15 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $subshopId = session('subshop_id');
-            
-            if (!$subshopId) {
+
+            if (! $subshopId) {
                 return redirect()->route('subshops.choose', ['intended' => route('loans.customer_collaterals.index')]);
             }
-            
+
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
             $customerCollaterals = CustomerCollaterals::whereIn('subshop_id', $shopSubshopIds)
-                ->with(['customer', 'collateralType', 'documents' => function($query) {
+                ->with(['customer', 'collateralType', 'documents' => function ($query) {
                     $query->with(['uploadedBy', 'verifiedBy']);
                 }])
                 ->latest()
@@ -40,21 +39,21 @@ class CustomerCollateralsController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get();
-            
+
             $collateralTypes = CollateralTypes::whereIn('subshop_id', $shopSubshopIds)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get();
 
             return view('loans.loans_settings.customer_collaterals', compact(
-                'subshop', 
+                'subshop',
                 'customerCollaterals',
                 'customers',
                 'collateralTypes'
             ));
-            
+
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to load customer collaterals: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to load customer collaterals: '.$e->getMessage());
         }
     }
 
@@ -78,7 +77,7 @@ class CustomerCollateralsController extends Controller
                 $request->merge([
                     'document_types' => array_values(array_filter($docTypes, function ($v) {
                         return $v !== null && $v !== '';
-                    }))
+                    })),
                 ]);
             }
             $validated = $request->validate([
@@ -95,11 +94,13 @@ class CustomerCollateralsController extends Controller
                 'status' => 'required|in:available,pledged,released,seized,disposed',
                 'is_active' => 'boolean',
                 'subshop_id' => 'nullable|exists:subshops,id',
+                // Collateral image
+                'collateral_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 // Document uploads
                 'documents' => 'nullable|array|max:5',
-                'documents.*' => 'file|max:10240', // Max 10MB per file
+                'documents.*' => 'file|max:10240',
                 'document_types' => 'nullable|array',
-                'document_types.*' => 'nullable|in:title_deed,logbook,photo,valuation_report,insurance,ownership_proof,other'
+                'document_types.*' => 'nullable|in:title_deed,logbook,photo,valuation_report,insurance,ownership_proof,other',
             ]);
 
             // Validate customer and collateral type belong to the same shop
@@ -115,12 +116,20 @@ class CustomerCollateralsController extends Controller
                 ->where('id', $validated['collateral_type_id'])
                 ->firstOrFail();
 
+            $collateralImagePath = null;
+            if ($request->hasFile('collateral_image')) {
+                $image = $request->file('collateral_image');
+                $filename = time().'_'.bin2hex(random_bytes(8)).'.'.$image->getClientOriginalExtension();
+                $collateralImagePath = $image->storeAs('collaterals/images', $filename, 'public');
+            }
+
             $customerCollateral = CustomerCollaterals::create([
                 'subshop_id' => $subshopId,
                 'customer_id' => $validated['customer_id'],
                 'collateral_type_id' => $validated['collateral_type_id'],
                 'reference_number' => $validated['reference_number'],
                 'description' => $validated['description'],
+                'collateral_image' => $collateralImagePath,
                 'location' => $validated['location'],
                 'estimated_value' => $validated['estimated_value'],
                 'valuation_date' => $validated['valuation_date'],
@@ -141,20 +150,21 @@ class CustomerCollateralsController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Customer collateral created successfully!',
-                    'collateral' => $customerCollateral->load(['customer', 'collateralType'])
+                    'collateral' => $customerCollateral->load(['customer', 'collateralType']),
                 ]);
             }
 
             return redirect()->back()->with('success', 'Customer collateral created successfully!');
-            
+
         } catch (\Exception $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to create customer collateral: ' . $e->getMessage()
+                    'message' => 'Failed to create customer collateral: '.$e->getMessage(),
                 ], 422);
             }
-            return redirect()->back()->with('error', 'Failed to create customer collateral: ' . $e->getMessage())->withInput();
+
+            return redirect()->back()->with('error', 'Failed to create customer collateral: '.$e->getMessage())->withInput();
         }
     }
 
@@ -188,7 +198,7 @@ class CustomerCollateralsController extends Controller
                 $request->merge([
                     'document_types' => array_values(array_filter($docTypes, function ($v) {
                         return $v !== null && $v !== '';
-                    }))
+                    })),
                 ]);
             }
 
@@ -206,11 +216,13 @@ class CustomerCollateralsController extends Controller
                 'status' => 'required|in:available,pledged,released,seized,disposed',
                 'is_active' => 'boolean',
                 'subshop_id' => 'nullable|exists:subshops,id',
+                // Collateral image
+                'collateral_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 // Document uploads
                 'documents' => 'nullable|array|max:5',
-                'documents.*' => 'file|max:10240', // Max 10MB per file
+                'documents.*' => 'file|max:10240',
                 'document_types' => 'nullable|array',
-                'document_types.*' => 'nullable|in:title_deed,logbook,photo,valuation_report,insurance,ownership_proof,other'
+                'document_types.*' => 'nullable|in:title_deed,logbook,photo,valuation_report,insurance,ownership_proof,other',
             ]);
 
             // Validate customer and collateral type belong to the same shop
@@ -226,7 +238,7 @@ class CustomerCollateralsController extends Controller
                 ->where('id', $validated['collateral_type_id'])
                 ->firstOrFail();
 
-            $customerCollateral->update([
+            $updateData = [
                 'customer_id' => $validated['customer_id'],
                 'collateral_type_id' => $validated['collateral_type_id'],
                 'reference_number' => $validated['reference_number'],
@@ -239,7 +251,18 @@ class CustomerCollateralsController extends Controller
                 'insurance_expiry_date' => $validated['insurance_expiry_date'],
                 'status' => $validated['status'],
                 'is_active' => $request->has('is_active'),
-            ]);
+            ];
+
+            if ($request->hasFile('collateral_image')) {
+                if ($customerCollateral->collateral_image) {
+                    Storage::disk('public')->delete($customerCollateral->collateral_image);
+                }
+                $image = $request->file('collateral_image');
+                $filename = time().'_'.bin2hex(random_bytes(8)).'.'.$image->getClientOriginalExtension();
+                $updateData['collateral_image'] = $image->storeAs('collaterals/images', $filename, 'public');
+            }
+
+            $customerCollateral->update($updateData);
 
             // Handle document uploads
             if ($request->hasFile('documents')) {
@@ -251,20 +274,21 @@ class CustomerCollateralsController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Customer collateral updated successfully!',
-                    'collateral' => $customerCollateral->load(['customer', 'collateralType'])
+                    'collateral' => $customerCollateral->load(['customer', 'collateralType']),
                 ]);
             }
 
             return redirect()->back()->with('success', 'Customer collateral updated successfully!');
-            
+
         } catch (\Exception $e) {
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to update customer collateral: ' . $e->getMessage()
+                    'message' => 'Failed to update customer collateral: '.$e->getMessage(),
                 ], 422);
             }
-            return redirect()->back()->with('error', 'Failed to update customer collateral: ' . $e->getMessage())->withInput();
+
+            return redirect()->back()->with('error', 'Failed to update customer collateral: '.$e->getMessage())->withInput();
         }
     }
 
@@ -275,7 +299,12 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $customerCollateral = CustomerCollaterals::findOrFail($id);
-            
+
+            // Delete collateral image if exists
+            if ($customerCollateral->collateral_image) {
+                Storage::disk('public')->delete($customerCollateral->collateral_image);
+            }
+
             // Delete associated documents and files
             foreach ($customerCollateral->documents as $document) {
                 if ($document->fileExists()) {
@@ -283,18 +312,18 @@ class CustomerCollateralsController extends Controller
                 }
                 $document->delete();
             }
-            
+
             $customerCollateral->delete();
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Customer collateral and associated documents deleted successfully!'
+                'message' => 'Customer collateral and associated documents deleted successfully!',
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete customer collateral: ' . $e->getMessage()
+                'message' => 'Failed to delete customer collateral: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -306,15 +335,15 @@ class CustomerCollateralsController extends Controller
     {
         $documents = $request->file('documents');
         $documentTypes = $request->input('document_types', []);
-        
+
         foreach ($documents as $index => $file) {
             if ($file->isValid()) {
                 // Generate unique filename
-                $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
-                
+                $filename = time().'_'.$index.'_'.$file->getClientOriginalName();
+
                 // Store file in secure location
                 $path = $file->storeAs('collateral_documents', $filename, 'private');
-                
+
                 // Create document record
                 CollateralDocuments::create([
                     'customer_collateral_id' => $customerCollateral->id,
@@ -336,25 +365,25 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $customerCollateral = CustomerCollaterals::findOrFail($customerCollateralId);
-            
+
             // Verify user has access to this collateral
             $subshopId = session('subshop_id');
-            if (!$subshopId) {
+            if (! $subshopId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No active subshop selected.'
+                    'message' => 'No active subshop selected.',
                 ], 403);
             }
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
-            
-            if (!in_array($customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
+
+            if (! in_array($customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized access to this collateral'
+                    'message' => 'Unauthorized access to this collateral',
                 ], 403);
             }
-            
+
             $documents = $customerCollateral->documents()
                 ->with(['uploadedBy', 'verifiedBy'])
                 ->get()
@@ -371,16 +400,16 @@ class CustomerCollateralsController extends Controller
                         'created_at' => $document->created_at->format('Y-m-d H:i:s'),
                     ];
                 });
-            
+
             return response()->json([
                 'success' => true,
-                'documents' => $documents
+                'documents' => $documents,
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to load documents: ' . $e->getMessage()
+                'message' => 'Failed to load documents: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -392,29 +421,29 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $customerCollateral = CustomerCollaterals::findOrFail($customerCollateralId);
-            
+
             // Verify user has access to this collateral
             $subshopId = session('subshop_id');
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
-            
-            if (!in_array($customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
+
+            if (! in_array($customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized access to this collateral'
+                    'message' => 'Unauthorized access to this collateral',
                 ], 403);
             }
-            
+
             $validated = $request->validate([
                 'document_type' => 'required|in:title_deed,logbook,photo,valuation_report,insurance,ownership_proof,other',
-                'document_file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx'
+                'document_file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx',
             ]);
-            
+
             if ($request->hasFile('document_file')) {
                 $file = $request->file('document_file');
-                $filename = time() . '_' . $file->getClientOriginalName();
+                $filename = time().'_'.$file->getClientOriginalName();
                 $path = $file->storeAs('collateral_documents', $filename, 'private');
-                
+
                 $document = CollateralDocuments::create([
                     'customer_collateral_id' => $customerCollateral->id,
                     'document_type' => $validated['document_type'],
@@ -424,7 +453,7 @@ class CustomerCollateralsController extends Controller
                     'original_filename' => $file->getClientOriginalName(),
                     'uploaded_by' => Auth::id(),
                 ]);
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Document uploaded successfully!',
@@ -436,19 +465,19 @@ class CustomerCollateralsController extends Controller
                         'formatted_file_size' => $document->getFormattedFileSize(),
                         'is_verified' => $document->is_verified,
                         'created_at' => $document->created_at->format('Y-m-d H:i:s'),
-                    ]
+                    ],
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'No file provided'
+                'message' => 'No file provided',
             ], 400);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload document: ' . $e->getMessage()
+                'message' => 'Failed to upload document: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -460,26 +489,26 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $document = CollateralDocuments::findOrFail($documentId);
-            
+
             // Verify user has access to this collateral
             $subshopId = session('subshop_id');
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
-            
-            if (!in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
+
+            if (! in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
                 abort(403, 'Unauthorized access to this document');
             }
-            
+
             // Determine storage location (private preferred, fallback to local)
             [$disk, $path] = $document->locateStorage();
-            if (!$disk || !$path) {
+            if (! $disk || ! $path) {
                 abort(404, 'File not found');
             }
-            
+
             return Storage::disk($disk)->download($path, $document->original_filename);
-            
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to download document: ' . $e->getMessage());
+            return back()->with('error', 'Failed to download document: '.$e->getMessage());
         }
     }
 
@@ -490,36 +519,36 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $document = CollateralDocuments::findOrFail($documentId);
-            
+
             // Verify user has access to this collateral
             $subshopId = session('subshop_id');
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
-            
-            if (!in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
+
+            if (! in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized access to this document'
+                    'message' => 'Unauthorized access to this document',
                 ], 403);
             }
-            
+
             // Delete file from storage
             if ($document->fileExists()) {
                 Storage::disk('private')->delete($document->file_path);
             }
-            
+
             // Delete document record
             $document->delete();
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Document deleted successfully!'
+                'message' => 'Document deleted successfully!',
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete document: ' . $e->getMessage()
+                'message' => 'Failed to delete document: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -531,34 +560,34 @@ class CustomerCollateralsController extends Controller
     {
         try {
             $document = CollateralDocuments::findOrFail($documentId);
-            
+
             // Verify user has access to this collateral
             $subshopId = session('subshop_id');
             $subshop = SubShop::findOrFail($subshopId);
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
-            
-            if (!in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
+
+            if (! in_array($document->customerCollateral->subshop_id, $shopSubshopIds->toArray())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized access to this document'
+                    'message' => 'Unauthorized access to this document',
                 ], 403);
             }
-            
+
             $document->update([
                 'is_verified' => true,
                 'verified_by' => Auth::id(),
                 'verified_at' => now(),
             ]);
-            
+
             return response()->json([
                 'success' => true,
-                'message' => 'Document verified successfully!'
+                'message' => 'Document verified successfully!',
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to verify document: ' . $e->getMessage()
+                'message' => 'Failed to verify document: '.$e->getMessage(),
             ], 500);
         }
     }

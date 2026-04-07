@@ -52,13 +52,22 @@
         @csrf
         @method('PUT')
 
+        <div id="productRulesCard" class="card mb-3" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Product Rules & Requirements</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="rulesContent"></div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><strong>Loan Setup</strong></div>
             <div class="card-body">
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="loan_product_id">Loan Product</label>
-                        <select id="loan_product_id" name="loan_product_id" class="form-control" required>
+                        <select id="loan_product_id" name="loan_product_id" class="form-control select2" required>
                             <option value="">-- Select --</option>
                             @foreach($loanProducts as $p)
                                 <option
@@ -72,7 +81,14 @@
                                     data-max-installments="{{ $p->rules?->max_installments ?? '' }}"
                                     data-min-rate="{{ $p->rules?->min_interest_rate ?? '' }}"
                                     data-max-rate="{{ $p->rules?->max_interest_rate ?? '' }}"
+                                    data-min-age="{{ $p->rules?->min_age ?? '' }}"
+                                    data-max-age="{{ $p->rules?->max_age ?? '' }}"
+                                    data-min-membership-days="{{ $p->rules?->min_membership_days ?? '' }}"
+                                    data-max-active-loans="{{ $p->rules?->max_active_loans ?? '' }}"
+                                    data-min-collateral-coverage-ratio="{{ $p->rules?->min_collateral_coverage_ratio ?? '' }}"
                                     data-default-installments="{{ $p->default_installments ?? '' }}"
+                                    data-repayment-frequency-code="{{ $p->repaymentFrequency?->code ?? '' }}"
+                                    data-interest-method-code="{{ $p->interestMethod?->code ?? '' }}"
                                     {{ (string)old('loan_product_id', $loan->loan_product_id) === (string)$p->id ? 'selected' : '' }}
                                 >
                                     {{ $p->name }} ({{ $p->code }})
@@ -93,7 +109,7 @@
                 <div class="form-row" id="individualRow">
                     <div class="form-group col-md-6">
                         <label for="customer_id">Customer</label>
-                        <select id="customer_id" name="customer_id" class="form-control">
+                        <select id="customer_id" name="customer_id" class="form-control select2">
                             <option value="">-- Select --</option>
                             @foreach($customers as $c)
                                 <option value="{{ $c->id }}" {{ (string)old('customer_id', $loan->customer_id)===(string)$c->id ? 'selected' : '' }}>
@@ -107,7 +123,7 @@
                 <div class="form-row" id="groupRow" style="display:none;">
                     <div class="form-group col-md-6">
                         <label for="loan_group_id">Loan Group</label>
-                        <select id="loan_group_id" name="loan_group_id" class="form-control">
+                        <select id="loan_group_id" name="loan_group_id" class="form-control select2">
                             <option value="">-- Select --</option>
                             @foreach($loanGroups as $g)
                                 <option value="{{ $g->id }}" {{ (string)old('loan_group_id', $loan->loan_group_id)===(string)$g->id ? 'selected' : '' }}>
@@ -147,6 +163,17 @@
                         <small class="text-muted">If set, schedule generation will start from this date.</small>
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Repayment Frequency</label>
+                        <input id="repayment_frequency" type="text" class="form-control" readonly>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Interest Method</label>
+                        <input id="interest_method" type="text" class="form-control" readonly>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -163,43 +190,37 @@
         </div>
 
         <div class="card" id="guarantorCard" style="display:none;">
-            <div class="card-header"><strong>Guarantors</strong></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Guarantors</strong>
+                <button type="button" class="btn btn-sm btn-primary ml-auto" id="addGuarantor">
+                    <i class="fas fa-plus"></i> Add Guarantor
+                </button>
+            </div>
             <div class="card-body">
-                <div class="form-row">
-                    <div class="form-group col-md-8">
-                        <label for="guarantor_ids">Select Guarantors</label>
-                        <select id="guarantor_ids" name="guarantor_ids[]" class="form-control" multiple>
-                            @foreach($customers as $c)
-                                <option value="{{ $c->id }}" {{ in_array((int)$c->id, old('guarantor_ids', $selectedGuarantorIds ?? []), true) ? 'selected' : '' }}>{{ $c->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group col-md-4 d-flex align-items-end">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="is_joint_liability" name="is_joint_liability" value="1" {{ old('is_joint_liability', ($isJointLiability ?? false) ? 1 : 0) ? 'checked' : '' }}>
-                            <label class="form-check-label" for="is_joint_liability">Joint Liability</label>
-                        </div>
+                <div id="guarantorsContainer">
+                    <!-- Dynamic rows -->
+                </div>
+                <div class="mt-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="is_joint_liability" name="is_joint_liability" value="1" {{ old('is_joint_liability', ($isJointLiability ?? false) ? 1 : 0) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="is_joint_liability">Joint Liability (All guarantors are equally responsible)</label>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card" id="collateralCard" style="display:none;">
-            <div class="card-header"><strong>Collaterals</strong></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Collaterals</strong>
+                <button type="button" class="btn btn-sm btn-primary ml-auto" id="addCollateral">
+                    <i class="fas fa-plus"></i> Add Collateral
+                </button>
+            </div>
             <div class="card-body">
-                <div class="form-row">
-                    <div class="form-group col-md-12">
-                        <label for="collateral_ids">Select Collaterals</label>
-                        <select id="collateral_ids" name="collateral_ids[]" class="form-control" multiple>
-                            @foreach($customerCollaterals as $cc)
-                                <option value="{{ $cc->id }}" data-customer-id="{{ $cc->customer_id }}" {{ in_array((int)$cc->id, old('collateral_ids', $selectedCollateralIds ?? []), true) ? 'selected' : '' }}>
-                                    {{ $cc->description }} (Value: {{ number_format((float)$cc->estimated_value, 2) }})
-                                </option>
-                            @endforeach
-                        </select>
-                        <small class="text-muted">For individual loans, collaterals will be filtered to the selected customer.</small>
-                    </div>
+                <div id="collateralsContainer">
+                    <!-- Dynamic rows -->
                 </div>
+                <small class="text-muted">Only collaterals belonging to the selected customer will be available for search in individual loans.</small>
             </div>
         </div>
 
@@ -213,15 +234,272 @@
 @stop
 
 @push('css')
+<link rel="stylesheet" href="{{ asset('vendor/select2/css/select2.css') }}">
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+<style>
+    .select2-container--default .select2-selection--single {
+        height: calc(2.25rem + 2px);
+        padding: .375rem .75rem;
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 1.5;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: calc(2.25rem + 2px);
+        top: 0;
+        right: 4px;
+    }
+    .select2-container--default .select2-selection--multiple {
+        min-height: calc(2.25rem + 2px);
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+    }
+    .repeater-row {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+        padding: 10px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    .repeater-row .remove-btn {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+    }
+</style>
 @endpush
 
 @section('js')
+<script src="{{ asset('vendor/select2/js/select2.min.js') }}"></script>
 <script>
 (function () {
+    const subshopId = '{{ $subshop->id }}';
+
+    function initSelect2() {
+        if (!(window.jQuery && $.fn && $.fn.select2)) {
+            return;
+        }
+
+        $('#loan_product_id').select2({
+            width: '100%',
+            placeholder: 'Search loan product',
+            allowClear: true
+        });
+
+        $('#customer_id').select2({
+            width: '100%',
+            placeholder: 'Search customer',
+            allowClear: true
+        });
+
+        $('#loan_group_id').select2({
+            width: '100%',
+            placeholder: 'Search loan group',
+            allowClear: true
+        });
+
+        // Guarantor Repeater Logic
+        let guarantorIndex = 0;
+        function addGuarantorRow(val = '', text = '') {
+            const container = $('#guarantorsContainer');
+            const rowId = 'guarantor_row_' + guarantorIndex++;
+            const html = `
+                <div class="repeater-row pr-5" id="${rowId}">
+                    <div class="form-row">
+                        <div class="form-group col-md-11 mb-0">
+                            <select name="guarantor_ids[]" class="form-control select2-guarantor" required>
+                                ${val ? `<option value="${val}" selected>${text}</option>` : ''}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger remove-btn" onclick="$('#${rowId}').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            container.append(html);
+            const $newSelect = container.find('#' + rowId + ' .select2-guarantor');
+            $newSelect.select2({
+                width: '100%',
+                placeholder: 'Search guarantor',
+                allowClear: true,
+                ajax: {
+                    url: '{{ route('api.loans.customers') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term, subshop_id: subshopId };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.map(c => ({
+                                id: c.id,
+                                text: c.name + (c.phone ? ' - ' + c.phone : '')
+                            }))
+                        };
+                    },
+                    cache: true
+                }
+            });
+        }
+
+        $('#addGuarantor').on('click', function() { addGuarantorRow(); });
+
+        // Load existing guarantors
+        @if(!empty($selectedGuarantorIds))
+            @foreach($selectedGuarantorIds as $gid)
+                $.ajax({
+                    url: '{{ route('api.loans.customers') }}',
+                    data: { id: '{{ $gid }}', subshop_id: subshopId }
+                }).done(function(data) {
+                    if (data && data.length) {
+                        addGuarantorRow(data[0].id, data[0].name + (data[0].phone ? ' - ' + data[0].phone : ''));
+                    }
+                });
+            @endforeach
+        @endif
+
+        // Collateral Repeater Logic
+        let collateralIndex = 0;
+        function addCollateralRow(val = '', text = '') {
+            const container = $('#collateralsContainer');
+            const rowId = 'collateral_row_' + collateralIndex++;
+            const customerId = $('#customer_id').val();
+            const html = `
+                <div class="repeater-row pr-5" id="${rowId}">
+                    <div class="form-row">
+                        <div class="form-group col-md-11 mb-0">
+                            <select name="collateral_ids[]" class="form-control select2-collateral" required>
+                                ${val ? `<option value="${val}" selected>${text}</option>` : ''}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger remove-btn" onclick="$('#${rowId}').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            container.append(html);
+            const $newSelect = container.find('#' + rowId + ' .select2-collateral');
+            $newSelect.select2({
+                width: '100%',
+                placeholder: 'Search collateral',
+                allowClear: true,
+                ajax: {
+                    url: '{{ route('api.loans.collaterals') }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        const currentCustomerId = $('#customer_id').val();
+                        const loanType = $('#loan_type').val();
+                        return { 
+                            q: params.term, 
+                            subshop_id: subshopId,
+                            customer_id: (loanType === 'individual') ? currentCustomerId : ''
+                        };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: data.map(c => ({
+                                id: c.id,
+                                text: c.description + ' (Value: ' + parseFloat(c.estimated_value).toLocaleString() + ')'
+                            }))
+                        };
+                    },
+                    cache: true
+                }
+            });
+        }
+
+        $('#addCollateral').on('click', function() { addCollateralRow(); });
+
+        // Load existing collaterals
+        @if(!empty($selectedCollateralIds))
+            @foreach($selectedCollateralIds as $cid)
+                $.ajax({
+                    url: '{{ route('api.loans.collaterals') }}',
+                    data: { id: '{{ $cid }}', subshop_id: subshopId }
+                }).done(function(data) {
+                    if (data && data.length) {
+                        addCollateralRow(data[0].id, data[0].description + ' (Value: ' + parseFloat(data[0].estimated_value).toLocaleString() + ')');
+                    }
+                });
+            @endforeach
+        @endif
+
+        // Clear collaterals if customer changes (since they are filtered)
+        $('#customer_id').on('change', function() {
+            if ($('#loan_type').val() === 'individual') {
+                $('#collateralsContainer').empty();
+            }
+        });
+
+        $('#loan_type').on('change', function() {
+            $('#collateralsContainer').empty();
+        });
+    }
+
     function selectedProductOption() {
-        const sel = document.getElementById('loan_product_id');
-        return sel && sel.selectedOptions && sel.selectedOptions.length ? sel.selectedOptions[0] : null;
+        const $sel = $('#loan_product_id');
+        const val = $sel.val();
+        if (!val) return null;
+        const opt = $sel.find('option[value="' + val + '"]')[0];
+        return opt || null;
+    }
+
+    function toNumberOrNull(v) {
+        if (v === undefined || v === null) return null;
+        const s = String(v).trim();
+        if (s === '') return null;
+        const n = Number(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function validateAgainstRange(el, min, max) {
+        if (!el) return true;
+        const raw = el.value;
+        const val = toNumberOrNull(raw);
+
+        if (raw === '' || val === null) {
+            return true;
+        }
+
+        if (min !== null && val < min) {
+            return false;
+        }
+
+        if (max !== null && val > max) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function validateFormLive() {
+        const opt = selectedProductOption();
+
+        const minLoan = opt ? toNumberOrNull(opt.getAttribute('data-min-loan')) : null;
+        const maxLoan = opt ? toNumberOrNull(opt.getAttribute('data-max-loan')) : null;
+        const minRate = opt ? toNumberOrNull(opt.getAttribute('data-min-rate')) : null;
+        const maxRate = opt ? toNumberOrNull(opt.getAttribute('data-max-rate')) : null;
+        const minInst = opt ? toNumberOrNull(opt.getAttribute('data-min-installments')) : null;
+        const maxInst = opt ? toNumberOrNull(opt.getAttribute('data-max-installments')) : null;
+
+        const principalEl = document.getElementById('principal_amount');
+        const rateEl = document.getElementById('interest_rate');
+        const instEl = document.getElementById('installments');
+
+        const principalOk = validateAgainstRange(principalEl, minLoan, maxLoan);
+        const rateOk = validateAgainstRange(rateEl, minRate, maxRate);
+        const instOk = validateAgainstRange(instEl, minInst, maxInst);
+
+        return principalOk && rateOk && instOk;
     }
 
     function updateVisibility() {
@@ -246,12 +524,13 @@
         document.getElementById('guarantorCard').style.display = reqGuarantor ? '' : 'none';
         document.getElementById('securityDepositCard').style.display = reqDeposit ? '' : 'none';
 
-        document.getElementById('collateral_ids').required = reqCollateral;
-        document.getElementById('guarantor_ids').required = reqGuarantor;
-        document.getElementById('security_deposit_amount').required = reqDeposit;
+        const depositInput = document.getElementById('security_deposit_amount');
+        if (depositInput) {
+            depositInput.required = reqDeposit;
+        }
 
         updateHints();
-        filterCollateralOptions();
+        validateFormLive();
     }
 
     function updateHints() {
@@ -259,57 +538,151 @@
         const principalHint = document.getElementById('principalHint');
         const rateHint = document.getElementById('rateHint');
         const installmentsHint = document.getElementById('installmentsHint');
+        const repaymentFrequency = document.getElementById('repayment_frequency');
+        const interestMethod = document.getElementById('interest_method');
 
-        const minLoan = opt ? opt.getAttribute('data-min-loan') : '';
-        const maxLoan = opt ? opt.getAttribute('data-max-loan') : '';
-        const minRate = opt ? opt.getAttribute('data-min-rate') : '';
-        const maxRate = opt ? opt.getAttribute('data-max-rate') : '';
-        const minInst = opt ? opt.getAttribute('data-min-installments') : '';
-        const maxInst = opt ? opt.getAttribute('data-max-installments') : '';
-        const defInst = opt ? opt.getAttribute('data-default-installments') : '';
+        if (!opt) {
+            if (principalHint) principalHint.textContent = '';
+            if (rateHint) rateHint.textContent = '';
+            if (installmentsHint) installmentsHint.textContent = '';
+            if (repaymentFrequency) repaymentFrequency.value = '';
+            if (interestMethod) interestMethod.value = '';
+            document.getElementById('productRulesCard').style.display = 'none';
+            validateFormLive();
+            return;
+        }
 
-        principalHint.textContent = (minLoan || maxLoan) ? ('Allowed: ' + (minLoan || '-') + ' to ' + (maxLoan || '-') ) : '';
-        rateHint.textContent = (minRate || maxRate) ? ('Allowed: ' + (minRate || '-') + '% to ' + (maxRate || '-') + '%') : '';
-        installmentsHint.textContent = (minInst || maxInst) ? ('Allowed: ' + (minInst || '-') + ' to ' + (maxInst || '-') ) : '';
+        const minLoan = opt.getAttribute('data-min-loan') || '';
+        const maxLoan = opt.getAttribute('data-max-loan') || '';
+        const minRate = opt.getAttribute('data-min-rate') || '';
+        const maxRate = opt.getAttribute('data-max-rate') || '';
+        const minInst = opt.getAttribute('data-min-installments') || '';
+        const maxInst = opt.getAttribute('data-max-installments') || '';
+        const defInst = opt.getAttribute('data-default-installments') || '';
+        
+        const rf = opt.getAttribute('data-repayment-frequency-code') || '';
+        const im = opt.getAttribute('data-interest-method-code') || '';
+
+        if (repaymentFrequency) repaymentFrequency.value = rf;
+        if (interestMethod) interestMethod.value = im;
+
+        if (principalHint) principalHint.textContent = (minLoan || maxLoan) ? ('Allowed: ' + (minLoan || '-') + ' to ' + (maxLoan || '-') ) : '';
+        if (rateHint) rateHint.textContent = (minRate || maxRate) ? ('Allowed: ' + (minRate || '-') + '% to ' + (maxRate || '-') + '%') : '';
+        if (installmentsHint) installmentsHint.textContent = (minInst || maxInst) ? ('Allowed: ' + (minInst || '-') + ' to ' + (maxInst || '-') ) : '';
 
         const installmentsInput = document.getElementById('installments');
         if (installmentsInput && !installmentsInput.value && defInst) {
             installmentsInput.value = defInst;
         }
+
+        updateProductRulesCard(opt);
+        validateFormLive();
     }
 
-    function filterCollateralOptions() {
-        const loanType = document.getElementById('loan_type').value;
-        const customerId = document.getElementById('customer_id').value;
-        const select = document.getElementById('collateral_ids');
+    function updateProductRulesCard(opt) {
+        const card = document.getElementById('productRulesCard');
+        const content = document.getElementById('rulesContent');
+        
+        if (!card || !content) return;
 
-        if (!select) {
-            return;
-        }
+        const minAge = opt.getAttribute('data-min-age');
+        const maxAge = opt.getAttribute('data-max-age');
+        const minMembership = opt.getAttribute('data-min-membership-days');
+        const maxActiveLoans = opt.getAttribute('data-max-active-loans');
+        const minCollateralRatio = opt.getAttribute('data-min-collateral-coverage-ratio');
+        const minLoan = opt.getAttribute('data-min-loan');
+        const maxLoan = opt.getAttribute('data-max-loan');
+        const minInst = opt.getAttribute('data-min-installments');
+        const maxInst = opt.getAttribute('data-max-installments');
+        const minRate = opt.getAttribute('data-min-rate');
+        const maxRate = opt.getAttribute('data-max-rate');
+        const reqCollateral = opt.getAttribute('data-requires-collateral') === '1';
+        const reqGuarantor = opt.getAttribute('data-requires-guarantor') === '1';
+        const reqDeposit = opt.getAttribute('data-requires-security-deposit') === '1';
 
-        const opts = Array.from(select.options);
+        const formatNumber = (val) => {
+            if (!val) return '-';
+            return parseFloat(val).toLocaleString();
+        };
 
-        // Reset all
-        opts.forEach(o => { o.hidden = false; });
+        const formatPercent = (val) => {
+            if (!val) return '-';
+            return val + '%';
+        };
 
-        if (loanType !== 'individual' || !customerId) {
-            return;
-        }
+        let html = '';
 
-        opts.forEach(o => {
-            const cid = o.getAttribute('data-customer-id');
-            if (cid && cid !== customerId) {
-                o.hidden = true;
-                o.selected = false;
+        if (minAge || maxAge || minMembership || maxActiveLoans || minLoan || maxLoan || minInst || maxInst || minRate || maxRate || reqCollateral || reqGuarantor || reqDeposit || minCollateralRatio) {
+            html += '<div class="col-12"><h6 class="text-muted mb-3"><i class="fas fa-user-check"></i> Customer Eligibility</h6></div>';
+            
+            if (minAge || maxAge) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Age Range</div><div class="font-weight-bold">' + (minAge || '-') + ' - ' + (maxAge || '-') + '</div></div>';
             }
-        });
+            if (minMembership) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Min. Membership</div><div class="font-weight-bold">' + minMembership + ' days</div></div>';
+            }
+            if (maxActiveLoans) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Max. Active Loans</div><div class="font-weight-bold">' + maxActiveLoans + '</div></div>';
+            }
+
+            html += '<div class="col-12 mt-2"><h6 class="text-muted mb-3"><i class="fas fa-dollar-sign"></i> Loan Amount & Terms</h6></div>';
+
+            if (minLoan || maxLoan) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Principal Amount</div><div class="font-weight-bold">' + formatNumber(minLoan) + ' - ' + formatNumber(maxLoan) + '</div></div>';
+            }
+            if (minInst || maxInst) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Installments</div><div class="font-weight-bold">' + (minInst || '-') + ' - ' + (maxInst || '-') + '</div></div>';
+            }
+            if (minRate || maxRate) {
+                html += '<div class="col-md-3 col-sm-6 mb-2"><div class="small text-muted">Interest Rate</div><div class="font-weight-bold">' + formatPercent(minRate) + ' - ' + formatPercent(maxRate) + '</div></div>';
+            }
+
+            html += '<div class="col-12 mt-2"><h6 class="text-muted mb-3"><i class="fas fa-shield-alt"></i> Requirements</h6></div>';
+
+            const reqs = [];
+            if (reqCollateral) reqs.push('<span class="badge badge-warning">Collateral Required</span>');
+            if (reqGuarantor) reqs.push('<span class="badge badge-info">Guarantor Required</span>');
+            if (reqDeposit) reqs.push('<span class="badge badge-secondary">Security Deposit Required</span>');
+            if (minCollateralRatio) reqs.push('<span class="badge badge-success">Min. Collateral Coverage: ' + minCollateralRatio + '%</span>');
+
+            if (reqs.length > 0) {
+                html += '<div class="col-12 mb-2">' + reqs.join(' ') + '</div>';
+            } else {
+                html += '<div class="col-12 mb-2"><span class="text-muted">No special requirements</span></div>';
+            }
+
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+
+        content.innerHTML = html;
     }
+
+    initSelect2();
+
+    const principalEl = document.getElementById('principal_amount');
+    const rateEl = document.getElementById('interest_rate');
+    const instEl = document.getElementById('installments');
+    if (principalEl) principalEl.addEventListener('input', validateFormLive);
+    if (rateEl) rateEl.addEventListener('input', validateFormLive);
+    if (instEl) instEl.addEventListener('input', validateFormLive);
 
     document.getElementById('loan_type').addEventListener('change', updateVisibility);
     document.getElementById('loan_product_id').addEventListener('change', updateVisibility);
-    document.getElementById('customer_id').addEventListener('change', filterCollateralOptions);
 
-    updateVisibility();
+    if (window.jQuery && $('#loan_product_id').data('select2')) {
+        $('#loan_product_id').on('change select2:select select2:clear', updateVisibility);
+    }
+
+    setTimeout(function () {
+        updateVisibility();
+        validateFormLive();
+        const opt = selectedProductOption();
+        if (opt) {
+            updateProductRulesCard(opt);
+        }
+    }, 0);
 })();
 </script>
 @stop

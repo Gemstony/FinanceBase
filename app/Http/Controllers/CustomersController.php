@@ -853,11 +853,11 @@ class CustomersController extends Controller
                 if (request()->ajax() || request()->wantsJson()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Customer not found in current subshop.',
+                        'message' => 'This Customer (Name: '.$customer->name.') was not registered in current branch, please change branch to delete this Customer.',
                     ], 404);
                 }
 
-                return redirect()->back()->with('error', 'Customer not found in current subshop.');
+                return redirect()->back()->with('error', 'This Customer (Name: '.$customer->name.') was not registered in current branch, please change branch to delete this Customer.');
             }
 
             // Delete customer image from storage
@@ -872,6 +872,7 @@ class CustomersController extends Controller
 
             // Delete customer (soft delete - cascade will handle files deletion via foreign key)
 
+            $customer->delete();
             if (request()->ajax() || request()->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -966,36 +967,26 @@ class CustomersController extends Controller
 
     /**
      * Generate a unique customer code
-     * Format: {registration_number}-{YYMM}-{RAND}
+     * Format: {registration_number}-{YYMM}-{5-digit-sequence}
      */
     private function generateCustomerCode(int $shopId): string
     {
         $shop = Shop::findOrFail($shopId);
         $registrationNumber = $shop->registration_number;
-
-        // Get current year and month in YYMM format
         $yearMonth = now()->format('ym');
 
-        // Generate random 4-character alphanumeric string (uppercase letters and numbers only)
-        $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $randomString = '';
+        // Get the highest sequence for this shop/month
+        $prefix = "{$registrationNumber}-{$yearMonth}-";
+        $lastCode = Customers::where('customer_code', 'like', "{$prefix}%")
+            ->orderByDesc('customer_code')
+            ->first();
 
-        for ($i = 0; $i < 4; $i++) {
-            $randomString .= $characters[random_int(0, strlen($characters) - 1)];
-        }
+        // Increment sequence (5 digits, zero-padded)
+        $sequence = $lastCode
+            ? (int) substr($lastCode->customer_code, -5) + 1
+            : 1;
 
-        $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
-
-        // Check if code already exists, regenerate if it does
-        while (Customers::where('customer_code', $customerCode)->exists()) {
-            $randomString = '';
-            for ($i = 0; $i < 4; $i++) {
-                $randomString .= $characters[random_int(0, strlen($characters) - 1)];
-            }
-            $customerCode = "{$registrationNumber}-{$yearMonth}-{$randomString}";
-        }
-
-        return $customerCode;
+        return $prefix . str_pad($sequence, 5, '0', STR_PAD_LEFT);
     }
 
     public function export(Request $request, $format)
@@ -1025,12 +1016,17 @@ class CustomersController extends Controller
         }
         $statsSub->groupBy('customer_id');
 
-        // Outstanding balance subquery
-        $outstandingSub = Loans::selectRaw('customer_id, COALESCE(SUM(outstanding_balance), 0) as outstanding_balance')
-            ->where('subshop_id', $subshopId)
-            ->where('is_active', true)
-            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->groupBy('customer_id');
+        // Outstanding balance subquery - calculate from loan_installments for accuracy
+        $outstandingSub = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->selectRaw('loans.customer_id as customer_id, COALESCE(SUM(li.outstanding_amount), 0) as outstanding_balance')
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            ->where('loans.subshop_id', $subshopId)
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->groupBy('loans.customer_id');
 
         // Overdue loans subquery
         $overdueSub = Loans::selectRaw('customer_id, COUNT(DISTINCT loans.id) as overdue_loans')

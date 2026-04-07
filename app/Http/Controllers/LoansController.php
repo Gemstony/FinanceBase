@@ -166,7 +166,12 @@ class LoansController extends Controller
 
         $query = Loans::query()
             ->where('subshop_id', $subshopId)
-            ->with(['loanProduct', 'customer', 'loanGroup']);
+            ->with([
+                'loanProduct' => fn ($p) => $p->with('repaymentFrequency'),
+                'customer',
+                'loanGroup',
+                'installments' => fn ($i) => $i->where('is_active', true),
+            ]);
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
@@ -233,6 +238,10 @@ class LoansController extends Controller
         $loans = $query
             ->orderByDesc('id')
             ->get();
+
+        $loans->each(function ($loan) {
+            $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
+        });
 
         $loanProducts = LoanProducts::query()
             ->where('subshop_id', $subshopId)
@@ -537,6 +546,49 @@ class LoansController extends Controller
             }
             if ($rules->requires_security_deposit && ! $request->filled('security_deposit_amount')) {
                 $v->errors()->add('security_deposit_amount', 'Security deposit amount is required for this product.');
+            }
+
+            if ($request->input('loan_type') === 'individual' && $request->filled('customer_id')) {
+                $customer = Customers::query()->find((int) $request->input('customer_id'));
+                if ($customer) {
+                    if (! is_null($rules->min_age) || ! is_null($rules->max_age)) {
+                        $age = $customer->birth_date ? Carbon::parse($customer->birth_date)->age : null;
+                        if (! is_null($rules->min_age) && ! is_null($age) && $age < (int) $rules->min_age) {
+                            $v->errors()->add('customer_id', 'Customer age is below the product minimum of '.$rules->min_age.' years.');
+                        }
+                        if (! is_null($rules->max_age) && ! is_null($age) && $age > (int) $rules->max_age) {
+                            $v->errors()->add('customer_id', 'Customer age is above the product maximum of '.$rules->max_age.' years.');
+                        }
+                    }
+
+                    if (! is_null($rules->min_membership_days)) {
+                        $membershipDays = Carbon::parse($customer->created_at)->diffInDays(now());
+                        if ($membershipDays < (int) $rules->min_membership_days) {
+                            $v->errors()->add('customer_id', 'Customer membership period is below the product minimum of '.$rules->min_membership_days.' days.');
+                        }
+                    }
+
+                    if (! is_null($rules->max_active_loans)) {
+                        $activeLoansCount = Loans::query()
+                            ->where('customer_id', $customer->id)
+                            ->whereIn('status', ['disbursed', 'partially_paid'])
+                            ->count();
+                        if ($activeLoansCount >= (int) $rules->max_active_loans) {
+                            $v->errors()->add('customer_id', 'Customer has reached the maximum number of active loans ('.$rules->max_active_loans.') for this product.');
+                        }
+                    }
+                }
+            }
+
+            $collateralIds = $request->input('collateral_ids', []);
+            if (! empty($collateralIds) && ! is_null($rules->min_collateral_coverage_ratio)) {
+                $totalCollateralValue = CustomerCollaterals::query()
+                    ->whereIn('id', $collateralIds)
+                    ->sum('estimated_value');
+                $coverageRatio = $principal > 0 ? ($totalCollateralValue / $principal) * 100 : 0;
+                if ($coverageRatio < (float) $rules->min_collateral_coverage_ratio) {
+                    $v->errors()->add('collateral_ids', 'Collateral coverage ratio must be at least '.$rules->min_collateral_coverage_ratio.'%. Current: '.round($coverageRatio, 2).'%.');
+                }
             }
         });
 
@@ -1109,6 +1161,49 @@ class LoansController extends Controller
             if ($rules->requires_security_deposit && ! $request->filled('security_deposit_amount')) {
                 $v->errors()->add('security_deposit_amount', 'Security deposit amount is required for this product.');
             }
+
+            if ($request->input('loan_type') === 'individual' && $request->filled('customer_id')) {
+                $customer = Customers::query()->find((int) $request->input('customer_id'));
+                if ($customer) {
+                    if (! is_null($rules->min_age) || ! is_null($rules->max_age)) {
+                        $age = $customer->birth_date ? Carbon::parse($customer->birth_date)->age : null;
+                        if (! is_null($rules->min_age) && ! is_null($age) && $age < (int) $rules->min_age) {
+                            $v->errors()->add('customer_id', 'Customer age is below the product minimum of '.$rules->min_age.' years.');
+                        }
+                        if (! is_null($rules->max_age) && ! is_null($age) && $age > (int) $rules->max_age) {
+                            $v->errors()->add('customer_id', 'Customer age is above the product maximum of '.$rules->max_age.' years.');
+                        }
+                    }
+
+                    if (! is_null($rules->min_membership_days)) {
+                        $membershipDays = Carbon::parse($customer->created_at)->diffInDays(now());
+                        if ($membershipDays < (int) $rules->min_membership_days) {
+                            $v->errors()->add('customer_id', 'Customer membership period is below the product minimum of '.$rules->min_membership_days.' days.');
+                        }
+                    }
+
+                    if (! is_null($rules->max_active_loans)) {
+                        $activeLoansCount = Loans::query()
+                            ->where('customer_id', $customer->id)
+                            ->whereIn('status', ['disbursed', 'partially_paid'])
+                            ->count();
+                        if ($activeLoansCount >= (int) $rules->max_active_loans) {
+                            $v->errors()->add('customer_id', 'Customer has reached the maximum number of active loans ('.$rules->max_active_loans.') for this product.');
+                        }
+                    }
+                }
+            }
+
+            $collateralIds = $request->input('collateral_ids', []);
+            if (! empty($collateralIds) && ! is_null($rules->min_collateral_coverage_ratio)) {
+                $totalCollateralValue = CustomerCollaterals::query()
+                    ->whereIn('id', $collateralIds)
+                    ->sum('estimated_value');
+                $coverageRatio = $principal > 0 ? ($totalCollateralValue / $principal) * 100 : 0;
+                if ($coverageRatio < (float) $rules->min_collateral_coverage_ratio) {
+                    $v->errors()->add('collateral_ids', 'Collateral coverage ratio must be at least '.$rules->min_collateral_coverage_ratio.'%. Current: '.round($coverageRatio, 2).'%.');
+                }
+            }
         });
 
         $validated = $validator->validate();
@@ -1183,7 +1278,8 @@ class LoansController extends Controller
                 $this->storeCollaterals($request, $subshopId, $loan);
 
                 // Replace schedule (safe because we have asserted no payments exist)
-                LoanInstallments::query()->where('loan_id', $loan->id)->delete();
+                // Must use forceDelete because LoanInstallments uses SoftDeletes
+                LoanInstallments::query()->where('loan_id', $loan->id)->forceDelete();
                 $scheduleEngine = app(LoanScheduleEngine::class);
                 $this->generateAndStoreSchedule($scheduleEngine, $loan, $scheduleAnchorDate);
 
@@ -1208,7 +1304,7 @@ class LoansController extends Controller
             return back()->withInput()->with('error', $message);
         }
 
-        return redirect()->route('loans.loans.show', ['loan' => $loan->id])
+        return redirect()->route('loans.loans.show', ['loan' => $loan->loan_code])
             ->with('success', 'Loan updated successfully.');
     }
 
@@ -1249,7 +1345,8 @@ class LoansController extends Controller
         \DB::beginTransaction();
         try {
             // Delete related records safely (cascade)
-            LoanInstallments::query()->where('loan_id', $loan->id)->delete();
+            // Must use forceDelete because LoanInstallments uses SoftDeletes
+            LoanInstallments::query()->where('loan_id', $loan->id)->forceDelete();
             LoanCollaterals::query()->where('loan_id', $loan->id)->delete();
             \App\Models\loanGuarantors::query()->where('loan_id', $loan->id)->delete();
             LoanApprovals::query()->where('loan_id', $loan->id)->delete();

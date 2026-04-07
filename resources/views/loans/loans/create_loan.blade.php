@@ -50,6 +50,15 @@
     <form method="POST" action="{{ route('loans.loans.store') }}">
         @csrf
 
+        <div id="productRulesCard" class="card mb-3" style="display: none;">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Product Rules & Requirements</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="rulesContent"></div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header"><strong>Loan Setup</strong></div>
             <div class="card-body">
@@ -70,6 +79,11 @@
                                     data-max-installments="{{ $p->rules?->max_installments ?? '' }}"
                                     data-min-rate="{{ $p->rules?->min_interest_rate ?? '' }}"
                                     data-max-rate="{{ $p->rules?->max_interest_rate ?? '' }}"
+                                    data-min-age="{{ $p->rules?->min_age ?? '' }}"
+                                    data-max-age="{{ $p->rules?->max_age ?? '' }}"
+                                    data-min-membership-days="{{ $p->rules?->min_membership_days ?? '' }}"
+                                    data-max-active-loans="{{ $p->rules?->max_active_loans ?? '' }}"
+                                    data-min-collateral-coverage-ratio="{{ $p->rules?->min_collateral_coverage_ratio ?? '' }}"
                                     data-default-installments="{{ $p->default_installments ?? '' }}"
                                     data-repayment-frequency-code="{{ $p->repaymentFrequency?->code ?? '' }}"
                                     data-interest-method-code="{{ $p->interestMethod?->code ?? '' }}"
@@ -619,6 +633,7 @@
             if (installmentsHint) installmentsHint.textContent = '';
             if (repaymentFrequency) repaymentFrequency.value = '';
             if (interestMethod) interestMethod.value = '';
+            document.getElementById('productRulesCard').style.display = 'none';
             validateFormLive();
             return;
         }
@@ -648,7 +663,106 @@
             installmentsInput.value = defInst;
         }
 
+        updateProductRulesCard(opt);
         validateFormLive();
+    }
+
+    function updateProductRulesCard(opt) {
+        const card = document.getElementById('productRulesCard');
+        const content = document.getElementById('rulesContent');
+        
+        if (!card || !content) return;
+
+        const minAge = opt.getAttribute('data-min-age');
+        const maxAge = opt.getAttribute('data-max-age');
+        const minMembership = opt.getAttribute('data-min-membership-days');
+        const maxActiveLoans = opt.getAttribute('data-max-active-loans');
+        const minCollateralRatio = opt.getAttribute('data-min-collateral-coverage-ratio');
+        const minLoan = opt.getAttribute('data-min-loan');
+        const maxLoan = opt.getAttribute('data-max-loan');
+        const minInst = opt.getAttribute('data-min-installments');
+        const maxInst = opt.getAttribute('data-max-installments');
+        const minRate = opt.getAttribute('data-min-rate');
+        const maxRate = opt.getAttribute('data-max-rate');
+        const reqCollateral = opt.getAttribute('data-requires-collateral') === '1';
+        const reqGuarantor = opt.getAttribute('data-requires-guarantor') === '1';
+        const reqDeposit = opt.getAttribute('data-requires-security-deposit') === '1';
+
+        const formatNumber = (val) => {
+            if (!val) return '-';
+            return parseFloat(val).toLocaleString();
+        };
+
+        const formatPercent = (val) => {
+            if (!val) return '-';
+            return val + '%';
+        };
+
+        let html = '';
+
+        if (minAge || maxAge || minMembership || maxActiveLoans || minLoan || maxLoan || minInst || maxInst || minRate || maxRate || reqCollateral || reqGuarantor || reqDeposit || minCollateralRatio) {
+            html += '<div class="col-12"><h6 class="text-muted mb-3"><i class="fas fa-user-check"></i> Customer Eligibility</h6></div>';
+            
+            if (minAge || maxAge) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Age Range</div>
+                    <div class="font-weight-bold">${minAge || '-'} - ${maxAge || '-'}</div>
+                </div>`;
+            }
+            if (minMembership) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Min. Membership</div>
+                    <div class="font-weight-bold">${minMembership} days</div>
+                </div>`;
+            }
+            if (maxActiveLoans) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Max. Active Loans</div>
+                    <div class="font-weight-bold">${maxActiveLoans}</div>
+                </div>`;
+            }
+
+            html += '<div class="col-12 mt-2"><h6 class="text-muted mb-3"><i class="fas fa-dollar-sign"></i> Loan Amount & Terms</h6></div>';
+
+            if (minLoan || maxLoan) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Principal Amount</div>
+                    <div class="font-weight-bold">${formatNumber(minLoan)} - ${formatNumber(maxLoan)}</div>
+                </div>`;
+            }
+            if (minInst || maxInst) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Installments</div>
+                    <div class="font-weight-bold">${minInst || '-'} - ${maxInst || '-'}</div>
+                </div>`;
+            }
+            if (minRate || maxRate) {
+                html += `<div class="col-md-3 col-sm-6 mb-2">
+                    <div class="small text-muted">Interest Rate</div>
+                    <div class="font-weight-bold">${formatPercent(minRate)} - ${formatPercent(maxRate)}</div>
+                </div>`;
+            }
+
+            html += '<div class="col-12 mt-2"><h6 class="text-muted mb-3"><i class="fas fa-shield-alt"></i> Requirements</h6></div>';
+
+            const reqs = [];
+            if (reqCollateral) reqs.push('<span class="badge badge-warning">Collateral Required</span>');
+            if (reqGuarantor) reqs.push('<span class="badge badge-info">Guarantor Required</span>');
+            if (reqDeposit) reqs.push('<span class="badge badge-secondary">Security Deposit Required</span>');
+            if (minCollateralRatio) reqs.push(`<span class="badge badge-success">Min. Collateral Coverage: ${minCollateralRatio}%</span>`);
+
+            if (reqs.length > 0) {
+                html += `<div class="col-12 mb-2">${reqs.join(' ')}</div>`;
+            } else {
+                html += '<div class="col-12 mb-2"><span class="text-muted">No special requirements</span></div>';
+            }
+
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+
+        content.innerHTML = html;
     }
 
     function filterCollateralOptions() {
@@ -708,6 +822,10 @@
     setTimeout(function () {
         updateVisibility();
         validateFormLive();
+        const opt = selectedProductOption();
+        if (opt) {
+            updateProductRulesCard(opt);
+        }
     }, 0);
 
     if ($form && $form.length) {

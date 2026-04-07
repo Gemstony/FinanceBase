@@ -17,10 +17,10 @@ class PortfolioRiskCalculator
      * Excludes penalties - they are tracked separately as "accrued penalties"
      * and should not be included in core outstanding/receivable calculations.
      *
-     * Calculation matches LoanOutstandingReportService:
-     * - Uses loan_payment_allocations table to get actual payments made
-     * - Uses MAX(schedule_version) to get the latest amortization schedule
-     * - Only includes payments with status = 'confirmed'
+     * Handles restructured loans correctly:
+     * - Uses latest active schedule version only
+     * - Old restructured installments are marked is_active=false
+     * - Payment allocations from old installments still count (they're linked via loan_id)
      *
      * For each installment:
      * (principal_due - principal_paid)
@@ -31,8 +31,10 @@ class PortfolioRiskCalculator
      */
     public function calculateLoanOutstanding(Loans $loan): float
     {
+        $loanId = (int) $loan->id;
+
         $latestVersion = (int) LoanInstallments::query()
-            ->where('loan_id', $loan->id)
+            ->where('loan_id', $loanId)
             ->where('is_active', true)
             ->max('schedule_version');
 
@@ -41,7 +43,7 @@ class PortfolioRiskCalculator
         }
 
         $expected = \Illuminate\Support\Facades\DB::table('loan_installments as li')
-            ->where('li.loan_id', $loan->id)
+            ->where('li.loan_id', $loanId)
             ->where('li.is_active', true)
             ->where('li.schedule_version', $latestVersion)
             ->selectRaw('
@@ -52,10 +54,12 @@ class PortfolioRiskCalculator
             ->groupBy('li.loan_id')
             ->first();
 
+        // Get all payments allocated to this loan (from any schedule version)
+        // This handles restructured loans correctly - pre-restructure payments count
         $paid = \Illuminate\Support\Facades\DB::table('loan_payment_allocations as lpa')
             ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
             ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
-            ->where('li.loan_id', $loan->id)
+            ->where('li.loan_id', $loanId)
             ->where('lp.status', 'confirmed')
             ->selectRaw('
                 SUM(COALESCE(lpa.principal_amount,0)) as principal_paid,

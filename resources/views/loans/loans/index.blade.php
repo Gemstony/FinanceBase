@@ -165,58 +165,97 @@
 
             <div class="table-responsive">
             <table class="table table-striped table-hover" id="loansTable">
-                <thead class="thead-light" style="background: linear-gradient(90deg, #f7f9fc, #eef3fb); border-bottom: 1px solid #e5ecf6;">
+                <thead class="thead-light" >
                     <tr>
-                        <th>ID</th>
-                        <th>Product</th>
-                        <th>Borrower</th>
-                        <th>Principal</th>
-                        <th>Status</th>
-                        <th>Disbursement</th>
-                        <th>Maturity</th>
-                        <th></th>
+                        <th class="text-nowrap">Loan Code</th>
+                        <th class="text-nowrap">Borrower</th>
+                        <th class="text-nowrap">Product / Cycle</th>
+                        <th class="text-right text-nowrap">Amount / Balance</th>
+                        <th class="text-nowrap">Payment Progress</th>
+                        <th class="text-nowrap">Status</th>
+                        <th class="text-nowrap">Timeline</th>
+                        <th class="text-center" style="width: 100px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @php
-                        $loanCounter = 1;
-                    @endphp
                     @forelse($loans as $loan)
+                        @php
+                            $repaymentCycle = $loan->loanProduct?->repaymentFrequency?->name ?? '-';
+                            $paidAmount = 0;
+                            $lastPaymentDate = null;
+                            $hasOverdue = false;
+                            
+                            $loanInstallments = $loan->installments()->get();
+                            if ($loanInstallments && $loanInstallments->isNotEmpty()) {
+                                $paidAmount = $loanInstallments->sum('amount_paid');
+                                $lastPayment = $loanInstallments->where('amount_paid', '>', 0)->sortByDesc('paid_date')->first();
+                                $lastPaymentDate = $lastPayment?->paid_date;
+                                
+                                $today = now()->toDateString();
+                                $hasOverdue = $loanInstallments->contains(function($inst) use ($today) {
+                                    return $inst->status !== 'paid' && $inst->due_date < $today;
+                                });
+                            }
+                            
+                            $statusBadgeClass = match ((string) $loan->status) {
+                                'pending' => 'badge-warning',
+                                'approved' => 'badge-success',
+                                'rejected' => 'badge-danger',
+                                'disbursed' => 'badge-primary',
+                                'partially_paid' => 'badge-info',
+                                'paid_off' => 'badge-success',
+                                'defaulted' => 'badge-dark',
+                                'written_off' => 'badge-secondary',
+                                default => 'badge-secondary',
+                            };
+                            
+                            $paymentStatusBadge = $hasOverdue ? 'badge-danger' : 'badge-success';
+                            $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'Paid Off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
+                        @endphp
                         <tr>
-                            <td>{{ $loanCounter++ }}</td>
-                         
-                            <td>{{ $loan->loanProduct?->name }}</td>
+                            <td class="text-nowrap">
+                                <strong>{{ $loan->loan_code }}</strong>
+                            </td>
                             <td>
                                 @if($loan->borrower_type === 'group')
-                                    Group: {{ $loan->loanGroup?->name }}
+                                    <span class="text-info"><i class="fas fa-users"></i> {{ $loan->loanGroup?->name }}</span>
                                 @else
                                     {{ $loan->customer?->name }}
                                 @endif
                             </td>
-                            <td>{{ number_format((float)$loan->principal_amount, 2) }}</td>
-                            @php
-                                $statusBadgeClass = match ((string) $loan->status) {
-                                    'pending' => 'badge-warning',
-                                    'approved' => 'badge-success',
-                                    'rejected' => 'badge-danger',
-                                    'disbursed' => 'badge-primary',
-                                    'partially_paid' => 'badge-info',
-                                    'paid_off' => 'badge-success',
-                                    'defaulted' => 'badge-dark',
-                                    'written_off' => 'badge-secondary',
-                                    default => 'badge-secondary',
-                                };
-                            @endphp
-                            <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
-                            <td>{{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</td>
-                            <td>{{ $loan->maturity_date ? \Carbon\Carbon::parse($loan->maturity_date)->format('Y-m-d') : '-' }}</td>
+                            <td>
+                                <div>{{ $loan->loanProduct?->name }}</div>
+                                <small class="text-muted">{{ $repaymentCycle }}</small>
+                            </td>
                             <td class="text-right">
-                                @if($loan->status === 'pending' && (int)($loan->installments_paid ?? 0) === 0)
-                                    <a href="{{ route('loans.loans.edit', $loan->loan_code) }}" class="btn btn-sm btn-outline-secondary mr-1">Edit</a>
+                                <div>{{ number_format((float)$loan->principal_amount, 0) }}</div>
+                                <small class="{{ (float)$loan->calculated_outstanding > 0 ? 'text-primary font-weight-bold' : 'text-success' }}">
+                                    Bal: {{ number_format((float)$loan->calculated_outstanding, 0) }}
+                                </small>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge {{ $paymentStatusBadge }} mr-1">{{ $paymentStatusText }}</span>
+                                    <small class="text-muted">
+                                        {{ number_format((float)$paidAmount, 0) }} paid
+                                    </small>
+                                </div>
+                                @if($lastPaymentDate)
+                                    <small class="text-muted d-block">Last: {{ \Carbon\Carbon::parse($lastPaymentDate)->format('Y-m-d') }}</small>
                                 @endif
-                                <a href="{{ route('loans.loans.show', $loan->loan_code) }}" class="btn btn-sm btn-outline-primary mr-1">View</a>
+                            </td>
+                            <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
+                            <td>
+                                <small class="d-block">Disbursed: {{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</small>
+                                <small class="d-block text-muted">Maturity: {{ $loan->maturity_date ? \Carbon\Carbon::parse($loan->maturity_date)->format('Y-m-d') : '-' }}</small>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                @if($loan->status === 'pending' && (int)($loan->installments_paid ?? 0) === 0)
+                                    <a href="{{ route('loans.loans.edit', $loan->loan_code) }}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="fas fa-edit"></i> Edit</a>
+                                @endif
+                                <a href="{{ route('loans.loans.show', $loan->loan_code) }}" class="btn btn-sm btn-outline-primary" title="View"><i class="fas fa-eye"></i> View</a>
                                 @if(in_array($loan->status, ['pending']) && (int)($loan->installments_paid ?? 0) === 0)
-                                    <button type="button" class="btn btn-sm btn-outline-danger delete-loan-btn" data-loan-code="{{ $loan->loan_code }}" data-loan-id="{{ $loan->id }}">Delete</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-loan-btn" data-loan-code="{{ $loan->loan_code }}" data-loan-id="{{ $loan->id }}" title="Delete"><i class="fas fa-trash"></i> Delete</button>
                                 @endif
                             </td>
                         </tr>
@@ -242,12 +281,18 @@
 $(document).ready(function() {
     if ($('#loansTable').length) {
         $('#loansTable').DataTable({
-            responsive: true,
+            responsive: {
+                details: {
+                    type: 'column',
+                    target: -1
+                }
+            },
             columnDefs: [
-                { orderable: false, targets: [7] },
-                { searchable: false, targets: [7] }
+                { orderable: false, targets: [-1] },
+                { searchable: false, targets: [-1] },
+                { className: 'dtr-control', targets: [-1] }
             ],
-            order: [[0, 'asc']]
+            order: [[0, 'desc']]
         });
     }
 

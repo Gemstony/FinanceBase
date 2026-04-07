@@ -15,6 +15,7 @@ class CustomerCollaterals extends Model
         'collateral_type_id',
         'reference_number',
         'description',
+        'collateral_image',
         'location',
         'estimated_value',
         'valuation_date',

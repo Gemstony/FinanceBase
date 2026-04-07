@@ -94,7 +94,13 @@
                         @endif
                     </h4>
                     <div class="text-muted">
-                        {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        Phone: {{ $loan->customer?->phone ?? '-' }} <br>
+                        Email: {{ $loan->customer?->email ?? '-' }} <br>
+                        Code: {{ $loan->customer?->customer_code ?? '-' }}
+
+                    </div>
+                    <div class="text-muted">
+                        Product: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
                         @if($loan->borrower_type)
                             &middot; {{ ucfirst($loan->borrower_type) }}
                         @endif

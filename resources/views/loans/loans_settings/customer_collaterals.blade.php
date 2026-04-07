@@ -90,6 +90,7 @@
                                         data-collateral-type-name="{{ optional($collateral->collateralType)->name ?? 'N/A' }}"
                                         data-reference-number="{{ $collateral->reference_number ?? '' }}"
                                         data-description="{{ $collateral->description }}"
+                                        data-collateral-image="{{ $collateral->collateral_image ?? '' }}"
                                         data-location="{{ $collateral->location ?? '' }}"
                                         data-estimated-value="{{ $collateral->estimated_value }}"
                                         data-valuation-date="{{ $collateral->valuation_date ?? '' }}"
@@ -106,6 +107,7 @@
                                         data-collateral-type-id="{{ $collateral->collateral_type_id }}"
                                         data-reference-number="{{ $collateral->reference_number ?? '' }}"
                                         data-description="{{ $collateral->description }}"
+                                        data-collateral-image="{{ $collateral->collateral_image ?? '' }}"
                                         data-location="{{ $collateral->location ?? '' }}"
                                         data-estimated-value="{{ $collateral->estimated_value }}"
                                         data-valuation-date="{{ $collateral->valuation_date ?? '' }}"
@@ -151,6 +153,11 @@
                         <div class="mb-2"><strong>Description:</strong> <span id="v_description">-</span></div>
                         <div class="mb-2"><strong>Reference:</strong> <span id="v_reference">-</span></div>
                         <div class="mb-2"><strong>Estimated Value:</strong> <span id="v_estimated_value">-</span></div>
+                        <div class="mb-2"><strong>Image:</strong></div>
+                        <div class="mb-2">
+                            <img id="v_collateral_image" src="" alt="Collateral Image" style="max-width: 150px; max-height: 150px; border-radius: 8px; display: none;" class="img-thumbnail">
+                            <span id="v_collateral_image_placeholder" class="text-muted">No image</span>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-2"><strong>Location:</strong> <span id="v_location">-</span></div>
@@ -230,6 +237,13 @@
                         <label for="description">Description <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="description" name="description" required 
                                placeholder="e.g. Toyota Hilux 2019, House at Sinza">
+                    </div>
+                    <div class="form-group">
+                        <label for="collateral_image">Collateral Image (Optional)</label>
+                        <div class="border rounded p-3 bg-light">
+                            <input type="file" name="collateral_image" class="form-control" accept="image/jpeg,image/png,image/webp">
+                            <small class="text-muted">Max 2MB. Supported: JPG, JPEG, PNG, WEBP</small>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="location">Location</label>
@@ -387,6 +401,14 @@
                     <div class="form-group">
                         <label for="edit_description">Description <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="edit_description" name="description" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_collateral_image">Collateral Image (Optional)</label>
+                        <div class="border rounded p-3 bg-light">
+                            <input type="file" name="collateral_image" class="form-control" accept="image/jpeg,image/png,image/webp" id="edit_collateral_image">
+                            <small class="text-muted">Max 2MB. Supported: JPG, JPEG, PNG, WEBP</small>
+                            <div id="currentCollateralImage" class="mt-2"></div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="edit_location">Location</label>
@@ -552,6 +574,7 @@ $(document).ready(function() {
         var collateralTypeName = $(this).data('collateral-type-name');
         var referenceNumber = $(this).data('reference-number') || 'N/A';
         var description = $(this).data('description') || 'N/A';
+        var collateralImage = $(this).data('collateral-image') || '';
         var location = $(this).data('location') || 'N/A';
         var estimatedValue = $(this).data('estimated-value');
         var valuationDate = $(this).data('valuation-date') || 'N/A';
@@ -569,6 +592,16 @@ $(document).ready(function() {
         var formattedValue = (estimatedValue !== undefined && estimatedValue !== null && estimatedValue !== '') ?
             parseFloat(estimatedValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
         $('#v_estimated_value').text(formattedValue);
+        
+        // Handle collateral image display
+        if (collateralImage) {
+            $('#v_collateral_image').attr('src', '{{ asset("storage") }}/' + collateralImage).show();
+            $('#v_collateral_image_placeholder').hide();
+        } else {
+            $('#v_collateral_image').hide();
+            $('#v_collateral_image_placeholder').show();
+        }
+        
         $('#v_location').text(location);
         $('#v_valuation_date').text(valuationDate);
         $('#v_valued_by').text(valuedBy);
@@ -803,6 +836,7 @@ $(document).ready(function() {
         var collateralTypeId = $(this).data('collateral-type-id');
         var referenceNumber = $(this).data('reference-number');
         var description = $(this).data('description');
+        var collateralImage = $(this).data('collateral-image') || '';
         var location = $(this).data('location');
         var estimatedValue = $(this).data('estimated-value');
         var valuationDate = $(this).data('valuation-date');
@@ -817,6 +851,14 @@ $(document).ready(function() {
         $('#edit_collateral_type_id').val(collateralTypeId);
         $('#edit_reference_number').val(referenceNumber);
         $('#edit_description').val(description);
+        
+        // Handle collateral image display in edit modal
+        if (collateralImage) {
+            $('#currentCollateralImage').html('<p class="mb-1">Current Image:</p><img src="{{ asset("storage") }}/' + collateralImage + '" alt="Current Collateral Image" style="max-width: 150px; max-height: 150px; border-radius: 8px;" class="img-thumbnail">');
+        } else {
+            $('#currentCollateralImage').html('');
+        }
+        
         $('#edit_location').val(location);
         $('#edit_estimated_value').val(estimatedValue);
         $('#edit_valuation_date').val(valuationDate);

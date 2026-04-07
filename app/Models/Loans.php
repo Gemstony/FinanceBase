@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -11,6 +12,10 @@ class Loans extends Model
     use SoftDeletes;
 
     protected $table = 'loans';
+
+    protected static string $randomType = 'uppercase';
+
+    protected static int $randomLength = 4;
 
     protected $fillable = [
         'loan_code',
@@ -55,14 +60,51 @@ class Loans extends Model
     protected static function booted(): void
     {
         static::creating(function (self $loan) {
-            if (!empty($loan->loan_code)) {
+            if (! empty($loan->loan_code)) {
                 return;
             }
 
             do {
-                $loan->loan_code = 'LN-' . (string) Str::ulid();
+                $loan->loan_code = self::generateLoanCode();
             } while (self::query()->where('loan_code', $loan->loan_code)->exists());
         });
+    }
+
+    public static function generateLoanCode(): string
+    {
+        $datePart = Carbon::now()->format('ymd');
+        $randomPart = self::generateRandomString();
+
+        return 'LN-'.$datePart.'-'.$randomPart;
+    }
+
+    protected static function generateRandomString(): string
+    {
+        $chars = match (self::$randomType) {
+            'numeric' => '0123456789',
+            'alphanumeric' => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+            'uppercase' => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+            default => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        };
+
+        $result = '';
+        $charsLength = Str::length($chars);
+
+        for ($i = 0; $i < self::$randomLength; $i++) {
+            $result .= $chars[random_int(0, $charsLength - 1)];
+        }
+
+        return $result;
+    }
+
+    public static function setRandomType(string $type): void
+    {
+        self::$randomType = $type;
+    }
+
+    public static function setRandomLength(int $length): void
+    {
+        self::$randomLength = $length;
     }
 
     protected $casts = [

@@ -237,7 +237,7 @@ class LoansController extends Controller
 
         $loans = $query
             ->orderByDesc('id')
-            ->get();
+            ->paginate(30);
 
         $loans->each(function ($loan) {
             $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
@@ -1348,7 +1348,7 @@ class LoansController extends Controller
             // Must use forceDelete because LoanInstallments uses SoftDeletes
             LoanInstallments::query()->where('loan_id', $loan->id)->forceDelete();
             LoanCollaterals::query()->where('loan_id', $loan->id)->delete();
-            \App\Models\loanGuarantors::query()->where('loan_id', $loan->id)->delete();
+            loanGuarantors::query()->where('loan_id', $loan->id)->delete();
             LoanApprovals::query()->where('loan_id', $loan->id)->delete();
 
             // Delete the loan itself

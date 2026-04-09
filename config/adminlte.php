@@ -431,10 +431,6 @@ return [
                 'text' => 'Data',
                 'url' => '/data',
             ],
-            [
-                'text' => 'Telescope',
-                'url' => '/telescope',
-            ],
 
 
         ],

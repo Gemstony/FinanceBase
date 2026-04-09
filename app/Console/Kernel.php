@@ -60,7 +60,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('loans:process-penalties')->dailyAt('09:30');
 
         // Clear all telescope entries older than 48 hours daily at 01:00 AM server time
-        $schedule->command('telescope:prune --hours=48')->daily();
+        $schedule->command('telescope:prune')->daily();
 
     }
 

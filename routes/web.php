@@ -1171,9 +1171,9 @@ Route::middleware(['auth'])->group(function () {
 
         // Write offs
         Route::get('/admin/inventory/subshops', [WriteOffsController::class, 'subshops'])->name('writeoffs.subshops');
-        Route::get('/admin/inventory/writeoffs', [WriteOffsController::class, 'index'])
-            ->middleware('can:view_writeoffs')
-            ->name('writeoffs.index');
+        // Route::get('/admin/inventory/writeoffs', [WriteOffsController::class, 'index'])
+        //     ->middleware('can:view_writeoffs')
+        //     ->name('writeoffs.index');
         Route::post('/admin/inventory/writeoffs', [WriteOffsController::class, 'store'])->name('writeoffs.store');
         Route::put('/admin/inventory/writeoffs/{writeoff}', [WriteOffsController::class, 'update'])->name('writeoffs.update');
         Route::post('/admin/inventory/writeoffs/{writeoff}/status', [WriteOffsController::class, 'updateStatus'])->name('writeoffs.updateStatus');

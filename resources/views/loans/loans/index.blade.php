@@ -267,6 +267,12 @@
                 </tbody>
             </table>
             </div>
+            
+            @if($loans->hasPages())
+                <div class="mt-3 d-flex justify-content-center">
+                    {{ $loans->appends(request()->query())->links() }}
+                </div>
+            @endif
     </div>
 </div>
 @stop

@@ -677,9 +677,9 @@
                         <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="customer_savings_control_account_id">Customer Savings Control
-                                    (optional)</label>
+                                    (Liability) <span class="text-danger">*</span></label>
                                 <select class="form-control" id="customer_savings_control_account_id"
-                                    name="customer_savings_control_account_id">
+                                    name="customer_savings_control_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
                                     <option value="{{ $a->id }}" {{ (string)old('customer_savings_control_account_id', $loanProductAccounts?->customer_savings_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
@@ -689,9 +689,9 @@
                             </div>
                             <div class="form-group col-md-6">
                                 <label for="security_deposit_control_account_id">Security Deposit Control
-                                    (optional)</label>
+                                    (Liability) <span class="text-danger">*</span></label>
                                 <select class="form-control" id="security_deposit_control_account_id"
-                                    name="security_deposit_control_account_id">
+                                    name="security_deposit_control_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
                                     <option value="{{ $a->id }}" {{ (string)old('security_deposit_control_account_id', $loanProductAccounts?->security_deposit_control_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
@@ -703,8 +703,8 @@
 
                         <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="customer_savings_account_id">Customer Savings Account (optional)</label>
-                                <select class="form-control" id="customer_savings_account_id" name="customer_savings_account_id">
+                                <label for="customer_savings_account_id">Customer Savings Account (Liability) <span class="text-danger">*</span></label></label>
+                                <select class="form-control" id="customer_savings_account_id" name="customer_savings_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
                                     <option value="{{ $a->id }}" {{ (string)old('customer_savings_account_id', $loanProductAccounts?->customer_savings_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})
@@ -713,8 +713,8 @@
                                 </select>
                             </div>
                             <div class="form-group col-md-6">
-                                <label for="customer_security_deposit_account_id">Customer Security Deposit Account (optional)</label>
-                                <select class="form-control" id="customer_security_deposit_account_id" name="customer_security_deposit_account_id">
+                                <label for="customer_security_deposit_account_id">Customer Security Deposit Account (Liability) <span class="text-danger">*</span></label>
+                                <select class="form-control" id="customer_security_deposit_account_id" name="customer_security_deposit_account_id" required>
                                     <option value="">Select account</option>
                                     @foreach($accounts as $a)
                                     <option value="{{ $a->id }}" {{ (string)old('customer_security_deposit_account_id', $loanProductAccounts?->customer_security_deposit_account_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->account_code }}: {{ $a->account_name }} ({{ $a->accountClass->name }})

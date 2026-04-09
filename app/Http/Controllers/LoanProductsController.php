@@ -314,7 +314,7 @@ class LoanProductsController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:255', 'unique:loan_products,code'],
+            'code' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'loan_product_type_id' => ['required', 'integer', 'exists:loan_product_types,id'],
 

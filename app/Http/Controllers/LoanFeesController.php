@@ -64,7 +64,7 @@ class LoanFeesController extends Controller
             
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:10|unique:loan_fees,code',
+                'code' => 'required|string|max:10',
                 'fee_type' => 'required|in:FIXED,PERCENTAGE',
                 'amount' => 'required_if:fee_type,FIXED|nullable|numeric|min:0',
                 'percentage' => 'required_if:fee_type,PERCENTAGE|nullable|numeric|min:0|max:100',

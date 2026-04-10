@@ -383,9 +383,9 @@ class FinancialDashboardService
             ];
         }
 
-        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(1);
-        $par60 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
-        $par90 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(60);
+        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
+        $par60 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(60);
+        $par90 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(90);
 
         return [
             'par30' => round(($par30 / $totalOutstanding) * 100, 2),
@@ -402,7 +402,7 @@ class FinancialDashboardService
             return 0.0;
         }
 
-        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(1);
+        $par30 = $this->portfolioRiskCalculator->calculateDelinquentOutstanding(30);
 
         return round(($par30 / $totalOutstanding) * 100, 2);
     }

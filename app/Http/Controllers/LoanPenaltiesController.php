@@ -34,11 +34,38 @@ class LoanPenaltiesController extends Controller
             // Debug: Log income accounts
             \Log::info('Income accounts for shop (subshops: ' . $shopSubshopIds->implode(',') . '):', $incomeAccounts->toArray());
 
-            if ($incomeAccounts->isEmpty()) {
+                        $incomeAccountsOnly = ChartsOfAccount::with('accountClass')
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->whereHas('accountClass', function ($query) {
+                    $query->where('code', 4);
+                })
+                ->where('is_active', true)
+                ->orderBy('account_name')
+                ->get();
+
+            
+            $receivableAccountsOnly = ChartsOfAccount::with('accountClass')
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->whereHas('accountClass', function ($query) {
+                    $query->where('code', 1);
+                })
+                ->where('is_active', true)
+                ->orderBy('account_name')
+                ->get();
+
+
+            if ($incomeAccountsOnly->isEmpty()) {
                 return redirect()->back()->with('info', 'No income accounts found for this Branch. Please create income accounts first before adding loan penalties.');
             }
 
-            return view('loans.loans_settings.loan_penalties', compact('subshop', 'loanPenalties', 'incomeAccounts'));
+            if ($receivableAccountsOnly->isEmpty()) {
+                return redirect()->back()->with('info', 'No receivable accounts found for this Branch. Please create receivable accounts first before adding loan penalties.');
+            }
+
+            if ($incomeAccounts->isEmpty()) {
+                return redirect()->back()->with('info', 'No income accounts found for this Branch. Please create income accounts first before adding loan penalties.');
+            }
+            return view('loans.loans_settings.loan_penalties', compact('subshop', 'loanPenalties', 'incomeAccounts', 'incomeAccountsOnly', 'receivableAccountsOnly'));
             
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Failed to load loan penalties: ' . $e->getMessage());
@@ -139,7 +166,6 @@ class LoanPenaltiesController extends Controller
                     'required',
                     'string',
                     'max:10',
-                    Rule::unique('loan_penalties', 'code')->ignore($loanPenalty->id)
                 ],
                 'penalty_type' => 'required|in:FIXED,DAILY_PERCENTAGE',
                 'amount' => 'required_if:penalty_type,FIXED|nullable|numeric|min:0',

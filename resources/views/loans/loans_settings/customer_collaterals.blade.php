@@ -204,7 +204,7 @@
                                 <select class="form-control" id="customer_id" name="customer_id" required>
                                     <option value="">-- Select Customer --</option>
                                     @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                        <option value="{{ $customer->id }}" data-phone="{{ $customer->phone_number ?? '' }}">{{ $customer->name }}{{ $customer->phone_number ? ' - ' . $customer->phone_number : '' }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -370,7 +370,7 @@
                                 <select class="form-control" id="edit_customer_id" name="customer_id" required>
                                     <option value="">-- Select Customer --</option>
                                     @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                        <option value="{{ $customer->id }}" data-phone="{{ $customer->phone_number ?? '' }}">{{ $customer->name }}{{ $customer->phone_number ? ' - ' . $customer->phone_number : '' }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -537,6 +537,8 @@
 
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme/dist/select2-bootstrap4.min.css" rel="stylesheet" />
 
 <style>
     .table th, .table td {
@@ -544,6 +546,16 @@
     }
     .action-buttons {
         white-space: nowrap;
+    }
+    .select2-container .select2-selection--single {
+        height: 38px;
+        padding-top: 3px;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+        line-height: 31px;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+        height: 31px;
     }
 </style>
 @endpush
@@ -553,6 +565,7 @@
 
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 $(document).ready(function() {
     // Ensure CSRF token is sent with all AJAX requests
@@ -561,6 +574,33 @@ $(document).ready(function() {
             'X-CSRF-TOKEN': '{{ csrf_token() }}'
         }
     });
+    
+    function initCustomerSelect2() {
+        if (!(window.jQuery && $.fn && $.fn.select2)) {
+            return;
+        }
+
+        $('#customer_id').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#addCustomerCollateralModal'),
+            placeholder: '-- Select Customer --'
+        });
+
+        $('#edit_customer_id').select2({
+            theme: 'bootstrap4',
+            width: '100%',
+            dropdownParent: $('#editCustomerCollateralModal'),
+            placeholder: '-- Select Customer --'
+        });
+    }
+
+    initCustomerSelect2();
+
+    $('#addCustomerCollateralModal, #editCustomerCollateralModal').on('shown.bs.modal', function () {
+        initCustomerSelect2();
+    });
+    
     // Initialize DataTable
     $('#customerCollateralTable').DataTable({
         responsive: true,
@@ -737,7 +777,7 @@ $(document).ready(function() {
         // Reset primitive inputs
         $form[0].reset();
         // Clear selects explicitly
-        $form.find('select[name="customer_id"]').val('');
+        $form.find('select[name="customer_id"]').val('').trigger('change');
         $form.find('select[name="collateral_type_id"]').val('');
         $form.find('select.document-type-select').val('');
         // Uncheck checkboxes

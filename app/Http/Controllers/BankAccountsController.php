@@ -36,11 +36,15 @@ class BankAccountsController extends Controller
             $summaryInactiveAccounts = (int) $bankAccounts->where('is_active', false)->count();
             $summaryTotalOpeningBalance = (float) $bankAccounts->sum('opening_balance');
 
-            $chartAccounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)
-                ->where('is_active', true)
-                ->orderBy('account_name')
-                ->get();
-
+            $chartAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 1);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+            
             if ($chartAccounts->isEmpty()) {
                 return redirect()->back()->with('info', 'No chart of accounts found for this Branch. Please create accounts first before adding bank accounts.');
             }

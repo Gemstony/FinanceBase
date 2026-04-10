@@ -146,4 +146,26 @@ class SmsService
             return false;
         }
     }
+
+    /**
+     * Send password reset SMS to user
+     * 
+     * @param string $phoneNumber The user's phone number
+     * @param string $newPassword The new password that was set
+     * @param array|null $context Optional context for logging (shop_id, subshop_id, owner_id)
+     * @return bool True if SMS was sent successfully, false otherwise
+     */
+    public function sendPasswordResetSms(string $phoneNumber, string $newPassword, array $context = null): bool
+    {
+        $message = "Your password has been successfully reset. Your new password is: {$newPassword}. Please keep it secure and change it after first login. Delete This Message Thank you.";
+        
+        // Mark as sensitive for logging purposes (don't store actual password in logs)
+        if ($context === null) {
+            $context = [];
+        }
+        $context['sensitive'] = true;
+        $context['type'] = 'password_reset';
+        
+        return $this->sendSms($phoneNumber, $message, $context);
+    }
 }

@@ -154,7 +154,7 @@ class ChartsOfAccountController extends Controller
             ->whereIn('subshop_id', $shopSubshopIds)
             ->when(request('search'), function ($query) {
             $query->where('account_name', 'like', '%' . request('search') . '%');
-        })->paginate(10)->appends(request()->query());
+        })->paginate(30)->appends(request()->query());
 
         // Summary counts
         $total_accounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)->count();

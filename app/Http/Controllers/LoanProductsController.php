@@ -265,12 +265,43 @@ class LoanProductsController extends Controller
             ->get();
 
         // Chart of accounts for mapping principal, interest, penalties, fees, write-offs
-        $accounts = ChartsOfAccount::query()
-            ->with('accountClass')
+
+        $assetsAccounts = ChartsOfAccount::with('accountClass')
             ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 1);
+            })
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
+        
+        $liabilityAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 2);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+        
+        $incomeAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 4);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+                        
+        $expensesAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 5);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+
 
         return view('loans.loan_products.create_loan_product', compact(
             'subshop',
@@ -280,7 +311,10 @@ class LoanProductsController extends Controller
             'repaymentFrequencies',
             'loanFees',
             'loanPenalties',
-            'accounts',
+            'liabilityAccounts',
+            'assetsAccounts',
+            'incomeAccounts',
+            'expensesAccounts',
             'roles'
         ));
     }
@@ -696,11 +730,42 @@ class LoanProductsController extends Controller
             ->orderBy('name')
             ->get();
 
-        $accounts = ChartsOfAccount::query()
+        $assetsAccounts = ChartsOfAccount::with('accountClass')
             ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 1);
+            })
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
+        
+        $liabilityAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 2);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+        
+        $incomeAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 4);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+                        
+        $expensesAccounts = ChartsOfAccount::with('accountClass')
+            ->whereIn('subshop_id', $shopSubshopIds)
+            ->whereHas('accountClass', function ($query) {
+                $query->where('code', 5);
+            })
+            ->where('is_active', true)
+            ->orderBy('account_name')
+            ->get();
+
 
         $loanProductRules = $loanProduct->rules;
         $loanProductCashConfig = $loanProduct->cashConfigs;
@@ -718,14 +783,17 @@ class LoanProductsController extends Controller
             'repaymentFrequencies',
             'loanFees',
             'loanPenalties',
-            'accounts',
             'roles',
             'loanProductRules',
             'loanProductCashConfig',
             'loanProductAccounts',
             'loanProductFees',
             'loanProductPenalties',
-            'loanProductApprovalLevels'
+            'loanProductApprovalLevels',
+            'liabilityAccounts',
+            'assetsAccounts',
+            'incomeAccounts',
+            'expensesAccounts'
         ));
     }
 

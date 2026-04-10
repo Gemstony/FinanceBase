@@ -135,7 +135,7 @@ class LoanRepaymentController extends Controller
         if ((int) $loan->subshop_id !== $subshopId) {
             abort(403);
         }
-
+// ##### Dought ##############
         $payerCustomerId = null;
         if (! $loan->customer_id) {
             $payerValidated = $request->validate([

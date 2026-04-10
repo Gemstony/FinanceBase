@@ -764,7 +764,7 @@ $(function () {
     }
     $txTable.DataTable({
         "order": [],
-        "pageLength": 15,
+        "pageLength": 10,
         "language": {
             "search": "Search accounts:",
             "lengthMenu": "Show _MENU_ accounts per page",

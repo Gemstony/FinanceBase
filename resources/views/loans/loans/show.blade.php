@@ -93,11 +93,11 @@
                             {{ $loan->customer?->name }} Loan
                         @endif
                     </h4>
+                    
                     <div class="text-muted">
                         Phone: {{ $loan->customer?->phone ?? '-' }} <br>
                         Email: {{ $loan->customer?->email ?? '-' }} <br>
                         Code: {{ $loan->customer?->customer_code ?? '-' }}
-
                     </div>
                     <div class="text-muted">
                         Product: {{ $loan->loanProduct?->name ?? 'Loan Product' }}

@@ -26,7 +26,11 @@ class LoanFeesController extends Controller
             $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
             $loanFees = LoanFees::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
-            $incomeAccounts = ChartsOfAccount::whereIn('subshop_id', $shopSubshopIds)
+            $incomeAccounts = ChartsOfAccount::with('accountClass')
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->whereHas('accountClass', function ($query) {
+                    $query->where('code', 4);
+                })
                 ->where('is_active', true)
                 ->orderBy('account_name')
                 ->get();

@@ -119,6 +119,12 @@
                             <button class="btn btn-sm btn-pink btn-apply-theme" data-theme="feminine">Apply</button>
                         </div>
 
+                        <div class="theme-card border rounded p-3 m-2" style="min-width:220px;max-width:260px;">
+                            <h5>Black</h5>
+                            <div class="mb-2" style="height:34px;background:linear-gradient(90deg,#1a1a1a,#000000);"></div>
+                            <button class="btn btn-sm btn-dark btn-apply-theme" data-theme="black">Apply</button>
+                        </div>
+
     
                       
                     </div>
@@ -204,6 +210,10 @@
         corporate: {
             sidebar_bg: 'linear-gradient(180deg,#005C97,#363795)',
             navbar_bg: 'linear-gradient(135deg,#00b4db,#0083b0)'
+        },
+        black: {
+            sidebar_bg: '#000000',
+            navbar_bg: 'linear-gradient(135deg,#3a3a3a,#000000)'
         }
     };
 

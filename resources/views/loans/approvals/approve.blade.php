@@ -58,12 +58,18 @@
                             {{ $loan->customer?->name }} Loan
                         @endif
                     </h4>
+                                        
                     <div class="text-muted">
-                        {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        Phone: {{ $loan->customer?->phone ?? '-' }} <br>
+                        Email: {{ $loan->customer?->email ?? '-' }} <br>
+                        Code: {{ $loan->customer?->customer_code ?? '-' }}
+                    </div>
+                    <div class="text-muted">
+                        Peoduct: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
                         @if($loan->borrower_type)
                             &middot; {{ ucfirst($loan->borrower_type) }}
                         @endif
-                        &middot; Loan Code: <strong>{{ $loan->loan_code }}</strong>
+                        <br> Loan Code: <strong>{{ $loan->loan_code }}</strong>
                     </div>
                 </div>
                 <div class="text-right">

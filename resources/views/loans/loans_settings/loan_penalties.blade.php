@@ -203,7 +203,7 @@
                         <label for="income_account_id">Income Account <span class="text-danger">*</span></label>
                         <select class="form-control" id="income_account_id" name="income_account_id" required>
                             <option value="">Select Income Account</option>
-                            @foreach($incomeAccounts as $account)
+                            @foreach($incomeAccountsOnly as $account)
                                 <option value="{{ $account->id }}">{{ $account->account_name }} ({{ $account->account_code }})</option>
                             @endforeach
                         </select>
@@ -212,7 +212,7 @@
                         <label for="receivable_account_id">Receivable Account <span class="text-danger">*</span></label>
                         <select class="form-control" id="receivable_account_id" name="receivable_account_id" required>
                             <option value="">Select Receivable Account</option>
-                            @foreach($incomeAccounts as $account)
+                            @foreach($receivableAccountsOnly as $account)
                                 <option value="{{ $account->id }}">{{ $account->account_name }} ({{ $account->account_code }})</option>
                             @endforeach
                         </select>
@@ -291,7 +291,7 @@
                         <label for="edit_income_account_id">Income Account <span class="text-danger">*</span></label>
                         <select class="form-control" id="edit_income_account_id" name="income_account_id" required>
                             <option value="">Select Income Account</option>
-                            @foreach($incomeAccounts as $account)
+                            @foreach($incomeAccountsOnly as $account)
                                 <option value="{{ $account->id }}">{{ $account->account_name }} ({{ $account->account_code }})</option>
                             @endforeach
                         </select>
@@ -300,7 +300,7 @@
                         <label for="edit_receivable_account_id">Receivable Account <span class="text-danger">*</span></label>
                         <select class="form-control" id="edit_receivable_account_id" name="receivable_account_id" required>
                             <option value="">Select Receivable Account</option>
-                            @foreach($incomeAccounts as $account)
+                            @foreach($receivableAccountsOnly as $account)
                                 <option value="{{ $account->id }}">{{ $account->account_name }} ({{ $account->account_code }})</option>
                             @endforeach
                         </select>

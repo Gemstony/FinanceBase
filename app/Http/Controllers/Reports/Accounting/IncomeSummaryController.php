@@ -68,15 +68,15 @@ class IncomeSummaryController extends Controller
             ->whereIn('charts_of_accounts.subshop_id', $accessibleSubshopIds ?: [-1])
             ->where('charts_of_accounts.is_active', 1)
             ->where(function ($w) {
-                $w->whereRaw("UPPER(ac.code) like '4%'")
-                    ->orWhereRaw("UPPER(ac.code) like '5%'")
-                    ->orWhereRaw("UPPER(ac.code) like '%INCOME%'")
-                    ->orWhereRaw("UPPER(ac.code) like '%REVENUE%'")
-                    ->orWhereRaw("UPPER(ac.name) like '%INCOME%'")
-                    ->orWhereRaw("UPPER(ac.name) like '%REVENUE%'");
+                $w->whereRaw("UPPER(ac.code) LIKE '4%'")
+                ->whereRaw("UPPER(ac.name) = 'INCOME'");
             })
             ->orderBy('charts_of_accounts.account_name')
-            ->get(['charts_of_accounts.id', 'charts_of_accounts.account_code', 'charts_of_accounts.account_name']);
+            ->get([
+                'charts_of_accounts.id',
+                'charts_of_accounts.account_code',
+                'charts_of_accounts.account_name'
+            ]);
 
         $commonParams = array_filter([
             'from_date' => $dateFrom->toDateString(),

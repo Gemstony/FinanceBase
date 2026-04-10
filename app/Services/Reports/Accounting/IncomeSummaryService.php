@@ -98,12 +98,12 @@ class IncomeSummaryService
         $name = strtoupper(trim($className));
 
         if ($code !== '') {
-            if (str_starts_with($code, '4') || str_starts_with($code, '5') || str_contains($code, 'INCOME') || str_contains($code, 'REVENUE')) {
+            if (str_starts_with($code, '4') || str_contains($code, 'INCOME')) {
                 return 'income';
             }
         }
 
-        if (str_contains($name, 'INCOME') || str_contains($name, 'REVENUE')) {
+        if (str_contains($name, 'INCOME')) {
             return 'income';
         }
 

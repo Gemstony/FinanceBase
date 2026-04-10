@@ -312,10 +312,10 @@ class BalanceSheetService
             if (str_starts_with($code, '3') || str_contains($code, 'EQUITY')) {
                 return 'equity';
             }
-            if (str_starts_with($code, '4') || str_starts_with($code, '5') || str_contains($code, 'INCOME') || str_contains($code, 'REVENUE')) {
+            if (str_starts_with($code, '4') || str_contains($code, 'INCOME')) {
                 return 'income';
             }
-            if (str_starts_with($code, '6') || str_contains($code, 'EXPENSE') || str_contains($code, 'COST')) {
+            if (str_starts_with($code, '5') || str_contains($code, 'EXPENSE')) {
                 return 'expense';
             }
         }
@@ -329,10 +329,10 @@ class BalanceSheetService
         if (str_contains($name, 'EQUITY')) {
             return 'equity';
         }
-        if (str_contains($name, 'INCOME') || str_contains($name, 'REVENUE')) {
+        if (str_contains($name, 'INCOME')) {
             return 'income';
         }
-        if (str_contains($name, 'EXPENSE') || str_contains($name, 'COST')) {
+        if (str_contains($name, 'EXPENSE')) {
             return 'expense';
         }
 

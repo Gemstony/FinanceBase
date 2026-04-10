@@ -79,7 +79,12 @@ class AccountGroupsController extends Controller
 
                 // Format: PREFIX + padded number
                 // Example: ASSET → 101, INCOME → 301
-                $groupCode = $prefix . str_pad($number, 2, '0', STR_PAD_LEFT);
+                $lastCode = AccountGroups::where('subshop_id', session('subshop_id'))
+                    ->where('code', 'like', $prefix . '%')
+                    ->max('code');
+
+                $nextNumber = $lastCode ? intval(substr($lastCode, strlen($prefix))) + 1 : 1;
+                $groupCode = $prefix . str_pad($nextNumber, 2, '0', STR_PAD_LEFT);
 
         try {
             DB::beginTransaction();

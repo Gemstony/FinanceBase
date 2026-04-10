@@ -241,8 +241,7 @@ class FeesReportService
     {
         // Get all fee income accounts from account groups
         $feeIncomeAccounts = ChartsOfAccount::whereHas('accountGroup', function ($query) {
-            $query->where('name', 'like', '%Fee Income%')
-                  ->orWhere('name', 'like', '%Service Charge%');
+            $query->where('name', 'like', '%Fee Income%');
         })->get();
 
         $feeIncomeAccountIds = $feeIncomeAccounts->pluck('id')->toArray();

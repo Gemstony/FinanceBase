@@ -293,8 +293,7 @@ class PenaltiesReportService
     {
         // Get all penalty income accounts from account groups
         $penaltyIncomeAccounts = ChartsOfAccount::whereHas('accountGroup', function ($query) {
-            $query->where('name', 'like', '%Penalty Income%')
-                  ->orWhere('name', 'like', '%Late Payment%');
+            $query->where('name', 'like', '%Penalty Income%');
         })->get();
 
         $penaltyIncomeAccountIds = $penaltyIncomeAccounts->pluck('id')->toArray();

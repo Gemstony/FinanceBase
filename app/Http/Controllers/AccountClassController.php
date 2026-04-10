@@ -73,7 +73,7 @@ class AccountClassController extends Controller
         
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:50|unique:account_classes,code,' . $id,
+            'code' => 'required|string|max:50|unique:account_classes,code,NULL,id,subshop_id,' . session('subshop_id'),
             'description' => 'nullable|string',
         ]);
 

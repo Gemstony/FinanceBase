@@ -98,12 +98,12 @@ class ExpensesSummaryService
         $name = strtoupper(trim($className));
 
         if ($code !== '') {
-            if (str_starts_with($code, '6') || str_contains($code, 'EXPENSE') || str_contains($code, 'COST')) {
+            if (str_starts_with($code, '5') || str_contains($code, 'EXPENSE')) {
                 return 'expense';
             }
         }
 
-        if (str_contains($name, 'EXPENSE') || str_contains($name, 'COST')) {
+        if (str_contains($name, 'EXPENSE')) {
             return 'expense';
         }
 

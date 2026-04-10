@@ -203,18 +203,16 @@ class ChangesInEquityService
         $incomeClassId = DB::table('account_classes')
             ->where(function ($q) {
                 $q->where('code', '4')
-                  ->orWhereRaw("UPPER(name) LIKE '%INCOME%'")
-                  ->orWhereRaw("UPPER(name) LIKE '%REVENUE%'");
+                  ->orWhereRaw("UPPER(name) LIKE '%INCOME%'");
             })
             ->pluck('id')
             ->toArray();
 
-        // Get expense accounts (class code 5, 6 or name contains EXPENSE/COST)
+        // Get expense accounts (class code 5 or name contains EXPENSE)
         $expenseClassId = DB::table('account_classes')
             ->where(function ($q) {
-                $q->whereIn('code', ['5', '6'])
-                  ->orWhereRaw("UPPER(name) LIKE '%EXPENSE%'")
-                  ->orWhereRaw("UPPER(name) LIKE '%COST%'");
+                $q->whereIn('code', ['5'])
+                  ->orWhereRaw("UPPER(name) LIKE '%EXPENSE%'");
             })
             ->pluck('id')
             ->toArray();
@@ -332,8 +330,7 @@ class ChangesInEquityService
         $incomeClassId = DB::table('account_classes')
             ->where(function ($q) {
                 $q->where('code', '4')
-                  ->orWhereRaw("UPPER(name) LIKE '%INCOME%'")
-                  ->orWhereRaw("UPPER(name) LIKE '%REVENUE%'");
+                  ->orWhereRaw("UPPER(name) LIKE '%INCOME%'");
             })
             ->pluck('id')
             ->toArray();
@@ -341,9 +338,8 @@ class ChangesInEquityService
         // Get expense accounts
         $expenseClassId = DB::table('account_classes')
             ->where(function ($q) {
-                $q->whereIn('code', ['5', '6'])
-                  ->orWhereRaw("UPPER(name) LIKE '%EXPENSE%'")
-                  ->orWhereRaw("UPPER(name) LIKE '%COST%'");
+                $q->whereIn('code', ['5'])
+                  ->orWhereRaw("UPPER(name) LIKE '%EXPENSE%'");
             })
             ->pluck('id')
             ->toArray();

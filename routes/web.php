@@ -260,6 +260,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{customer}', [CustomerCreditsController::class, 'show'])->name('credits.show');
             Route::post('/apply', [CustomerCreditsController::class, 'apply'])->name('credits.apply');
             Route::post('/refund', [CustomerCreditsController::class, 'refund'])->name('credits.refund');
+            Route::post('/liability-account/configure', [CustomerCreditsController::class, 'configureLiabilityAccount'])->name('credits.liability-account.configure');
         });
 
         Route::prefix('deposits')->group(function () {

@@ -71,7 +71,34 @@
                         </div>
                     </div>
                 </form>
-
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <!-- Liability Account Configuration -->
+                        <div class="d-flex justify-content-between gap-2 flex-wrap">
+                            @php
+                                $subshopId = session('subshop_id');
+                                $liabilityConfigured = \App\Models\CustomerCreditLiabilityAccount::isConfiguredForSubshop($subshopId);
+                                $liabilityAccount = \App\Models\CustomerCreditLiabilityAccount::forSubshop($subshopId);
+                            @endphp
+                            
+                            @if($liabilityConfigured && $liabilityAccount)
+                                <span class="badge badge-success">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Liability Account: {{ $liabilityAccount->chartOfAccount?->account_name ?? 'N/A' }}
+                                </span>
+                            @else
+                                <span class="badge badge-warning">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Liability Account Not Configured
+                                </span>
+                            @endif
+                            
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-toggle="modal" data-target="#liabilityAccountModal">
+                                <i class="fas fa-cog"></i> Configure Liability Account
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover" id="creditsTable">
                         <thead class="thead-light">
@@ -146,4 +173,69 @@ $(document).ready(function() {
     }
 });
 </script>
+
+<!-- Liability Account Configuration Modal -->
+<div class="modal fade" id="liabilityAccountModal" tabindex="-1" role="dialog" aria-labelledby="liabilityAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="liabilityAccountModalLabel">
+                    <i class="fas fa-cog"></i> Configure Customer Credit Liability Account
+                </h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('credits.liability-account.configure') }}">
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> This account will be used as the liability account for all customer credit refunds in this branch. 
+                        It should be a liability account (Account Class 2) that represents customer credit obligations.
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="chart_of_account_id">Select Liability Account <span class="text-danger">*</span></label>
+                        <select name="chart_of_account_id" id="chart_of_account_id" class="form-control" required>
+                            <option value="">Select a liability account...</option>
+                            @php
+                                $subshopId = session('subshop_id');
+
+                                $liabilityAccounts = \App\Models\ChartsOfAccount::with('accountClass')
+                                    ->where('subshop_id', $subshopId)
+                                    ->whereHas('accountClass', function ($query) {
+                                        $query->where('code', 2);
+                                    })
+                                    ->where('is_active', true)
+                                    ->orderBy('account_name')
+                                    ->get();
+                            @endphp
+                            @foreach($liabilityAccounts as $account)
+                                <option value="{{ $account->id }}" 
+                                    @if($liabilityAccount && $liabilityAccount->chart_of_account_id == $account->id) selected @endif>
+                                    {{ $account->account_code }} - {{ $account->account_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="form-text text-muted">Only liability accounts (Account Class 2) are shown.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes">Notes (Optional)</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="3" placeholder="Any additional notes about this configuration...">{{ $liabilityAccount->notes ?? '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endpush

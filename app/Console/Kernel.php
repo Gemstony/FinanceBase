@@ -59,9 +59,6 @@ class Kernel extends ConsoleKernel
         // Process overdue installment penalties daily at 09:30 AM server time
         $schedule->command('loans:process-penalties')->dailyAt('09:30');
 
-        // Clear all telescope entries older than 48 hours daily at 01:00 AM server time
-        $schedule->command('telescope:prune')->daily();
-
     }
 
     /**

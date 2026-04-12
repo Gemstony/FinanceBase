@@ -7,13 +7,16 @@ namespace App\Services\Loans\Credits;
 use App\Models\BankAccounts;
 use App\Models\ChartsOfAccount;
 use App\Models\CustomerCreditBalances;
+use App\Models\CustomerCreditLiabilityAccount;
 use App\Models\Loans;
+use App\Models\PaymentMethodAccount;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -131,81 +134,118 @@ class CustomerCreditService
     }
 
     /**
-     * @param array{refund_method:string, bank_account_id?:int|null, liability_account_id?:int, notes?:string|null} $data
+     * @param array{refund_method:string, bank_account_id?:int|null, notes?:string|null} $data
      */
     public function refundCredit(int $creditId, int $userId, float $refundAmount, array $data): CustomerCreditBalances
     {
-        $subshopId = (int) session('subshop_id');
+        try {
+            Log::info('CustomerCreditService::refundCredit started', [
+                'credit_id' => $creditId,
+                'user_id' => $userId,
+                'refund_amount' => $refundAmount,
+                'data' => $data,
+            ]);
 
-        $refundAmount = round((float) $refundAmount, 2);
-        if ($refundAmount <= 0) {
-            throw new InvalidArgumentException('Refund amount must be greater than 0.');
-        }
+            $subshopId = (int) session('subshop_id');
+            Log::debug('Subshop ID resolved', ['subshop_id' => $subshopId]);
 
-        $refundMethod = (string) ($data['refund_method'] ?? '');
-        if ($refundMethod === '') {
-            throw new InvalidArgumentException('Refund method is required.');
-        }
+            $refundAmount = round((float) $refundAmount, 2);
+            Log::debug('Refund amount validated', ['refund_amount' => $refundAmount]);
 
-        $bankAccountId = isset($data['bank_account_id']) && $data['bank_account_id'] ? (int) $data['bank_account_id'] : null;
-        $requiresBank = in_array($refundMethod, ['bank_transfer', 'mobile_money'], true);
-        if ($requiresBank && !$bankAccountId) {
-            throw new InvalidArgumentException('Bank account is required for this refund method.');
-        }
-
-        $liabilityAccountId = !empty($data['liability_account_id']) ? (int) $data['liability_account_id'] : 0;
-        if ($liabilityAccountId <= 0) {
-            throw new InvalidArgumentException('Customer credit liability account is required.');
-        }
-
-        $credit = CustomerCreditBalances::query()
-            ->whereKey($creditId)
-            ->lockForUpdate()
-            ->firstOrFail();
-
-        if ((int) $credit->subshop_id !== $subshopId) {
-            throw new InvalidArgumentException('Invalid subshop for this credit.');
-        }
-
-        if ((string) $credit->status !== 'available') {
-            throw new InvalidArgumentException('Only available credits can be refunded.');
-        }
-
-        $creditAmount = round((float) $credit->amount, 2);
-        if ($refundAmount > $creditAmount) {
-            throw new InvalidArgumentException('Refund amount must not exceed available credit amount.');
-        }
-
-        if ($bankAccountId) {
-            $bankAccount = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
-            if ((int) $bankAccount->subshop_id !== $subshopId) {
-                throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
-            }
-        }
-
-        $liabilityAccount = ChartsOfAccount::query()->whereKey($liabilityAccountId)->firstOrFail();
-        if ((int) $liabilityAccount->subshop_id !== $subshopId) {
-            throw new InvalidArgumentException('Selected liability account does not belong to this branch.');
-        }
-
-        $creditCashAccountId = $this->resolveRefundCashAccountId($refundMethod, $bankAccountId);
-
-        $now = Carbon::now();
-
-        $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
-            ->reset()
-            ->addDebit($liabilityAccountId, $refundAmount, 'Customer credit refund – liability reduction')
-            ->addCredit($creditCashAccountId, $refundAmount, 'Customer credit refund – cash/bank outflow')
-            ->getLines();
-
-        // Partial refund: keep remaining credit available and record refunded portion as its own row.
-        if ($refundAmount < $creditAmount) {
-            $remaining = round($creditAmount - $refundAmount, 2);
-            if ($remaining <= 0) {
-                throw new InvalidArgumentException('Invalid remaining credit after refund.');
+            if ($refundAmount <= 0) {
+                Log::error('Invalid refund amount', ['refund_amount' => $refundAmount]);
+                throw new InvalidArgumentException('Refund amount must be greater than 0.');
             }
 
-            $credit->amount = $remaining;
+            $refundMethod = (string) ($data['refund_method'] ?? '');
+            Log::debug('Refund method resolved', ['refund_method' => $refundMethod]);
+
+            if ($refundMethod === '') {
+                Log::error('Empty refund method');
+                throw new InvalidArgumentException('Refund method is required.');
+            }
+
+            $bankAccountId = isset($data['bank_account_id']) && $data['bank_account_id'] ? (int) $data['bank_account_id'] : null;
+            $requiresBank = in_array($refundMethod, ['bank_transfer', 'mobile_money'], true);
+            Log::debug('Bank account validation', [
+                'bank_account_id' => $bankAccountId,
+                'requires_bank' => $requiresBank,
+            ]);
+
+            if ($requiresBank && !$bankAccountId) {
+                Log::error('Missing required bank account', ['refund_method' => $refundMethod]);
+                throw new InvalidArgumentException('Bank account is required for this refund method.');
+            }
+
+            // Get fixed liability account for this subshop
+            Log::debug('Getting liability account', ['subshop_id' => $subshopId]);
+            $liabilityAccountId = $this->getCustomerCreditLiabilityAccount($subshopId);
+            Log::debug('Liability account resolved', ['liability_account_id' => $liabilityAccountId]);
+
+            $creditCashAccountId = $this->resolveRefundCashAccountId($refundMethod, $bankAccountId, $subshopId);
+            Log::debug('Cash account resolved', ['cash_account_id' => $creditCashAccountId]);
+
+            $now = Carbon::now();
+
+            $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
+                ->reset()
+                ->addDebit($liabilityAccountId, $refundAmount, 'Customer credit refund - liability reduction')
+                ->addCredit($creditCashAccountId, $refundAmount, 'Customer credit refund - cash/bank outflow')
+                ->getLines();
+
+            Log::debug('Journal lines created', [
+                'debit_account_id' => $liabilityAccountId,
+                'credit_account_id' => $creditCashAccountId,
+                'amount' => $refundAmount,
+            ]);
+
+            $credit = CustomerCreditBalances::query()
+                ->whereKey($creditId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            Log::debug('Credit loaded', [
+                'credit_id' => $credit->id,
+                'credit_amount' => $credit->amount,
+                'credit_status' => $credit->status,
+                'credit_subshop_id' => $credit->subshop_id,
+            ]);
+
+            if ((int) $credit->subshop_id !== $subshopId) {
+                Log::error('Subshop mismatch', [
+                    'credit_subshop_id' => $credit->subshop_id,
+                    'session_subshop_id' => $subshopId,
+                ]);
+                throw new InvalidArgumentException('Invalid subshop for this credit.');
+            }
+
+            if ((string) $credit->status !== 'available') {
+                Log::error('Invalid credit status', ['credit_status' => $credit->status]);
+                throw new InvalidArgumentException('Only available credits can be refunded.');
+            }
+
+            $creditAmount = round((float) $credit->amount, 2);
+            if ($refundAmount > $creditAmount) {
+                Log::error('Refund amount exceeds available', [
+                    'refund_amount' => $refundAmount,
+                    'available_amount' => $creditAmount,
+                ]);
+                throw new InvalidArgumentException('Refund amount must not exceed available credit amount.');
+            }
+
+            // Partial refund: keep remaining credit available and record refunded portion as its own row.
+            if ($refundAmount < $creditAmount) {
+                Log::debug('Processing partial refund', [
+                    'refund_amount' => $refundAmount,
+                    'credit_amount' => $creditAmount,
+                ]);
+
+                $remaining = round($creditAmount - $refundAmount, 2);
+                if ($remaining <= 0) {
+                    throw new InvalidArgumentException('Invalid remaining credit after refund.');
+                }
+
+                $credit->amount = $remaining;
             $credit->save();
 
             $refundedCredit = CustomerCreditBalances::query()->create([
@@ -289,18 +329,115 @@ class CustomerCreditService
         ]);
 
         return $credit;
+        } catch (\Exception $e) {
+            // Log the error and re-throw for controller to handle
+            Log::error('CustomerCreditService::refundCredit failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'credit_id' => $creditId,
+                'user_id' => $userId,
+                'refund_amount' => $refundAmount,
+            ]);
+            
+            // Re-throw to let controller handle with user-friendly message
+            throw $e;
+        }
     }
 
-    private function resolveRefundCashAccountId(string $refundMethod, ?int $bankAccountId): int
+    private function resolveRefundCashAccountId(string $refundMethod, ?int $bankAccountId, int $subshopId): int
     {
         if ($bankAccountId) {
-            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
-            $linked = (int) ($bank?->chart_of_account_id ?? 0);
-            if ($linked > 0) {
-                return $linked;
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
+            if ((int) $bank->subshop_id !== $subshopId) {
+                throw new InvalidArgumentException('Bank account does not belong to this branch.');
             }
+            
+            $accountId = (int) $bank->chart_of_account_id;
+            if ($accountId <= 0) {
+                throw new InvalidArgumentException('Bank account is not linked to a chart of account.');
+            }
+            
+            return $accountId;
         }
 
-        return 1;
+        // For cash refunds, use payment method mapping to get the correct cash account
+        $mapping = PaymentMethodAccount::query()
+            ->where('subshop_id', $subshopId)
+            ->where('payment_method', $refundMethod)
+            ->first();
+
+        if (!$mapping) {
+            throw new InvalidArgumentException("Payment method '{$refundMethod}' is not mapped to a GL account.");
+        }
+
+        $accountId = (int) $mapping->chart_of_account_id;
+        if ($accountId <= 0) {
+            throw new InvalidArgumentException("Invalid chart_of_account_id for payment method '{$refundMethod}'.");
+        }
+
+        Log::debug('Using payment method mapping', ['account_id' => $accountId]);
+        return $accountId;
+    }
+
+    /**
+     * Get customer credit liability account for a subshop
+     */
+    public function getCustomerCreditLiabilityAccount(int $subshopId): int
+    {
+        Log::debug('Getting customer credit liability account', ['subshop_id' => $subshopId]);
+        
+        $liabilityAccount = CustomerCreditLiabilityAccount::forSubshop($subshopId);
+        
+        if (!$liabilityAccount) {
+            Log::error('Liability account not configured', ['subshop_id' => $subshopId]);
+            throw new InvalidArgumentException(
+                'Customer credit liability account is not configured for this branch. ' .
+                'Please configure it first before processing refunds.'
+            );
+        }
+
+        Log::debug('Liability account found', [
+            'liability_account_id' => $liabilityAccount->id,
+            'chart_of_account_id' => $liabilityAccount->chart_of_account_id,
+        ]);
+
+        // Validate that account is still a liability account and active
+        $chartAccount = ChartsOfAccount::query()->whereKey($liabilityAccount->chart_of_account_id)->first();
+        
+        if (!$chartAccount) {
+            Log::error('Configured liability account no longer exists', [
+                'liability_account_id' => $liabilityAccount->chart_of_account_id,
+            ]);
+            throw new InvalidArgumentException('Configured liability account no longer exists.');
+        }
+        
+        if ((int) $chartAccount->accountClass->code !== 2) {
+            Log::error('Configured liability account not liability class', [
+                'account_class_code' => $chartAccount->accountClass->code,
+            ]);
+            throw new InvalidArgumentException('Configured liability account is not a liability account (Account Class 2).');
+        }
+        
+        if (!$chartAccount->is_active) {
+            Log::error('Configured liability account not active', [
+                'liability_account_id' => $liabilityAccount->accountClass->code,
+            ]);
+            throw new InvalidArgumentException('Configured liability account is not active.');
+        }
+        
+        if ((int) $chartAccount->subshop_id !== $subshopId) {
+            Log::error('Configured liability account wrong subshop', [
+                'account_subshop_id' => $chartAccount->subshop_id,
+                'session_subshop_id' => $subshopId,
+            ]);
+            throw new InvalidArgumentException('Configured liability account does not belong to this branch.');
+        }
+
+        Log::debug('Liability account validated', [
+            'liability_account_id' => $liabilityAccount->chart_of_account_id,
+            'account_name' => $chartAccount->account_name,
+        ]);
+
+        return (int) $liabilityAccount->chart_of_account_id;
     }
 }

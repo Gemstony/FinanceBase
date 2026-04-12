@@ -118,17 +118,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>Customer Credit Liability Account</label>
-                                <select name="liability_account_id" class="form-control" required>
-                                    <option value="">Select Liability Account</option>
-                                    @foreach(($liabilityAccounts ?? collect()) as $acc)
-                                        <option value="{{ $acc->id }}">
-                                            {{ $acc->account_name }} ({{ $acc->account_code }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                            <!-- Liability account is now automatically determined from payment method mappings -->
                             <div class="form-group">
                                 <label></label>Refund Reason</label>
                                 <textarea name="notes" class="form-control" rows="2" placeholder="Optional"></textarea>

@@ -305,12 +305,7 @@ return [
     */
 
     'menu' => [
-        // Navbar items:
-        [
-            'type' => 'navbar-search',
-            'text' => 'search',
-            'topnav_right' => true,
-        ],
+        // Navbar items:,
         [
             'type' => 'fullscreen-widget',
             'topnav_right' => true,

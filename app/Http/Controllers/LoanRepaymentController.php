@@ -116,6 +116,7 @@ class LoanRepaymentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Validate incoming repayment request
         $validated = $request->validate([
             'loan_code' => ['required', 'string', 'exists:loans,loan_code'],
             'payment_date' => ['required', 'date'],
@@ -129,13 +130,15 @@ class LoanRepaymentController extends Controller
             'provider' => ['nullable', 'string', 'max:50'],
         ]);
 
+        // Load loan and verify subshop access
         $loan = Loans::query()->where('loan_code', $validated['loan_code'])->firstOrFail();
-
         $subshopId = (int) session('subshop_id');
+        
         if ((int) $loan->subshop_id !== $subshopId) {
-            abort(403);
+            abort(403); // Access denied - wrong subshop
         }
-// ##### Dought ##############
+
+        // Handle payer customer (required if loan has no customer)
         $payerCustomerId = null;
         if (! $loan->customer_id) {
             $payerValidated = $request->validate([
@@ -150,6 +153,7 @@ class LoanRepaymentController extends Controller
 
         $paymentMethod = $validated['payment_method'];
 
+        // Handle Azampay mobile payments separately
         if ($paymentMethod === 'azampay') {
             $azampayValidation = $request->validate([
                 'phone_number' => ['required', 'string', 'max:20'],
@@ -172,7 +176,6 @@ class LoanRepaymentController extends Controller
                     ->with('info', 'Payment request sent. Please complete the payment on your phone.');
             } catch (\Throwable $e) {
                 report($e);
-
                 return redirect()
                     ->back()
                     ->withInput()
@@ -180,7 +183,14 @@ class LoanRepaymentController extends Controller
             }
         }
 
+        // Process standard payment (cash, bank, etc.)
         try {
+            Log::info('Processing loan repayment', [
+                'loan_code' => $loan->loan_code,
+                'payment_method' => $paymentMethod,
+                'amount' => $validated['payment_amount'],
+            ]);
+            
             $payment = $this->paymentProcessor->processPayment(
                 $loan,
                 $payerCustomerId,
@@ -191,21 +201,28 @@ class LoanRepaymentController extends Controller
                 Carbon::parse((string) $validated['payment_date'])->startOfDay(),
                 $validated['notes'] ? (string) $validated['notes'] : null,
             );
+            
+            Log::info('Loan repayment processed successfully', [
+                'payment_id' => $payment->id,
+                'loan_code' => $loan->loan_code,
+                'amount' => $payment->payment_amount,
+            ]);
         } catch (InvalidArgumentException $e) {
+            // Validation errors (e.g., missing payment method mapping)
             return redirect()
                 ->back()
                 ->withInput()
                 ->withErrors(['payment' => $e->getMessage()]);
         } catch (\Throwable $e) {
+            // System errors - log and report
             report($e);
-
             return redirect()
                 ->back()
                 ->withInput()
                 ->with('error', 'Failed to process payment. Please try again or contact support.');
         }
 
-        // Send SMS notification for loan repayment
+        // Send SMS notification (non-blocking - failure won't affect payment)
         try {
             $customer = $loan->customer;
             if ($customer && $customer->phone) {
@@ -224,8 +241,11 @@ class LoanRepaymentController extends Controller
                 ]);
             }
         } catch (\Exception $e) {
-            // Don't let SMS failure affect the repayment process
-            Log::warning('Failed to send loan repayment SMS: '.$e->getMessage());
+            // SMS failure is logged but doesn't affect the payment process
+            Log::warning('Failed to send loan repayment SMS', [
+                'error' => $e->getMessage(),
+                'payment_id' => $payment->id,
+            ]);
         }
 
         return redirect()
@@ -419,99 +439,12 @@ class LoanRepaymentController extends Controller
             ]);
 
             if (strtoupper($status) === 'SUCCESS' || $status === '200') {
-                DB::transaction(function () use ($payment, $amount, $phone, $operator) {
-                    $payment->update([
-                        'status' => 'confirmed',
-                        'phone' => $phone ?? $payment->phone,
-                        'provider' => $operator ?? $payment->provider,
-                    ]);
-
-                    $loan = Loans::query()->whereKey((int) $payment->loan_id)->lockForUpdate()->first();
-                    if (! $loan) {
-                        return;
-                    }
-
-                    $paymentDate = Carbon::now()->toDateString();
-
-                    $installments = LoanInstallments::query()
-                        ->where('loan_id', (int) $payment->loan_id)
-                        ->where('is_active', true)
-                        ->where('outstanding_amount', '>', 0)
-                        ->orderBy('due_date')
-                        ->lockForUpdate()
-                        ->get();
-
-                    $remainingAmount = (float) $amount;
-                    $principalTotal = 0.0;
-                    $interestTotal = 0.0;
-                    $feeTotal = 0.0;
-                    $penaltyTotal = 0.0;
-
-                    foreach ($installments as $installment) {
-                        if ($remainingAmount <= 0) {
-                            break;
-                        }
-
-                        $outstanding = (float) $installment->outstanding_amount;
-                        $paidThisInstallment = min($remainingAmount, $outstanding);
-
-                        $installment->amount_paid = round((float) $installment->amount_paid + $paidThisInstallment, 2);
-                        $installment->outstanding_amount = round(max(0.0, (float) $installment->total_due - (float) $installment->amount_paid), 2);
-
-                        if ((float) $installment->outstanding_amount <= 0.0) {
-                            $installment->status = 'paid';
-                            $installment->paid_date = $paymentDate;
-                        } elseif ((float) $installment->amount_paid > 0.0) {
-                            $installment->status = 'partial';
-                        }
-
-                        $installment->save();
-
-                        LoanPaymentAllocations::create([
-                            'loan_payment_id' => (int) $payment->id,
-                            'loan_installment_id' => (int) $installment->id,
-                            'principal_amount' => $paidThisInstallment * 0.7,
-                            'interest_amount' => $paidThisInstallment * 0.2,
-                            'fee_amount' => $paidThisInstallment * 0.05,
-                            'penalty_amount' => $paidThisInstallment * 0.05,
-                        ]);
-
-                        $principalTotal += $paidThisInstallment * 0.7;
-                        $interestTotal += $paidThisInstallment * 0.2;
-                        $feeTotal += $paidThisInstallment * 0.05;
-                        $penaltyTotal += $paidThisInstallment * 0.05;
-                        $remainingAmount -= $paidThisInstallment;
-                    }
-
-                    $summary = app(LoanAccountEngine::class)->getLoanAccountSummary($loan);
-                    $loan->outstanding_balance = (float) ($summary['total_balance'] ?? null);
-                    $loan->next_installment_amount = (float) ($summary['next_installment']['total_due'] ?? null);
-
-                    $hasOutstanding = LoanInstallments::query()
-                        ->where('loan_id', (int) $loan->id)
-                        ->where('is_active', true)
-                        ->where('outstanding_amount', '>', 0)
-                        ->exists();
-
-                    $loan->status = $hasOutstanding ? 'partially_paid' : 'paid_off';
-                    $loan->save();
-
-                    app(\App\Services\Loans\Ledger\LoanTransactionLedger::class)->recordRepayment(
-                        $loan,
-                        (float) $amount,
-                        round($principalTotal, 2),
-                        round($interestTotal, 2),
-                        round($penaltyTotal, 2),
-                        round($feeTotal, 2),
-                        (int) $payment->id
-                    );
-
-                    Log::info('Loan repayment completed via AzamPay webhook', [
-                        'payment_id' => $payment->id,
-                        'loan_id' => $loan->id,
-                        'amount' => $amount,
-                    ]);
-                });
+                $this->paymentProcessor->confirmPendingPayment(
+                    (int) $payment->id,
+                    (float) $amount,
+                    $phone,
+                    $operator
+                );
             } else {
                 $payment->update(['status' => 'failed']);
                 Log::warning('AzamPay payment failed', [

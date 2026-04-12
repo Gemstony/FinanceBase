@@ -18,6 +18,10 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
+            $table->foreignId('subshop_id')
+                ->constrained('sub_shops')
+                ->cascadeOnDelete();
+
             $table->foreignId('customer_id')
                 ->references('id')
                 ->on('customers')
@@ -35,6 +39,11 @@ return new class extends Migration
             $table->string('payment_method')->nullable();
             // cash, bank_transfer, mobile_money, etc
 
+            $table->foreignId('payment_account_id')
+                ->nullable()
+                ->constrained('charts_of_accounts')
+                ->nullOnDelete();
+
             $table->string('reference_number')->nullable();
 
             $table->text('notes')->nullable();
@@ -49,6 +58,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['loan_id', 'payment_date']);
+            $table->index(['subshop_id', 'payment_date']);
+            $table->index(['subshop_id', 'payment_method']);
         });
     }
 

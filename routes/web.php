@@ -333,6 +333,14 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{accountGroup}', [AccountGroupsController::class, 'destroy'])->name('destroy');
         });
 
+        // Payment Method Accounts Routes
+        Route::prefix('accounting/payment_method_accounts')->name('accounting.payment_method_accounts.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\PaymentMethodAccountsController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\PaymentMethodAccountsController::class, 'store'])->name('store');
+            Route::put('/{paymentMethodAccount}', [\App\Http\Controllers\PaymentMethodAccountsController::class, 'update'])->name('update');
+            Route::delete('/{paymentMethodAccount}', [\App\Http\Controllers\PaymentMethodAccountsController::class, 'destroy'])->name('destroy');
+        });
+
         Route::prefix('accounting/manual-journals')->name('accounting.manual-journals.')->group(function () {
             Route::get('/', [ManualJournalController::class, 'index'])->name('index');
             Route::get('/create', [ManualJournalController::class, 'create'])->name('create');

@@ -87,6 +87,26 @@
                 </div>
             </div>
 
+            <!-- Payment Method Accounts Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-info elevation-1">
+                        <i class="fas fa-credit-card"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Payment Method Accounts</span>
+                        <span class="info-box-number">
+                            Map payment methods to GL accounts
+                        </span>
+                        <div class="mt-2">
+                            <a href="{{ route('accounting.payment_method_accounts.index') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
         </div>
     </div>

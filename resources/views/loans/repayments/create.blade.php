@@ -60,7 +60,7 @@
             function updateBankAccountVisibility() {
                 if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
                 const pm = String(paymentMethodEl.value || '');
-                const requiresBank = pm !== 'customer_credit' && pm !== 'savings' && pm !== 'azampay';
+                const requiresBank = pm === 'bank';
 
                 if (requiresBank) {
                     bankAccountWrap.style.display = '';
@@ -303,12 +303,10 @@
                                 <select name="payment_method" class="form-control" id="payment_method" required>
                                     @php $pm = old('payment_method', 'cash'); @endphp
                                     <option value="cash" @selected($pm === 'cash')>Cash</option>
-                                    <option value="bank_transfer" @selected($pm === 'bank_transfer')>Bank Transfer</option>
-                                    <option value="mobile_money" @selected($pm === 'mobile_money')>Mobile Money</option>
+                                    <option value="bank" @selected($pm === 'bank')>Bank</option>
                                     <option value="azampay" @selected($pm === 'azampay')>AzamPay (Mobile Payment)</option>
-                                    <!-- <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
-                                    <option value="savings" @selected($pm === 'savings')>Savings</option> -->
-                                    <option value="other" @selected($pm === 'other')>Other</option>
+                                    <option value="savings" @selected($pm === 'savings')>Savings</option>
+                                    <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
                                 </select>
                             </div>
 

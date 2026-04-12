@@ -11,6 +11,7 @@ use App\Models\LoanInstallments;
 use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPayments;
 use App\Models\Loans;
+use App\Models\PaymentMethodAccount;
 use App\Models\PaymentLog;
 use App\Models\PaymentTransaction;
 use App\Models\SubShop;
@@ -58,13 +59,17 @@ class PaymentProcessor
 
         $externalId = 'LR-'.uniqid().'-'.time();
 
+        $paymentAccountId = $this->resolvePaymentAccountId('azampay', (int) $subshopId);
+
         $payment = LoanPayments::create([
             'loan_id' => (int) $loan->id,
+            'subshop_id' => (int) $subshopId,
             'customer_id' => $resolvedCustomerId,
             'user_id' => auth()->id(),
             'amount' => $paymentAmount,
             'payment_date' => $paymentDate->toDateString(),
             'payment_method' => 'azampay',
+            'payment_account_id' => $paymentAccountId,
             'reference_number' => $externalId,
             'notes' => $notes,
             'status' => 'pending',
@@ -144,211 +149,70 @@ class PaymentProcessor
     ): LoanPayments {
         $strategy = $strategy ?: new PenaltyFirstStrategy;
 
+        // Validate payment parameters
         $this->validator->validate($loan, $payerCustomerId, $paymentAmount, $transactionReference, $paymentDate);
 
+        // Check if bank account is required for this payment method
         $bankAccountId = $bankAccountId ? (int) $bankAccountId : null;
         $requiresBank = ! in_array($paymentMethod, ['cash', 'customer_credit', 'savings'], true);
         if ($requiresBank && ! $bankAccountId) {
             throw new InvalidArgumentException('Bank account is required for this payment method.');
         }
 
+        // Resolve customer (payer)
+        $resolvedCustomerId = (int) ($loan->customer_id ?: $payerCustomerId);
+        if ($resolvedCustomerId <= 0) {
+            throw new InvalidArgumentException('Payer is required for this loan.');
+        }
+
+        // Resolve payment account ID (GL account for this payment method)
+        $subshopId = (int) $loan->subshop_id;
+        $paymentAccountId = $this->resolvePaymentAccountId($paymentMethod, $subshopId, $bankAccountId);
+
+        // Process payment in database transaction
         return DB::transaction(function () use (
             $loan,
-            $payerCustomerId,
+            $resolvedCustomerId,
             $paymentAmount,
             $paymentMethod,
             $bankAccountId,
+            $paymentAccountId,
             $transactionReference,
             $paymentDate,
             $notes,
             $strategy
         ) {
+            // Lock loan for update to prevent concurrent modifications
             $loan = Loans::query()->whereKey((int) $loan->id)->lockForUpdate()->firstOrFail();
 
-            if ($bankAccountId) {
-                $bankAccount = BankAccounts::query()
-                    ->whereKey($bankAccountId)
-                    ->firstOrFail();
-
-                if ((int) $bankAccount->subshop_id !== (int) $loan->subshop_id) {
-                    throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
-                }
-            }
-
-            $resolvedCustomerId = (int) ($loan->customer_id ?: $payerCustomerId);
-            if ($resolvedCustomerId <= 0) {
-                throw new InvalidArgumentException('Payer is required for this loan.');
-            }
-
-            $allocator = new PaymentAllocator($strategy);
-            $allocations = $allocator->allocatePayment($loan, $paymentAmount);
-
-            if (empty($allocations)) {
-                throw new InvalidArgumentException('Unable to allocate payment amount.');
-            }
-
+            // Create loan payment record
             $payment = LoanPayments::create([
                 'loan_id' => (int) $loan->id,
+                'subshop_id' => (int) $loan->subshop_id,
                 'customer_id' => $resolvedCustomerId,
                 'user_id' => auth()->id(),
                 'amount' => $paymentAmount,
                 'payment_date' => $paymentDate->toDateString(),
                 'payment_method' => $paymentMethod,
+                'payment_account_id' => $paymentAccountId,
                 'reference_number' => $transactionReference,
                 'notes' => $notes,
                 'status' => 'confirmed',
             ]);
 
-            $principalTotal = 0.0;
-            $interestTotal = 0.0;
-            $feeTotal = 0.0;
-            $penaltyTotal = 0.0;
-            $allocatedTotal = 0.0;
-
-            foreach ($allocations as $row) {
-                $installment = LoanInstallments::query()
-                    ->whereKey((int) $row['installment_id'])
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $principal = (float) ($row['principal_paid'] ?? 0.0);
-                $interest = (float) ($row['interest_paid'] ?? 0.0);
-                $fee = (float) ($row['fee_paid'] ?? 0.0);
-                $penalty = (float) ($row['penalty_paid'] ?? 0.0);
-                $total = (float) ($row['total'] ?? 0.0);
-
-                LoanPaymentAllocations::create([
-                    'loan_payment_id' => (int) $payment->id,
-                    'loan_installment_id' => (int) $installment->id,
-                    'principal_amount' => $principal,
-                    'interest_amount' => $interest,
-                    'fee_amount' => $fee,
-                    'penalty_amount' => $penalty,
-                ]);
-
-                $installment->principal_paid = round((float) $installment->principal_paid + $principal, 2);
-                $installment->interest_paid = round((float) $installment->interest_paid + $interest, 2);
-                $installment->fees_paid = round((float) $installment->fees_paid + $fee, 2);
-                $installment->penalty_paid = round((float) $installment->penalty_paid + $penalty, 2);
-
-                $installment->amount_paid = round((float) $installment->amount_paid + $total, 2);
-                $installment->outstanding_amount = round(max(0.0, (float) $installment->total_due - (float) $installment->amount_paid), 2);
-
-                if ((float) $installment->outstanding_amount <= 0.0) {
-                    $installment->status = 'paid';
-                    $installment->paid_date = $paymentDate->toDateString();
-                } elseif ((float) $installment->amount_paid > 0.0) {
-                    $installment->status = 'partial';
-                }
-
-                $installment->save();
-
-                LoanInstallmentPayments::create([
-                    'installment_id' => (int) $installment->id,
-                    'loan_id' => (int) $loan->id,
-                    'subshop_id' => (int) $loan->subshop_id,
-                    'customer_id' => $resolvedCustomerId,
-                    'total_paid' => $total,
-                    'payment_method' => $paymentMethod,
-                    'bank_account_id' => $bankAccountId,
-                    'payment_date' => $paymentDate->toDateString(),
-                    'reference_number' => $transactionReference,
-                    'is_successful' => true,
-                    'is_active' => true,
-                ]);
-
-                $principalTotal += $principal;
-                $interestTotal += $interest;
-                $feeTotal += $fee;
-                $penaltyTotal += $penalty;
-                $allocatedTotal += $total;
-            }
-
-            $summary = $this->loanAccountEngine->getLoanAccountSummary($loan);
-            $loan->outstanding_balance = (float) ($summary['total_balance'] ?? null);
-            $loan->next_installment_amount = (float) ($summary['next_installment']['total_due'] ?? null);
-
-            $hasOutstanding = LoanInstallments::query()
-                ->where('loan_id', (int) $loan->id)
-                ->where('is_active', true)
-                ->where('outstanding_amount', '>', 0)
-                ->exists();
-
-            $loan->status = $hasOutstanding ? 'partially_paid' : 'paid_off';
-            $loan->save();
-
-            $remainingPayment = round(max(0.0, (float) $paymentAmount - (float) $allocatedTotal), 2);
-            if ($remainingPayment > 0 && ! $hasOutstanding) {
-                $this->customerCreditService->createCreditFromOverpayment(
-                    (int) $loan->subshop_id,
-                    $resolvedCustomerId,
-                    (int) $loan->id,
-                    (int) $payment->id,
-                    $remainingPayment,
-                    'Overpayment credit created automatically from repayment.'
-                );
-
-                Log::info('Overpayment stored as customer credit', [
-                    'loan_id' => (int) $loan->id,
-                    'payment_id' => (int) $payment->id,
-                    'customer_id' => $resolvedCustomerId,
-                    'remaining_payment' => $remainingPayment,
-                ]);
-            }
-
-            $this->ledger->recordRepayment(
+            // Process repayment allocation and accounting
+            return $this->processRepaymentCore(
                 $loan,
-                (float) $paymentAmount,
-                round($principalTotal, 2),
-                round($interestTotal, 2),
-                round($penaltyTotal, 2),
-                round($feeTotal, 2),
-                (int) $payment->id
+                $resolvedCustomerId,
+                $paymentAmount,
+                $paymentMethod,
+                $bankAccountId,
+                $paymentDate,
+                $transactionReference,
+                $notes,
+                $strategy,
+                $payment
             );
-
-            $journal = $this->accounting->postLoanRepayment([
-                'payment_id' => (int) $payment->id,
-                'loan_id' => (int) $loan->id,
-                'subshop_id' => (int) $loan->subshop_id,
-                'principal_amount' => round($principalTotal, 2),
-                'interest_amount' => round($interestTotal, 2),
-                'penalty_amount' => round($penaltyTotal, 2),
-                'fee_amount' => round($feeTotal, 2),
-                'payment_method' => (string) $paymentMethod,
-                'bank_account_id' => $bankAccountId,
-            ]);
-
-            $this->voucherService->createVoucherFromJournalEntry(
-                $journal,
-                'receipt',
-                [
-                    'payment_method' => (string) $paymentMethod,
-                    'bank_account_id' => $bankAccountId,
-                    'description' => 'Loan repayment receipt voucher #'.(int) $payment->id,
-                ]
-            );
-
-            try {
-                $customer = $loan->customer;
-                if ($customer && $customer->phone) {
-                    $shopId = (int) ($loan->subshop?->shop_id ?? 0);
-                    app(SmsManager::class)->sendEvent('payment.received', [
-                        'shop_id' => $shopId,
-                        'subshop_id' => (int) $loan->subshop_id,
-                        'user_id' => auth()->id(),
-                        'phone' => $customer->phone,
-                        'data' => [
-                            'amount' => $paymentAmount,
-                            'date' => $paymentDate->format('Y-m-d'),
-                            'loan_code' => $loan->loan_code ?? 'N/A',
-                        ],
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::warning('Failed to send payment received SMS: '.$e->getMessage());
-            }
-
-            return $payment;
         });
     }
 
@@ -386,7 +250,18 @@ class PaymentProcessor
                     'loan_id' => $loan->id,
                 ]);
 
-                return $this->processLoanRepayment($loan, (int) $payment->customer_id, $amount, $payment);
+                return $this->processRepaymentCore(
+                    $loan,
+                    (int) $payment->customer_id,
+                    $amount,
+                    (string) ($payment->payment_method ?? 'azampay'),
+                    null,
+                    Carbon::now()->startOfDay(),
+                    (string) ($payment->external_id ?? $payment->transaction_reference ?? null),
+                    (string) ($payment->notes ?? null),
+                    null,
+                    $payment
+                );
             });
         } catch (\Exception $e) {
             Log::error('confirmPendingPayment transaction failed', [
@@ -399,25 +274,28 @@ class PaymentProcessor
         }
     }
 
-    protected function processLoanRepayment(
+    protected function processRepaymentCore(
         Loans $loan,
         int $customerId,
         float $amount,
+        string $paymentMethod,
+        ?int $bankAccountId,
+        Carbon $paymentDate,
+        ?string $transactionReference,
+        ?string $notes,
+        ?object $strategy,
         LoanPayments $payment,
     ): LoanPayments {
-        Log::info('PaymentProcessor::processLoanRepayment started', [
-            'loan_id' => $loan->id,
-            'customer_id' => $customerId,
+        $strategy = $strategy ?: new PenaltyFirstStrategy;
+
+        Log::info('PaymentProcessor::processRepaymentCore started', [
+            'loan_id' => (int) $loan->id,
+            'payment_id' => (int) $payment->id,
+            'subshop_id' => (int) $loan->subshop_id,
             'amount' => $amount,
-            'payment_id' => $payment->id,
+            'payment_method' => $paymentMethod,
         ]);
 
-        $strategy = new PenaltyFirstStrategy;
-        $allocator = new PaymentAllocator($strategy);
-
-        Log::info('PaymentProcessor: calling allocatePayment', ['loan_id' => $loan->id, 'amount' => $amount]);
-        $allocations = $allocator->allocatePayment($loan, $amount);
-        Log::info('PaymentProcessor: allocatePayment returned', ['count' => count($allocations)]);
         $allocator = new PaymentAllocator($strategy);
         $allocations = $allocator->allocatePayment($loan, $amount);
 
@@ -425,7 +303,6 @@ class PaymentProcessor
             throw new InvalidArgumentException('Unable to allocate payment amount.');
         }
 
-        $paymentDate = Carbon::now()->toDateString();
         $principalTotal = 0.0;
         $interestTotal = 0.0;
         $feeTotal = 0.0;
@@ -437,6 +314,10 @@ class PaymentProcessor
                 ->whereKey((int) $row['installment_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if ((int) $installment->loan_id !== (int) $loan->id) {
+                throw new InvalidArgumentException('Installment does not belong to loan.');
+            }
 
             $principal = (float) ($row['principal_paid'] ?? 0.0);
             $interest = (float) ($row['interest_paid'] ?? 0.0);
@@ -457,12 +338,13 @@ class PaymentProcessor
             $installment->interest_paid = round((float) $installment->interest_paid + $interest, 2);
             $installment->fees_paid = round((float) $installment->fees_paid + $fee, 2);
             $installment->penalty_paid = round((float) $installment->penalty_paid + $penalty, 2);
+
             $installment->amount_paid = round((float) $installment->amount_paid + $total, 2);
             $installment->outstanding_amount = round(max(0.0, (float) $installment->total_due - (float) $installment->amount_paid), 2);
 
             if ((float) $installment->outstanding_amount <= 0.0) {
                 $installment->status = 'paid';
-                $installment->paid_date = $paymentDate;
+                $installment->paid_date = $paymentDate->toDateString();
             } elseif ((float) $installment->amount_paid > 0.0) {
                 $installment->status = 'partial';
             }
@@ -475,9 +357,10 @@ class PaymentProcessor
                 'subshop_id' => (int) $loan->subshop_id,
                 'customer_id' => $customerId,
                 'total_paid' => $total,
-                'payment_method' => $payment->payment_method ?? 'azampay',
-                'payment_date' => $paymentDate,
-                'reference_number' => $payment->external_id ?? $payment->transaction_reference,
+                'payment_method' => $paymentMethod,
+                'bank_account_id' => $bankAccountId,
+                'payment_date' => $paymentDate->toDateString(),
+                'reference_number' => $transactionReference,
                 'is_successful' => true,
                 'is_active' => true,
             ]);
@@ -512,13 +395,6 @@ class PaymentProcessor
                 $remainingPayment,
                 'Overpayment credit created automatically from repayment.'
             );
-
-            Log::info('Overpayment stored as customer credit', [
-                'loan_id' => (int) $loan->id,
-                'payment_id' => (int) $payment->id,
-                'customer_id' => $customerId,
-                'remaining_payment' => $remainingPayment,
-            ]);
         }
 
         $this->ledger->recordRepayment(
@@ -531,6 +407,10 @@ class PaymentProcessor
             (int) $payment->id
         );
 
+        if (! $payment->payment_account_id) {
+            throw new InvalidArgumentException('Loan payment missing payment_account_id; cannot post journal.');
+        }
+
         $journal = $this->accounting->postLoanRepayment([
             'payment_id' => (int) $payment->id,
             'loan_id' => (int) $loan->id,
@@ -539,47 +419,75 @@ class PaymentProcessor
             'interest_amount' => round($interestTotal, 2),
             'penalty_amount' => round($penaltyTotal, 2),
             'fee_amount' => round($feeTotal, 2),
-            'payment_method' => (string) ($payment->payment_method ?? 'azampay'),
-            'bank_account_id' => null,
+            'payment_method' => (string) $paymentMethod,
+            'payment_account_id' => (int) $payment->payment_account_id,
+            'bank_account_id' => $bankAccountId,
         ]);
 
         $this->voucherService->createVoucherFromJournalEntry(
             $journal,
             'receipt',
             [
-                'payment_method' => (string) ($payment->payment_method ?? 'azampay'),
-                'bank_account_id' => null,
+                'payment_method' => (string) $paymentMethod,
+                'bank_account_id' => $bankAccountId,
                 'description' => 'Loan repayment receipt voucher #'.(int) $payment->id,
             ]
         );
 
-        try {
-            $customer = $loan->customer;
-            if ($customer && $customer->phone) {
-                $shopId = (int) ($loan->subshop?->shop_id ?? 0);
-                app(SmsManager::class)->sendEvent('loan.repayment', [
-                    'shop_id' => $shopId,
-                    'subshop_id' => (int) $loan->subshop_id,
-                    'user_id' => $payment->user_id ?? null,
-                    'phone' => $customer->phone,
-                    'data' => [
-                        'name' => $customer->name,
-                        'amount' => $amount,
-                        'date' => $paymentDate,
-                        'loan_code' => $loan->loan_code ?? 'N/A',
-                    ],
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to send payment received SMS: '.$e->getMessage());
+        return $payment;
+    }
+
+    private function resolvePaymentAccountId(string $paymentMethod, int $subshopId, ?int $bankAccountId = null): int
+    {
+        // Validate subshop
+        if ($subshopId <= 0) {
+            throw new InvalidArgumentException('subshop_id is required to resolve payment method GL account.');
         }
 
-        Log::info('Loan repayment processed via webhook', [
-            'payment_id' => $payment->id,
-            'loan_id' => $loan->id,
-            'amount' => $amount,
-        ]);
+        // If bank account provided, use its chart of account
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+            if (! $bank) {
+                throw new InvalidArgumentException('Selected bank account not found.');
+            }
+            
+            if ((int) $bank->subshop_id !== $subshopId) {
+                throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+            }
+            
+            $accountId = (int) $bank->chart_of_account_id;
+            if ($accountId <= 0) {
+                throw new InvalidArgumentException('Bank account missing chart_of_account_id mapping.');
+            }
+            
+            return $accountId;
+        }
 
-        return $payment;
+        // Look up payment method to GL account mapping
+        $method = trim(strtolower($paymentMethod));
+        if ($method === '') {
+            throw new InvalidArgumentException('payment_method is required to resolve payment GL account.');
+        }
+
+        $mapping = PaymentMethodAccount::query()
+            ->where('subshop_id', $subshopId)
+            ->where('payment_method', $method)
+            ->first();
+
+        if (! $mapping) {
+            Log::error('Payment method account mapping not found', [
+                'subshop_id' => $subshopId,
+                'payment_method' => $method,
+                'available_methods' => PaymentMethodAccount::where('subshop_id', $subshopId)->pluck('payment_method')->toArray(),
+            ]);
+            throw new InvalidArgumentException("Payment method not mapped to GL account: {$method}.");
+        }
+
+        $accountId = (int) $mapping->chart_of_account_id;
+        if ($accountId <= 0) {
+            throw new InvalidArgumentException("Invalid chart_of_account_id for payment method mapping: {$method}.");
+        }
+
+        return $accountId;
     }
 }

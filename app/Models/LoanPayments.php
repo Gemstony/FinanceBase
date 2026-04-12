@@ -10,11 +10,13 @@ class LoanPayments extends Model
 
     protected $fillable = [
         'loan_id',
+        'subshop_id',
         'customer_id',
         'user_id',
         'amount',
         'payment_date',
         'payment_method',
+        'payment_account_id',
         'reference_number',
         'notes',
         'status',
@@ -26,8 +28,10 @@ class LoanPayments extends Model
 
     protected $casts = [
         'loan_id' => 'integer',
+        'subshop_id' => 'integer',
         'customer_id' => 'integer',
         'user_id' => 'integer',
+        'payment_account_id' => 'integer',
         'amount' => 'decimal:2',
         'payment_date' => 'date',
     ];

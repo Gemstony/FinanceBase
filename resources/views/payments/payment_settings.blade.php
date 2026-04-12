@@ -1,6 +1,6 @@
 @extends('adminlte::page')
 
-@section('title', 'SMS Settings - ' . $subshop->name)
+@section('title', 'Payment Settings - ' . $subshop->name)
 
 @section('content_header')
 <div class="card" style="background: var(--sidebar-bg); color: white; border: none; margin-bottom: 20px;">

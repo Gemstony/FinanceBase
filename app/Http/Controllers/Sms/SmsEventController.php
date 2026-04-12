@@ -61,8 +61,12 @@ class SmsEventController extends Controller
         if (!$subshopId) {
             abort(403, 'No subshop selected');
         }
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
 
-        $templates = SmsTemplate::where('is_active', true)->get();
+
+        $templates = SmsTemplate::where('shop_id', $shopId)
+        ->where('is_active', true)->get();
         return view('sms.events.create', compact('templates'));
     }
 

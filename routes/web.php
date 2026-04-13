@@ -280,6 +280,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/withdraw', [DepositAccountsController::class, 'withdraw'])->name('deposits.withdraw');
             Route::post('/transfer', [DepositAccountsController::class, 'transfer'])->name('deposits.transfer');
             Route::post('/pay-loan', [DepositAccountsController::class, 'payLoan'])->name('deposits.pay-loan');
+            Route::post('/liability-account/configure', [DepositAccountsController::class, 'configureLiabilityAccount'])->name('deposits.liability-account.configure');
 
             Route::prefix('products')->name('deposits.products.')->group(function () {
                 Route::get('/', [DepositProductsController::class, 'index'])->name('index');

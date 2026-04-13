@@ -146,6 +146,7 @@ class PaymentProcessor
         Carbon $paymentDate,
         ?string $notes = null,
         ?object $strategy = null,
+        ?int $sourceAccountId = null, // Override for payment source GL account (e.g., deposit liability)
     ): LoanPayments {
         $strategy = $strategy ?: new PenaltyFirstStrategy;
 
@@ -167,7 +168,18 @@ class PaymentProcessor
 
         // Resolve payment account ID (GL account for this payment method)
         $subshopId = (int) $loan->subshop_id;
-        $paymentAccountId = $this->resolvePaymentAccountId($paymentMethod, $subshopId, $bankAccountId);
+        
+        // Use source account override if provided (e.g., for 'savings' payments from deposit liability)
+        if ($sourceAccountId !== null && $sourceAccountId > 0) {
+            $paymentAccountId = $sourceAccountId;
+            Log::info('Using source account override for payment', [
+                'loan_id' => $loan->id,
+                'payment_method' => $paymentMethod,
+                'source_account_id' => $sourceAccountId,
+            ]);
+        } else {
+            $paymentAccountId = $this->resolvePaymentAccountId($paymentMethod, $subshopId, $bankAccountId);
+        }
 
         // Process payment in database transaction
         return DB::transaction(function () use (
@@ -182,6 +194,12 @@ class PaymentProcessor
             $notes,
             $strategy
         ) {
+            Log::debug('Processing payment transaction', [
+                'loan_id' => $loan->id,
+                'payment_method' => $paymentMethod,
+                'payment_account_id' => $paymentAccountId,
+                'amount' => $paymentAmount,
+            ]);
             // Lock loan for update to prevent concurrent modifications
             $loan = Loans::query()->whereKey((int) $loan->id)->lockForUpdate()->firstOrFail();
 

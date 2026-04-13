@@ -246,27 +246,67 @@ class CustomerCreditService
                 }
 
                 $credit->amount = $remaining;
-            $credit->save();
+                $credit->save();
 
-            $refundedCredit = CustomerCreditBalances::query()->create([
-                'subshop_id' => (int) $credit->subshop_id,
-                'customer_id' => (int) $credit->customer_id,
-                'loan_id' => $credit->loan_id ? (int) $credit->loan_id : null,
-                'payment_id' => $credit->payment_id ? (int) $credit->payment_id : null,
-                'amount' => $refundAmount,
-                'status' => 'refunded',
-                'refunded_at' => $now,
-                'refunded_by' => $userId,
-                'refund_method' => $refundMethod,
-                'bank_account_id' => $bankAccountId,
-                'notes' => $data['notes'] ?? null,
-            ]);
+                $refundedCredit = CustomerCreditBalances::query()->create([
+                    'subshop_id' => (int) $credit->subshop_id,
+                    'customer_id' => (int) $credit->customer_id,
+                    'loan_id' => $credit->loan_id ? (int) $credit->loan_id : null,
+                    'payment_id' => $credit->payment_id ? (int) $credit->payment_id : null,
+                    'amount' => $refundAmount,
+                    'status' => 'refunded',
+                    'refunded_at' => $now,
+                    'refunded_by' => $userId,
+                    'refund_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'notes' => $data['notes'] ?? null,
+                ]);
+
+                $journal = $this->journalPostingEngine->postJournalEntry(
+                    $lines,
+                    'customer_credit_refund',
+                    (int) $refundedCredit->id,
+                    'Customer credit refund #' . (int) $refundedCredit->id
+                );
+
+                $this->voucherService->createVoucherFromJournalEntry(
+                    $journal,
+                    'payment',
+                    [
+                        'payment_method' => $refundMethod,
+                        'bank_account_id' => $bankAccountId,
+                        'description' => 'Customer credit refund payment voucher #' . (int) $refundedCredit->id,
+                    ]
+                );
+
+                Log::info('Customer credit partially refunded', [
+                    'original_credit_id' => (int) $credit->id,
+                    'refunded_credit_id' => (int) $refundedCredit->id,
+                    'customer_id' => (int) $credit->customer_id,
+                    'refund_amount' => (float) $refundAmount,
+                    'remaining_amount' => (float) $remaining,
+                    'refund_method' => $refundMethod,
+                    'bank_account_id' => $bankAccountId,
+                    'refunded_by' => $userId,
+                ]);
+
+                return $refundedCredit;
+            }
+
+            // Full refund
+            $credit->status = 'refunded';
+            $credit->refunded_at = $now;
+            $credit->refunded_by = $userId;
+            $credit->refund_method = $refundMethod;
+            $credit->bank_account_id = $bankAccountId;
+            $credit->notes = $data['notes'] ?? null;
+            $credit->save();
 
             $journal = $this->journalPostingEngine->postJournalEntry(
                 $lines,
                 'customer_credit_refund',
-                (int) $refundedCredit->id,
-                'Customer credit refund #' . (int) $refundedCredit->id
+                (int) $credit->id,
+                'Customer credit refund #' . (int) $credit->id
             );
 
             $this->voucherService->createVoucherFromJournalEntry(
@@ -275,60 +315,20 @@ class CustomerCreditService
                 [
                     'payment_method' => $refundMethod,
                     'bank_account_id' => $bankAccountId,
-                    'description' => 'Customer credit refund payment voucher #' . (int) $refundedCredit->id,
+                    'description' => 'Customer credit refund payment voucher #' . (int) $credit->id,
                 ]
             );
 
-            Log::info('Customer credit partially refunded', [
-                'original_credit_id' => (int) $credit->id,
-                'refunded_credit_id' => (int) $refundedCredit->id,
+            Log::info('Customer credit refunded', [
+                'credit_id' => (int) $credit->id,
                 'customer_id' => (int) $credit->customer_id,
-                'refund_amount' => (float) $refundAmount,
-                'remaining_amount' => (float) $remaining,
+                'amount' => (float) $refundAmount,
                 'refund_method' => $refundMethod,
                 'bank_account_id' => $bankAccountId,
                 'refunded_by' => $userId,
             ]);
 
-            return $refundedCredit;
-        }
-
-        // Full refund
-        $credit->status = 'refunded';
-        $credit->refunded_at = $now;
-        $credit->refunded_by = $userId;
-        $credit->refund_method = $refundMethod;
-        $credit->bank_account_id = $bankAccountId;
-        $credit->notes = $data['notes'] ?? null;
-        $credit->save();
-
-        $journal = $this->journalPostingEngine->postJournalEntry(
-            $lines,
-            'customer_credit_refund',
-            (int) $credit->id,
-            'Customer credit refund #' . (int) $credit->id
-        );
-
-        $this->voucherService->createVoucherFromJournalEntry(
-            $journal,
-            'payment',
-            [
-                'payment_method' => $refundMethod,
-                'bank_account_id' => $bankAccountId,
-                'description' => 'Customer credit refund payment voucher #' . (int) $credit->id,
-            ]
-        );
-
-        Log::info('Customer credit refunded', [
-            'credit_id' => (int) $credit->id,
-            'customer_id' => (int) $credit->customer_id,
-            'amount' => (float) $refundAmount,
-            'refund_method' => $refundMethod,
-            'bank_account_id' => $bankAccountId,
-            'refunded_by' => $userId,
-        ]);
-
-        return $credit;
+            return $credit;
         } catch (\Exception $e) {
             // Log the error and re-throw for controller to handle
             Log::error('CustomerCreditService::refundCredit failed', [
@@ -420,7 +420,7 @@ class CustomerCreditService
         
         if (!$chartAccount->is_active) {
             Log::error('Configured liability account not active', [
-                'liability_account_id' => $liabilityAccount->accountClass->code,
+                'liability_account_id' => $liabilityAccount->chart_of_account_id,
             ]);
             throw new InvalidArgumentException('Configured liability account is not active.');
         }

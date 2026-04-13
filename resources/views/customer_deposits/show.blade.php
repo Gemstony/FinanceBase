@@ -54,6 +54,35 @@
                     </div>
                 </div>
 
+                <!-- Liability Configuration Status Card -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Liability Account</strong>
+                        @if($liabilityConfigured)
+                            <span class="badge badge-success">Configured</span>
+                        @else
+                            <span class="badge badge-danger">Not Configured</span>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        @if($liabilityConfigured)
+                            <div class="mb-2">
+                                <strong>Account:</strong> {{ $liabilityConfig->chartOfAccount->account_name }}
+                            </div>
+                            @if($liabilityConfig->notes)
+                                <div class="text-muted small">{{ $liabilityConfig->notes }}</div>
+                            @endif
+                        @else
+                            <div class="alert alert-warning mb-2">
+                                <i class="fas fa-exclamation-triangle"></i> Please configure the liability account before processing deposits or withdrawals.
+                            </div>
+                        @endif
+                        <button class="btn btn-sm btn-outline-primary btn-block" data-toggle="modal" data-target="#liabilityConfigModal">
+                            <i class="fas fa-cog"></i> {{ $liabilityConfigured ? 'Change' : 'Configure' }}
+                        </button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header"><strong>Quick Actions</strong></div>
                     <div class="card-body">
@@ -99,23 +128,21 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Customer Deposits Liability Account</label>
-                                    <select name="liability_account_id" class="form-control" required>
-                                        <option value="">Select Liability Account</option>
-                                        @foreach(($liabilityAccounts ?? collect()) as $acc)
-                                            <option value="{{ $acc->id }}">
-                                                {{ $acc->account_name }} ({{ $acc->account_code }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label>Reference</label>
                                     <input type="text" name="reference" class="form-control" placeholder="Optional">
                                 </div>
-                                <button class="btn btn-primary btn-block" type="submit">
-                                    <i class="fas fa-plus"></i> Deposit
-                                </button>
+                                @if(!$liabilityConfigured)
+                                    <div class="alert alert-danger mb-2">
+                                        <i class="fas fa-ban"></i> Cannot deposit: liability account not configured.
+                                    </div>
+                                    <button class="btn btn-primary btn-block" type="button" disabled>
+                                        <i class="fas fa-ban"></i> Deposit Unavailable
+                                    </button>
+                                @else
+                                    <button class="btn btn-primary btn-block" type="submit">
+                                        <i class="fas fa-plus"></i> Deposit
+                                    </button>
+                                @endif
                             </form>
 
                             <!-- Withdrawal Form -->
@@ -155,23 +182,21 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Customer Deposits Liability Account</label>
-                                    <select name="liability_account_id" class="form-control" required>
-                                        <option value="">Select Liability Account</option>
-                                        @foreach(($liabilityAccounts ?? collect()) as $acc)
-                                            <option value="{{ $acc->id }}">
-                                                {{ $acc->account_name }} ({{ $acc->account_code }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label>Reference</label>
                                     <input type="text" name="reference" class="form-control" placeholder="Optional">
                                 </div>
-                                <button class="btn btn-outline-danger btn-block" type="submit">
-                                    <i class="fas fa-minus"></i> Withdraw
-                                </button>
+                                @if(!$liabilityConfigured)
+                                    <div class="alert alert-danger mb-2">
+                                        <i class="fas fa-ban"></i> Cannot withdraw: liability account not configured.
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-block" type="button" disabled>
+                                        <i class="fas fa-ban"></i> Withdrawal Unavailable
+                                    </button>
+                                @else
+                                    <button class="btn btn-outline-danger btn-block" type="submit">
+                                        <i class="fas fa-minus"></i> Withdraw
+                                    </button>
+                                @endif
                             </form>
 
                             <!-- Transfer Form -->
@@ -313,6 +338,58 @@
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush
+
+<!-- Liability Configuration Modal -->
+<div class="modal fade" id="liabilityConfigModal" tabindex="-1" role="dialog" aria-labelledby="liabilityConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('deposits.liability-account.configure') }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="liabilityConfigModalLabel">
+                        <i class="fas fa-cog"></i> Configure Customer Deposits Liability Account
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Select a liability account (Class 2) to use for customer deposits.
+                    </div>
+                    <div class="form-group">
+                        <label>Liability Account <span class="text-danger">*</span></label>
+                        <select name="chart_of_account_id" class="form-control" required>
+                            <option value="">Select Liability Account</option>
+                            @php
+                                $liabilityAccounts = \App\Models\ChartsOfAccount::with('accountClass')
+                                    ->where('subshop_id', session('subshop_id'))
+                                    ->where('is_active', true)
+                                    ->get()
+                                    ->filter(fn($acc) => (int)($acc->accountClass?->code ?? 0) === 2);
+                            @endphp
+                            @foreach($liabilityAccounts as $acc)
+                                <option value="{{ $acc->id }}" @selected(($liabilityConfig?->chart_of_account_id) == $acc->id)>
+                                    {{ $acc->account_name }} ({{ $acc->account_code }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" class="form-control" rows="2">{{ $liabilityConfig?->notes }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

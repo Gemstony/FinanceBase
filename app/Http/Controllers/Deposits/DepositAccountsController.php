@@ -7,11 +7,13 @@ namespace App\Http\Controllers\Deposits;
 use App\Http\Controllers\Controller;
 use App\Models\BankAccounts;
 use App\Models\ChartsOfAccount;
+use App\Models\CustomerDepositLiabilityAccount;
 use App\Models\Customers;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
 use App\Models\Loans;
 use App\Services\Deposits\DepositAccountService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -139,13 +141,10 @@ class DepositAccountsController extends Controller
             ->orderBy('account_name')
             ->get();
 
-        $liabilityAccounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
-            ->where('is_active', true)
-            ->orderBy('account_name')
-            ->get();
+        $liabilityConfig = CustomerDepositLiabilityAccount::forSubshop($subshopId);
+        $liabilityConfigured = $liabilityConfig !== null;
 
-        return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans', 'bankAccounts', 'liabilityAccounts'));
+        return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans', 'bankAccounts', 'liabilityConfig', 'liabilityConfigured'));
     }
 
     public function create(Request $request): View|RedirectResponse
@@ -204,7 +203,6 @@ class DepositAccountsController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
             'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
-            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'reference' => ['nullable', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -221,7 +219,6 @@ class DepositAccountsController extends Controller
                     (float) $validated['amount'],
                     (string) $validated['payment_method'],
                     $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
-                    (int) $validated['liability_account_id'],
                     $validated['reference'] ?? null,
                     $validated['notes'] ?? null
                 );
@@ -231,6 +228,11 @@ class DepositAccountsController extends Controller
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (Throwable $e) {
+            Log::error('Deposit failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
             $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to record deposit.';
             return back()->withInput()->with('error', $msg);
         }
@@ -243,7 +245,6 @@ class DepositAccountsController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'string', 'max:50'],
             'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
-            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'reference' => ['nullable', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -260,7 +261,6 @@ class DepositAccountsController extends Controller
                     (float) $validated['amount'],
                     (string) $validated['payment_method'],
                     $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
-                    (int) $validated['liability_account_id'],
                     $validated['reference'] ?? null,
                     $validated['notes'] ?? null
                 );
@@ -270,6 +270,11 @@ class DepositAccountsController extends Controller
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (Throwable $e) {
+            Log::error('Withdrawal failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
             $msg = config('app.debug') ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : 'Failed to record withdrawal.';
             return back()->withInput()->with('error', $msg);
         }
@@ -358,5 +363,56 @@ class DepositAccountsController extends Controller
             ->withQueryString();
 
         return view('customer_deposits.transactions', compact('account', 'transactions'));
+    }
+
+    public function configureLiabilityAccount(Request $request): RedirectResponse
+    {
+        try {
+            $validated = $request->validate([
+                'chart_of_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
+                'notes' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $subshopId = (int) session('subshop_id');
+
+            $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
+
+            if ((int) $chartAccount->accountClass->code !== 2) {
+                return redirect()->back()
+                    ->with('error', 'Selected account must be a liability account (Account Class 2).');
+            }
+
+            if ((int) $chartAccount->subshop_id !== $subshopId) {
+                return redirect()->back()
+                    ->with('error', 'Selected account does not belong to this branch.');
+            }
+
+            if (!$chartAccount->is_active) {
+                return redirect()->back()
+                    ->with('error', 'Selected account is not active.');
+            }
+
+            CustomerDepositLiabilityAccount::updateOrCreate(
+                ['subshop_id' => $subshopId],
+                [
+                    'chart_of_account_id' => (int) $validated['chart_of_account_id'],
+                    'notes' => $validated['notes'] ?? null,
+                ]
+            );
+
+            return redirect()->back()
+                ->with('success', 'Customer deposits liability account configured successfully.');
+
+        } catch (\Exception $e) {
+            Log::error('Deposit liability account configuration failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to configure liability account: ' . $e->getMessage());
+        }
     }
 }

@@ -6,10 +6,12 @@ namespace App\Services\Deposits;
 
 use App\Models\BankAccounts;
 use App\Models\ChartsOfAccount;
+use App\Models\CustomerDepositLiabilityAccount;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
 use App\Models\DepositTransaction;
 use App\Models\Loans;
+use App\Models\PaymentMethodAccount;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Repayment\PaymentProcessor;
@@ -69,7 +71,7 @@ class DepositAccountService
         });
     }
 
-    public function deposit(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, int $liabilityAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
+    public function deposit(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
     {
         $amount = round((float) $amount, 2);
         if ($amount <= 0) {
@@ -81,7 +83,23 @@ class DepositAccountService
             throw new InvalidArgumentException('Active subshop context is required to deposit.');
         }
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $reference, $notes) {
+        // Get and validate liability account from configuration
+        $liabilityAccountId = $this->getCustomerDepositsLiabilityAccount($subshopId);
+
+        // Resolve cash/bank account with proper validation (Asset Class 1)
+        $cashAccountId = $this->resolvePaymentSourceAccountId($paymentMethod, $bankAccountId, $subshopId);
+
+        Log::info('Processing deposit', [
+            'subshop_id' => $subshopId,
+            'deposit_account_id' => $account->id,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'bank_account_id' => $bankAccountId,
+            'cash_account_id' => $cashAccountId,
+            'liability_account_id' => $liabilityAccountId,
+        ]);
+
+        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
             $account = DepositAccount::query()->whereKey((int) $account->id)->lockForUpdate()->firstOrFail();
 
             if ((int) $account->subshop_id !== $subshopId) {
@@ -99,18 +117,9 @@ class DepositAccountService
 
             $tx = $this->createTransaction($account, 'deposit', $amount, $newBalance, $reference, $notes, $paymentMethod, $bankAccountId);
 
-            $creditAccountId = 1;
-            if ($bankAccountId) {
-                $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
-                $linked = (int) ($bank?->chart_of_account_id ?? 0);
-                if ($linked > 0) {
-                    $creditAccountId = $linked;
-                }
-            }
-
             $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
                 ->reset()
-                ->addDebit($creditAccountId, $amount, 'Customer deposit received – cash/bank in')
+                ->addDebit($cashAccountId, $amount, 'Customer deposit received – cash/bank in')
                 ->addCredit($liabilityAccountId, $amount, 'Customer deposits liability – credit')
                 ->getLines();
 
@@ -131,21 +140,20 @@ class DepositAccountService
                 ]
             );
 
-            Log::info('Deposit made', [
+            Log::info('Deposit completed successfully', [
                 'deposit_account_id' => (int) $account->id,
+                'transaction_id' => (int) $tx->id,
                 'amount' => (float) $amount,
                 'balance_after' => (float) $newBalance,
-                'payment_method' => (string) $paymentMethod,
-                'bank_account_id' => $bankAccountId,
-                'reference' => $reference,
-                'created_by' => auth()->id(),
+                'cash_account_id' => $cashAccountId,
+                'liability_account_id' => $liabilityAccountId,
             ]);
 
             return $tx;
         });
     }
 
-    public function withdraw(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, int $liabilityAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
+    public function withdraw(DepositAccount $account, float $amount, string $paymentMethod, ?int $bankAccountId, ?string $reference = null, ?string $notes = null): DepositTransaction
     {
         $amount = round((float) $amount, 2);
         if ($amount <= 0) {
@@ -153,8 +161,27 @@ class DepositAccountService
         }
 
         $subshopId = (int) session('subshop_id');
+        if ($subshopId <= 0) {
+            throw new InvalidArgumentException('Active subshop context is required to withdraw.');
+        }
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $reference, $notes) {
+        // Get and validate liability account from configuration
+        $liabilityAccountId = $this->getCustomerDepositsLiabilityAccount($subshopId);
+
+        // Resolve cash/bank account with proper validation (Asset Class 1)
+        $cashAccountId = $this->resolvePaymentSourceAccountId($paymentMethod, $bankAccountId, $subshopId);
+
+        Log::info('Processing withdrawal', [
+            'subshop_id' => $subshopId,
+            'deposit_account_id' => $account->id,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'bank_account_id' => $bankAccountId,
+            'cash_account_id' => $cashAccountId,
+            'liability_account_id' => $liabilityAccountId,
+        ]);
+
+        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
             $account = DepositAccount::query()
                 ->with('depositProduct')
                 ->whereKey((int) $account->id)
@@ -186,19 +213,10 @@ class DepositAccountService
 
             $tx = $this->createTransaction($account, 'withdrawal', $amount, $newBalance, $reference, $notes, $paymentMethod, $bankAccountId);
 
-            $creditAccountId = 1;
-            if ($bankAccountId) {
-                $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
-                $linked = (int) ($bank?->chart_of_account_id ?? 0);
-                if ($linked > 0) {
-                    $creditAccountId = $linked;
-                }
-            }
-
             $lines = app(\App\Services\Accounting\JournalEntryBuilder::class)
                 ->reset()
                 ->addDebit($liabilityAccountId, $amount, 'Customer deposits liability – withdrawal')
-                ->addCredit($creditAccountId, $amount, 'Customer deposit withdrawal – cash/bank out')
+                ->addCredit($cashAccountId, $amount, 'Customer deposit withdrawal – cash/bank out')
                 ->getLines();
 
             $journal = $this->journalPostingEngine->postJournalEntry(
@@ -218,14 +236,13 @@ class DepositAccountService
                 ]
             );
 
-            Log::info('Withdrawal made', [
+            Log::info('Withdrawal completed successfully', [
                 'deposit_account_id' => (int) $account->id,
+                'transaction_id' => (int) $tx->id,
                 'amount' => (float) $amount,
                 'balance_after' => (float) $newBalance,
-                'payment_method' => (string) $paymentMethod,
-                'bank_account_id' => $bankAccountId,
-                'reference' => $reference,
-                'created_by' => auth()->id(),
+                'cash_account_id' => $cashAccountId,
+                'liability_account_id' => $liabilityAccountId,
             ]);
 
             return $tx;
@@ -334,6 +351,18 @@ class DepositAccountService
 
             $tx = $this->createTransaction($account, 'loan_payment', $amount, $newBalance, $reference, $notes);
 
+            // Get liability account for passing to payment processor as source account
+            $liabilityAccountId = $this->getCustomerDepositsLiabilityAccount($subshopId);
+
+            Log::info('Processing loan payment from deposit account', [
+                'deposit_account_id' => (int) $account->id,
+                'loan_id' => (int) $loan->id,
+                'amount' => (float) $amount,
+                'liability_account_id' => $liabilityAccountId,
+            ]);
+
+            // PaymentProcessor handles the journal entry posting with proper allocation
+            // (principal/interest/penalty) debiting the deposit liability account
             $payment = $this->paymentProcessor->processPayment(
                 $loan,
                 (int) $account->customer_id,
@@ -343,21 +372,11 @@ class DepositAccountService
                 $reference,
                 Carbon::now()->startOfDay(),
                 $notes ? ('Paid from savings account ' . $account->account_number . "\n" . $notes) : ('Paid from savings account ' . $account->account_number),
+                null, // Use default strategy
+                $liabilityAccountId, // Source account override for deposit liability
             );
 
-            $liabilityAccountId = $this->resolveCustomerDepositsLiabilityAccountId($subshopId);
-
-            $lines = app(\App\Services\Accounting\LoanAccountingMapper::class)
-                ->buildDepositLoanPaymentEntry($loan, $amount, $liabilityAccountId);
-
-            $this->journalPostingEngine->postJournalEntry(
-                $lines,
-                'deposit_loan_payment',
-                (int) $tx->id,
-                'Loan installment paid from savings – ' . $account->account_number . ' – ' . $loan->loan_code
-            );
-
-            Log::info('Loan installment paid from savings', [
+            Log::info('Loan installment paid from savings successfully', [
                 'deposit_account_id' => (int) $account->id,
                 'loan_id' => (int) $loan->id,
                 'payment_id' => (int) $payment->id,
@@ -409,16 +428,204 @@ class DepositAccountService
 
     private function resolveCustomerDepositsLiabilityAccountId(int $subshopId): int
     {
-        $account = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
-            ->where('account_name', 'like', '%Customer Deposits%')
-            ->where('is_active', true)
-            ->first();
+        return $this->getCustomerDepositsLiabilityAccount($subshopId);
+    }
 
-        if (!$account) {
-            throw new \RuntimeException('Customer Deposits liability account not found or inactive for subshop ' . $subshopId);
+    /**
+     * Get customer deposits liability account for a subshop with full validation
+     */
+    public function getCustomerDepositsLiabilityAccount(int $subshopId): int
+    {
+        Log::debug('Getting customer deposits liability account', ['subshop_id' => $subshopId]);
+
+        $liabilityAccount = CustomerDepositLiabilityAccount::forSubshop($subshopId);
+
+        if (!$liabilityAccount) {
+            Log::error('Customer deposits liability account not configured', ['subshop_id' => $subshopId]);
+            throw new InvalidArgumentException(
+                'Customer deposits liability account is not configured for this branch. ' .
+                'Please configure it first before processing deposits or withdrawals.'
+            );
         }
 
-        return (int) $account->id;
+        Log::debug('Liability account found', [
+            'liability_account_id' => $liabilityAccount->id,
+            'chart_of_account_id' => $liabilityAccount->chart_of_account_id,
+        ]);
+
+        // Validate that account is still a liability account and active
+        $chartAccount = ChartsOfAccount::query()->whereKey($liabilityAccount->chart_of_account_id)->first();
+
+        if (!$chartAccount) {
+            Log::error('Configured liability account no longer exists', [
+                'liability_account_id' => $liabilityAccount->chart_of_account_id,
+            ]);
+            throw new InvalidArgumentException('Configured liability account no longer exists.');
+        }
+
+        if ((int) $chartAccount->accountClass->code !== 2) {
+            Log::error('Configured liability account not liability class', [
+                'account_class_code' => $chartAccount->accountClass->code,
+            ]);
+            throw new InvalidArgumentException('Configured liability account is not a liability account (Account Class 2).');
+        }
+
+        if (!$chartAccount->is_active) {
+            Log::error('Configured liability account not active', [
+                'liability_account_id' => $liabilityAccount->chart_of_account_id,
+            ]);
+            throw new InvalidArgumentException('Configured liability account is not active.');
+        }
+
+        if ((int) $chartAccount->subshop_id !== $subshopId) {
+            Log::error('Configured liability account wrong subshop', [
+                'account_subshop_id' => $chartAccount->subshop_id,
+                'session_subshop_id' => $subshopId,
+            ]);
+            throw new InvalidArgumentException('Configured liability account does not belong to this branch.');
+        }
+
+        Log::debug('Liability account validated', [
+            'liability_account_id' => $liabilityAccount->chart_of_account_id,
+            'account_name' => $chartAccount->account_name,
+        ]);
+
+        return (int) $liabilityAccount->chart_of_account_id;
+    }
+
+    /**
+     * Resolve payment source account (cash/bank) with proper validation
+     * Returns Asset Class 1 account ID
+     */
+    private function resolvePaymentSourceAccountId(string $paymentMethod, ?int $bankAccountId, int $subshopId): int
+    {
+        Log::debug('Resolving payment source account', [
+            'payment_method' => $paymentMethod,
+            'bank_account_id' => $bankAccountId,
+            'subshop_id' => $subshopId,
+        ]);
+
+        // If bank account provided, use its chart of account
+        if ($bankAccountId) {
+            $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
+
+            if (!$bank) {
+                Log::error('Bank account not found', ['bank_account_id' => $bankAccountId]);
+                throw new InvalidArgumentException('Selected bank account not found.');
+            }
+
+            if ((int) $bank->subshop_id !== $subshopId) {
+                Log::error('Bank account wrong subshop', [
+                    'bank_subshop_id' => $bank->subshop_id,
+                    'session_subshop_id' => $subshopId,
+                ]);
+                throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+            }
+
+            if (!$bank->is_active) {
+                Log::error('Bank account not active', ['bank_account_id' => $bankAccountId]);
+                throw new InvalidArgumentException('Selected bank account is not active.');
+            }
+
+            $accountId = (int) $bank->chart_of_account_id;
+            if ($accountId <= 0) {
+                Log::error('Bank account missing chart_of_account_id', ['bank_account_id' => $bankAccountId]);
+                throw new InvalidArgumentException('Bank account is not linked to a chart of account.');
+            }
+
+            // Validate that bank account's COA is Asset class (Class 1)
+            $chartAccount = ChartsOfAccount::query()->whereKey($accountId)->first();
+            if (!$chartAccount) {
+                Log::error('Bank linked chart account not found', ['chart_account_id' => $accountId]);
+                throw new InvalidArgumentException('Bank account linked chart of account not found.');
+            }
+
+            if ((int) $chartAccount->accountClass->code !== 1) {
+                Log::error('Bank linked chart account not Asset class', [
+                    'chart_account_id' => $accountId,
+                    'account_class_code' => $chartAccount->accountClass->code,
+                ]);
+                throw new InvalidArgumentException('Bank account must be linked to an Asset account (Class 1).');
+            }
+
+            Log::debug('Using bank account mapping', [
+                'bank_account_id' => $bankAccountId,
+                'chart_account_id' => $accountId,
+            ]);
+
+            return $accountId;
+        }
+
+        // Look up payment method to GL account mapping for cash/mobile_money/etc.
+        $method = trim(strtolower($paymentMethod));
+        if ($method === '') {
+            Log::error('Empty payment method');
+            throw new InvalidArgumentException('Payment method is required to resolve payment account.');
+        }
+
+        $mapping = PaymentMethodAccount::query()
+            ->where('subshop_id', $subshopId)
+            ->where('payment_method', $method)
+            ->first();
+
+        if (!$mapping) {
+            Log::error('Payment method account mapping not found', [
+                'subshop_id' => $subshopId,
+                'payment_method' => $method,
+            ]);
+            throw new InvalidArgumentException("Payment method '{$paymentMethod}' is not mapped to a GL account. Please configure it in Payment Method Accounts.");
+        }
+
+        $accountId = (int) $mapping->chart_of_account_id;
+        if ($accountId <= 0) {
+            Log::error('Invalid chart_of_account_id in payment method mapping', [
+                'payment_method' => $method,
+                'mapping_id' => $mapping->id,
+            ]);
+            throw new InvalidArgumentException("Invalid chart of account for payment method '{$paymentMethod}'.");
+        }
+
+        // Validate that mapped COA is Asset class (Class 1)
+        $chartAccount = ChartsOfAccount::query()->whereKey($accountId)->first();
+        if (!$chartAccount) {
+            Log::error('Payment method linked chart account not found', [
+                'chart_account_id' => $accountId,
+                'payment_method' => $method,
+            ]);
+            throw new InvalidArgumentException('Payment method linked chart of account not found.');
+        }
+
+        if ((int) $chartAccount->accountClass->code !== 1) {
+            Log::error('Payment method linked chart account not Asset class', [
+                'chart_account_id' => $accountId,
+                'payment_method' => $method,
+                'account_class_code' => $chartAccount->accountClass->code,
+            ]);
+            throw new InvalidArgumentException('Payment method must be mapped to an Asset account (Class 1).');
+        }
+
+        if (!$chartAccount->is_active) {
+            Log::error('Payment method linked chart account not active', [
+                'chart_account_id' => $accountId,
+                'payment_method' => $method,
+            ]);
+            throw new InvalidArgumentException('Payment method linked chart of account is not active.');
+        }
+
+        if ((int) $chartAccount->subshop_id !== $subshopId) {
+            Log::error('Payment method linked chart account wrong subshop', [
+                'chart_account_id' => $accountId,
+                'account_subshop_id' => $chartAccount->subshop_id,
+                'session_subshop_id' => $subshopId,
+            ]);
+            throw new InvalidArgumentException('Payment method linked chart of account does not belong to this branch.');
+        }
+
+        Log::debug('Using payment method mapping', [
+            'payment_method' => $method,
+            'chart_account_id' => $accountId,
+        ]);
+
+        return $accountId;
     }
 }

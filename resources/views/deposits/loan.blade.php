@@ -51,6 +51,64 @@
                     </div>
                 </div>
 
+                <!-- Liability Configuration Status Card -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Liability Account</strong>
+                        @if($liabilityConfigured)
+                            <span class="badge badge-success">Configured</span>
+                        @else
+                            <span class="badge badge-danger">Not Configured</span>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        @if($liabilityConfigured)
+                            <div class="mb-2">
+                                <strong>Account:</strong> {{ $liabilityConfig->chartOfAccount->account_name }}
+                            </div>
+                            @if($liabilityConfig->notes)
+                                <div class="text-muted small">{{ $liabilityConfig->notes }}</div>
+                            @endif
+                        @else
+                            <div class="alert alert-warning mb-2">
+                                <i class="fas fa-exclamation-triangle"></i> Please configure the liability account before processing refunds or applying deposits.
+                            </div>
+                        @endif
+                        <button class="btn btn-sm btn-outline-primary btn-block" data-toggle="modal" data-target="#liabilityConfigModal">
+                            <i class="fas fa-cog"></i> {{ $liabilityConfigured ? 'Change' : 'Configure' }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Forfeiture Income Configuration Status Card -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong>Forfeiture Income Account</strong>
+                        @if($forfeitureConfigured)
+                            <span class="badge badge-success">Configured</span>
+                        @else
+                            <span class="badge badge-danger">Not Configured</span>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        @if($forfeitureConfigured)
+                            <div class="mb-2">
+                                <strong>Account:</strong> {{ $forfeitureConfig->chartOfAccount->account_name }}
+                            </div>
+                            @if($forfeitureConfig->notes)
+                                <div class="text-muted small">{{ $forfeitureConfig->notes }}</div>
+                            @endif
+                        @else
+                            <div class="alert alert-warning mb-2">
+                                <i class="fas fa-exclamation-triangle"></i> Please configure the forfeiture income account to process forfeits.
+                            </div>
+                        @endif
+                        <button class="btn btn-sm btn-outline-primary btn-block" data-toggle="modal" data-target="#forfeitureConfigModal">
+                            <i class="fas fa-cog"></i> {{ $forfeitureConfigured ? 'Change' : 'Configure' }}
+                        </button>
+                    </div>
+                </div>
+
                 <div class="card">
                     <div class="card-header"><strong>Actions</strong></div>
                     <div class="card-body">
@@ -96,55 +154,79 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Security Deposit Liability Account</label>
-                                    <select name="liability_account_id" class="form-control" required>
-                                        <option value="">Select Liability Account</option>
-                                        @foreach(($liabilityAccounts ?? collect()) as $acc)
-                                            <option value="{{ $acc->id }}">
-                                                {{ $acc->account_name }} ({{ $acc->account_code }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label>Notes</label>
                                     <textarea name="notes" class="form-control" rows="2" placeholder="Optional"></textarea>
                                 </div>
-                                <button class="btn btn-outline-danger btn-block" type="submit">
-                                    <i class="fas fa-undo"></i> Refund Deposit
-                                </button>
+                                @if(!$liabilityConfigured)
+                                    <div class="alert alert-danger mb-2">
+                                        <i class="fas fa-ban"></i> Cannot refund: liability account not configured.
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-block" type="button" disabled>
+                                        <i class="fas fa-ban"></i> Refund Unavailable
+                                    </button>
+                                @else
+                                    <button class="btn btn-outline-danger btn-block" type="submit">
+                                        <i class="fas fa-undo"></i> Refund Deposit
+                                    </button>
+                                @endif
                             </form>
 
                             <form method="POST" action="{{ route('security-deposits.forfeit') }}" class="mb-3">
                                 @csrf
                                 <div class="form-group">
                                     <label>Held Deposit</label>
-                                    <select name="deposit_id" class="form-control" required>
-                                        <option value="">Select deposit</option>
+                                    <select name="deposit_id" id="forfeit_deposit_id" class="form-control" required>
+                                        <option value="" data-amount="0">Select deposit</option>
                                         @foreach($heldDeposits as $d)
-                                            <option value="{{ $d->id }}">{{ $d->customer?->name ?? '—' }} - {{ number_format((float) $d->amount, 2) }}</option>
+                                            <option value="{{ $d->id }}" data-amount="{{ $d->amount }}">{{ $d->customer?->name ?? '—' }} - {{ number_format((float) $d->amount, 2) }}</option>
                                         @endforeach
                                     </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Forfeit Amount <span class="text-danger">*</span></label>
+                                    <input type="number" name="amount" id="forfeit_amount" class="form-control" step="0.01" min="0.01" required>
+                                    <small class="text-muted">Max: <span id="forfeit_max_amount">0.00</span></small>
                                 </div>
                                 <div class="form-group">
                                     <label>Notes</label>
                                     <textarea name="notes" class="form-control" rows="2" placeholder="Optional"></textarea>
                                 </div>
-                                <button class="btn btn-outline-dark btn-block" type="submit">
-                                    <i class="fas fa-ban"></i> Forfeit Deposit
-                                </button>
+                                @if(!$forfeitureConfigured || !$liabilityConfigured)
+                                    <div class="alert alert-danger mb-2">
+                                        <i class="fas fa-ban"></i>
+                                        @if(!$forfeitureConfigured && !$liabilityConfigured)
+                                            Cannot forfeit: liability and forfeiture accounts not configured.
+                                        @elseif(!$forfeitureConfigured)
+                                            Cannot forfeit: forfeiture income account not configured.
+                                        @else
+                                            Cannot forfeit: liability account not configured.
+                                        @endif
+                                    </div>
+                                    <button class="btn btn-outline-dark btn-block" type="button" disabled>
+                                        <i class="fas fa-ban"></i> Forfeit Unavailable
+                                    </button>
+                                @else
+                                    <button class="btn btn-outline-dark btn-block" type="submit">
+                                        <i class="fas fa-ban"></i> Forfeit Deposit
+                                    </button>
+                                @endif
                             </form>
 
                             <form method="POST" action="{{ route('security-deposits.apply') }}">
                                 @csrf
                                 <div class="form-group">
                                     <label>Held Deposit</label>
-                                    <select name="deposit_id" class="form-control" required>
-                                        <option value="">Select deposit</option>
+                                    <select name="deposit_id" id="apply_deposit_id" class="form-control" required>
+                                        <option value="" data-amount="0">Select deposit</option>
                                         @foreach($heldDeposits as $d)
-                                            <option value="{{ $d->id }}">{{ $d->customer?->name ?? '—' }} - {{ number_format((float) $d->amount, 2) }}</option>
+                                            <option value="{{ $d->id }}" data-amount="{{ $d->amount }}">{{ $d->customer?->name ?? '—' }} - {{ number_format((float) $d->amount, 2) }}</option>
                                         @endforeach
                                     </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Apply Amount <span class="text-danger">*</span></label>
+                                    <input type="number" name="amount" id="apply_amount" class="form-control" step="0.01" min="0.01" required>
+                                    <small class="text-muted">Max: <span id="apply_max_amount">0.00</span></small>
                                 </div>
                                 <div class="form-group">
                                     <label>Target Loan</label>
@@ -174,7 +256,7 @@
                 <div class="card">
                     <div class="card-header"><strong>Deposit History</strong></div>
                     <div class="card-body table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="depositHistoryTable">
                             <thead class="thead-light">
                                 <tr>
                                     <th>Borrower</th>
@@ -226,6 +308,111 @@
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 @endpush
+
+<!-- Liability Configuration Modal -->
+<div class="modal fade" id="liabilityConfigModal" tabindex="-1" role="dialog" aria-labelledby="liabilityConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('security-deposits.liability-account.configure') }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="liabilityConfigModalLabel">
+                        <i class="fas fa-cog"></i> Configure Security Deposit Liability Account
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Select a liability account (Class 2) to use for security deposits.
+                    </div>
+                    <div class="form-group">
+                        <label>Liability Account <span class="text-danger">*</span></label>
+                        <select name="chart_of_account_id" class="form-control" required>
+                            <option value="">Select Liability Account</option>
+                            @php
+                                $liabilityAccounts = \App\Models\ChartsOfAccount::with('accountClass')
+                                    ->where('subshop_id', session('subshop_id'))
+                                    ->where('is_active', true)
+                                    ->get()
+                                    ->filter(fn($acc) => (int)($acc->accountClass?->code ?? 0) === 2);
+                            @endphp
+                            @foreach($liabilityAccounts as $acc)
+                                <option value="{{ $acc->id }}" @selected(($liabilityConfig?->chart_of_account_id) == $acc->id)>
+                                    {{ $acc->account_name }} ({{ $acc->account_code }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" class="form-control" rows="2">{{ $liabilityConfig?->notes }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Forfeiture Income Configuration Modal -->
+<div class="modal fade" id="forfeitureConfigModal" tabindex="-1" role="dialog" aria-labelledby="forfeitureConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('security-deposits.forfeiture-account.configure') }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="forfeitureConfigModalLabel">
+                        <i class="fas fa-cog"></i> Configure Forfeiture Income Account
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Select a income account (Class 4) for security deposit forfeiture income.
+                    </div>
+                    <div class="form-group">
+                        <label>Income Account <span class="text-danger">*</span></label>
+                        <select name="chart_of_account_id" class="form-control" required>
+                            <option value="">Select Income Account</option>
+                            @php
+                                $incomeAccounts = \App\Models\ChartsOfAccount::with('accountClass')
+                                    ->where('subshop_id', session('subshop_id'))
+                                    ->where('is_active', true)
+                                    ->get()
+                                    ->filter(fn($acc) => (int)($acc->accountClass?->code ?? 0) === 4);
+                            @endphp
+                            @foreach($incomeAccounts as $acc)
+                                <option value="{{ $acc->id }}" @selected(($forfeitureConfig?->chart_of_account_id) == $acc->id)>
+                                    {{ $acc->account_name }} ({{ $acc->account_code }})
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" class="form-control" rows="2">{{ $forfeitureConfig?->notes }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -304,6 +491,40 @@ document.addEventListener('DOMContentLoaded', function () {
         updateBankAccountOptions();
     }
 
+    // Forfeit amount handling
+    const forfeitDepositEl = document.getElementById('forfeit_deposit_id');
+    const forfeitAmountEl = document.getElementById('forfeit_amount');
+    const forfeitMaxEl = document.getElementById('forfeit_max_amount');
+
+    if (forfeitDepositEl && forfeitAmountEl) {
+        forfeitDepositEl.addEventListener('change', function () {
+            const selected = this.options[this.selectedIndex];
+            const maxAmount = parseFloat(selected.dataset.amount || 0);
+            forfeitMaxEl.textContent = maxAmount.toFixed(2);
+            forfeitAmountEl.max = maxAmount;
+            if (parseFloat(forfeitAmountEl.value) > maxAmount) {
+                forfeitAmountEl.value = maxAmount.toFixed(2);
+            }
+        });
+    }
+
+    // Apply amount handling
+    const applyDepositEl = document.getElementById('apply_deposit_id');
+    const applyAmountEl = document.getElementById('apply_amount');
+    const applyMaxEl = document.getElementById('apply_max_amount');
+
+    if (applyDepositEl && applyAmountEl) {
+        applyDepositEl.addEventListener('change', function () {
+            const selected = this.options[this.selectedIndex];
+            const maxAmount = parseFloat(selected.dataset.amount || 0);
+            applyMaxEl.textContent = maxAmount.toFixed(2);
+            applyAmountEl.max = maxAmount;
+            if (parseFloat(applyAmountEl.value) > maxAmount) {
+                applyAmountEl.value = maxAmount.toFixed(2);
+            }
+        });
+    }
+
     // Forfeit form
     const forfeitForm = document.querySelector('form[action*="forfeit"]');
     if (forfeitForm) {
@@ -343,6 +564,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     this.submit();
                 }
             });
+        });
+    }
+});
+
+
+//table
+
+$(document).ready(function() {
+    if ($('#depositHistoryTable').length) {
+        $('#depositHistoryTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [5] },
+                { searchable: false, targets: [5] }
+            ],
         });
     }
 });

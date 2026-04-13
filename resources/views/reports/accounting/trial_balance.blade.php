@@ -136,7 +136,7 @@
                                                 'accountId' => $acc['account_id'] ?? 0,
                                                 'as_of' => $asOf ?? null,
                                                 'subshop_id' => $selectedSubshopId ?? null,
-                                            ]) }}" target="_blank">
+                                            ]) }}">
                                                 {{ $acc['account_code'] ?? '' }}
                                             </a>
                                         </td>

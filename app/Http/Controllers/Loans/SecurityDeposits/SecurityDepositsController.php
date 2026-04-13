@@ -8,10 +8,13 @@ use App\Models\ChartsOfAccount;
 use App\Models\Customers;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
+use App\Models\SecurityDepositForfeitureAccount;
+use App\Models\SecurityDepositLiabilityAccount;
 use App\Services\Loans\SecurityDeposits\SecurityDepositService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class SecurityDepositsController extends Controller
@@ -125,13 +128,13 @@ class SecurityDepositsController extends Controller
             ->orderBy('account_name')
             ->get();
 
-        $liabilityAccounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
-            ->where('is_active', true)
-            ->orderBy('account_name')
-            ->get();
+        $liabilityConfig = SecurityDepositLiabilityAccount::forSubshop($subshopId);
+        $liabilityConfigured = $liabilityConfig !== null;
 
-        return view('deposits.loan', compact('loan', 'deposits', 'heldDeposits', 'heldTotal', 'appliedTotal', 'refundedTotal', 'forfeitedTotal', 'activeLoans', 'bankAccounts', 'liabilityAccounts'));
+        $forfeitureConfig = SecurityDepositForfeitureAccount::forSubshop($subshopId);
+        $forfeitureConfigured = $forfeitureConfig !== null;
+
+        return view('deposits.loan', compact('loan', 'deposits', 'heldDeposits', 'heldTotal', 'appliedTotal', 'refundedTotal', 'forfeitedTotal', 'activeLoans', 'bankAccounts', 'liabilityConfig', 'liabilityConfigured', 'forfeitureConfig', 'forfeitureConfigured'));
     }
 
     public function collect(Request $request, Loans $loan): RedirectResponse
@@ -168,7 +171,6 @@ class SecurityDepositsController extends Controller
             'refund_amount' => ['required', 'numeric', 'min:0.01'],
             'refund_method' => ['required', 'string', 'max:50'],
             'bank_account_id' => ['nullable', 'integer', 'exists:bank_accounts,id'],
-            'liability_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -176,21 +178,30 @@ class SecurityDepositsController extends Controller
             return redirect()->back()->with('error', 'Please select a bank account for this refund method.');
         }
 
-        DB::transaction(function () use ($validated) {
-            $this->service->refundDeposit(
-                (int) $validated['deposit_id'],
-                (int) auth()->id(),
-                (float) $validated['refund_amount'],
-                [
-                    'refund_method' => (string) $validated['refund_method'],
-                    'bank_account_id' => $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
-                    'liability_account_id' => (int) $validated['liability_account_id'],
-                    'notes' => $validated['notes'] ?? null,
-                ]
-            );
-        });
+        try {
+            DB::transaction(function () use ($validated) {
+                $this->service->refundDeposit(
+                    (int) $validated['deposit_id'],
+                    (int) auth()->id(),
+                    (float) $validated['refund_amount'],
+                    [
+                        'refund_method' => (string) $validated['refund_method'],
+                        'bank_account_id' => $validated['bank_account_id'] ? (int) $validated['bank_account_id'] : null,
+                        'notes' => $validated['notes'] ?? null,
+                    ]
+                );
+            });
 
-        return redirect()->back()->with('success', 'Security deposit refunded successfully.');
+            return redirect()->back()->with('success', 'Security deposit refunded successfully.');
+        } catch (\Exception $e) {
+            Log::error('Security deposit refund failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()->withInput()->with('error', 'Failed to refund security deposit: ' . $e->getMessage());
+        }
     }
 
     public function apply(Request $request): RedirectResponse
@@ -198,34 +209,162 @@ class SecurityDepositsController extends Controller
         $validated = $request->validate([
             'deposit_id' => ['required', 'integer', 'exists:loan_security_deposits,id'],
             'loan_id' => ['required', 'integer', 'exists:loans,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($validated) {
-            $this->service->applyDepositToLoan(
-                (int) $validated['deposit_id'],
-                (int) $validated['loan_id'],
-                $validated['notes'] ?? null
-            );
-        });
+        try {
+            DB::transaction(function () use ($validated) {
+                $this->service->applyDepositToLoan(
+                    (int) $validated['deposit_id'],
+                    (int) $validated['loan_id'],
+                    (float) $validated['amount'],
+                    $validated['notes'] ?? null
+                );
+            });
 
-        return redirect()->back()->with('success', 'Security deposit applied successfully.');
+            return redirect()->back()->with('success', 'Security deposit applied successfully.');
+        } catch (\Exception $e) {
+            Log::error('Security deposit apply failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()->withInput()->with('error', 'Failed to apply security deposit: ' . $e->getMessage());
+        }
     }
 
     public function forfeit(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'deposit_id' => ['required', 'integer', 'exists:loan_security_deposits,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($validated) {
-            $this->service->forfeitDeposit(
-                (int) $validated['deposit_id'],
-                $validated['notes'] ?? null
-            );
-        });
+        try {
+            DB::transaction(function () use ($validated) {
+                $this->service->forfeitDeposit(
+                    (int) $validated['deposit_id'],
+                    (float) $validated['amount'],
+                    $validated['notes'] ?? null
+                );
+            });
 
-        return redirect()->back()->with('success', 'Security deposit forfeited successfully.');
+            return redirect()->back()->with('success', 'Security deposit forfeited successfully.');
+        } catch (\Exception $e) {
+            Log::error('Security deposit forfeit failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()->withInput()->with('error', 'Failed to forfeit security deposit: ' . $e->getMessage());
+        }
+    }
+
+    public function configureLiabilityAccount(Request $request): RedirectResponse
+    {
+        try {
+            $validated = $request->validate([
+                'chart_of_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
+                'notes' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $subshopId = (int) session('subshop_id');
+
+            $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
+
+            if ((int) $chartAccount->accountClass->code !== 2) {
+                return redirect()->back()
+                    ->with('error', 'Selected account must be a liability account (Account Class 2).');
+            }
+
+            if ((int) $chartAccount->subshop_id !== $subshopId) {
+                return redirect()->back()
+                    ->with('error', 'Selected account does not belong to this branch.');
+            }
+
+            if (!$chartAccount->is_active) {
+                return redirect()->back()
+                    ->with('error', 'Selected account is not active.');
+            }
+
+            SecurityDepositLiabilityAccount::updateOrCreate(
+                ['subshop_id' => $subshopId],
+                [
+                    'chart_of_account_id' => (int) $validated['chart_of_account_id'],
+                    'notes' => $validated['notes'] ?? null,
+                ]
+            );
+
+            return redirect()->back()
+                ->with('success', 'Security deposit liability account configured successfully.');
+
+        } catch (\Exception $e) {
+            Log::error('Security deposit liability account configuration failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to configure liability account: ' . $e->getMessage());
+        }
+    }
+
+    public function configureForfeitureAccount(Request $request): RedirectResponse
+    {
+        try {
+            $validated = $request->validate([
+                'chart_of_account_id' => ['required', 'integer', 'exists:charts_of_accounts,id'],
+                'notes' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $subshopId = (int) session('subshop_id');
+
+            $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
+
+            // Income accounts are typically Class 4 (Revenue) or Class 5 (Other Income)
+            $accountClass = (int) ($chartAccount->accountClass?->code ?? 0);
+            if (!in_array($accountClass, [4, 5], true)) {
+                return redirect()->back()
+                    ->with('error', 'Selected account must be a revenue/income account (Account Class 4 or 5).');
+            }
+
+            if ((int) $chartAccount->subshop_id !== $subshopId) {
+                return redirect()->back()
+                    ->with('error', 'Selected account does not belong to this branch.');
+            }
+
+            if (!$chartAccount->is_active) {
+                return redirect()->back()
+                    ->with('error', 'Selected account is not active.');
+            }
+
+            SecurityDepositForfeitureAccount::updateOrCreate(
+                ['subshop_id' => $subshopId],
+                [
+                    'chart_of_account_id' => (int) $validated['chart_of_account_id'],
+                    'notes' => $validated['notes'] ?? null,
+                ]
+            );
+
+            return redirect()->back()
+                ->with('success', 'Security deposit forfeiture income account configured successfully.');
+
+        } catch (\Exception $e) {
+            Log::error('Security deposit forfeiture account configuration failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->except(['_token']),
+            ]);
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Failed to configure forfeiture account: ' . $e->getMessage());
+        }
     }
 }

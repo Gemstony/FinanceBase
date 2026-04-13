@@ -304,6 +304,10 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/loans/{loan:loan_code}/security-deposit', [SecurityDepositsController::class, 'collect'])
             ->name('security-deposits.collect');
+        Route::post('/security-deposits/liability-account/configure', [SecurityDepositsController::class, 'configureLiabilityAccount'])
+            ->name('security-deposits.liability-account.configure');
+        Route::post('/security-deposits/forfeiture-account/configure', [SecurityDepositsController::class, 'configureForfeitureAccount'])
+            ->name('security-deposits.forfeiture-account.configure');
 
         // Accounting routes
         // charts of account

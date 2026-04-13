@@ -15,6 +15,15 @@
         </a>
     </div>
 </div>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('reports.accounting_reports.index') }}">Accounting Reports</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('reports.accounting.trial_balance.index') }}">Trial Balance</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Account Lines</li>
+    </ol>
+</nav>
 @stop
 
 @section('content')
@@ -63,3 +72,7 @@
     </div>
 </div>
 @stop
+
+@push('css')
+<link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush

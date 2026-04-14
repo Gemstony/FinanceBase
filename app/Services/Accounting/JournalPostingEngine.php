@@ -179,36 +179,41 @@ class JournalPostingEngine
      * Convenience method: post a loan write-off journal entry.
      *
      * @param  Loans  $loan  The loan being written off
-     * @param  float  $amount  Write-off amount
+     * @param  array  $balances  Array with keys: principal_written_off, interest_written_off, fees_written_off, penalties_written_off
+     * @param  int    $writeOffExpenseAccountId  The configured expense account for write-offs
      */
-    public function postLoanWriteOff(Loans $loan, float $amount): JournalEntries
+    public function postLoanWriteOff(Loans $loan, array $balances, int $writeOffExpenseAccountId): JournalEntries
     {
-        $lines = $this->mapper->buildLoanWriteOffEntry($loan, $amount);
+        $lines = $this->mapper->buildLoanWriteOffEntry($loan, $balances, $writeOffExpenseAccountId);
 
         return $this->postJournalEntry(
             $lines,
             'loan_write_off',
             (int) $loan->id,
-            "Loan write-off – {$loan->loan_code}"
+            "Loan write-off – {$loan->loan_code}",
+            null,
+            (int) ($loan->subshop_id ?? 0)
         );
     }
 
     /**
      * Convenience method: post a loan recovery journal entry.
      *
-     * @param  float  $amount  Recovery amount received
-     * @param  int|null  $bankAccountId  Bank account ID for the payment
-     * @param  string|null  $paymentMethod  Payment method used
+     * @param  array  $recoveryData  Array with keys: principal, interest, fees, penalties, total, bank_account_id, payment_method, subshop_id
+     * @param  int    $recoveryIncomeAccountId  The configured recovery income account ID
+     * @param  int    $referenceId  Reference ID for the recovery record
      */
-    public function postLoanRecovery(float $amount, ?int $bankAccountId = null, ?string $paymentMethod = null): JournalEntries
+    public function postLoanRecovery(array $recoveryData, int $recoveryIncomeAccountId, int $referenceId): JournalEntries
     {
-        $lines = $this->mapper->buildLoanRecoveryEntry($amount, $bankAccountId, $paymentMethod);
+        $lines = $this->mapper->buildLoanRecoveryEntry($recoveryData, $recoveryIncomeAccountId);
 
         return $this->postJournalEntry(
             $lines,
-            'loan_recovery',
-            0, // No specific reference ID for generic recovery
-            'Loan recovery – cash received'
+            'loan_writeoff_recovery',
+            $referenceId,
+            'Loan write-off recovery – cash received',
+            null,
+            (int) ($recoveryData['subshop_id'] ?? 0)
         );
     }
 }

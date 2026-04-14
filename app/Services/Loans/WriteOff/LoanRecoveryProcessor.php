@@ -7,6 +7,7 @@ namespace App\Services\Loans\WriteOff;
 use App\Models\BankAccounts;
 use App\Models\LoanInstallments;
 use App\Models\LoanPayments;
+use App\Models\LoanWriteOffAccount;
 use App\Models\LoanWriteoffRecoveries;
 use App\Models\LoanWriteoffs;
 use App\Models\Loans;
@@ -15,16 +16,80 @@ use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
 class LoanRecoveryProcessor
 {
+    /** @var array<int, array<string, mixed>> Cache of recovery income account IDs by subshop */
+    private array $recoveryIncomeAccountCache = [];
+
     public function __construct(
         private readonly LoanTransactionLedger $ledger,
         private readonly JournalPostingEngine $journalPostingEngine,
         private readonly VoucherService $voucherService,
     ) {
+    }
+
+    /**
+     * Get the recovery income account ID for a subshop.
+     *
+     * @param int $subshopId The subshop ID
+     * @return int The recovery income account ID
+     * @throws InvalidArgumentException If account is not configured
+     */
+    private function getRecoveryIncomeAccountId(int $subshopId): int
+    {
+        // Return cached result if available
+        if (isset($this->recoveryIncomeAccountCache[$subshopId])) {
+            return $this->recoveryIncomeAccountCache[$subshopId];
+        }
+
+        $config = LoanWriteOffAccount::where('subshop_id', $subshopId)->first();
+
+        if (! $config) {
+            $message = "Loan write-off accounts not configured. Recovery income account is required. (visit Accounting > Accounting Settings > Loan Write-off Accounts)";
+            Log::warning($message, ['subshop_id' => $subshopId]);
+            throw new InvalidArgumentException($message);
+        }
+
+        // Validate the recovery income account
+        $incomeAccount = $config->recoveryIncomeAccount;
+        if (! $incomeAccount) {
+            $message = "Recovery income account not found (ID: {$config->recovery_income_account_id}) (visit Accounting > Accounting Settings > Loan Write-off Accounts)";
+            Log::warning($message, ['subshop_id' => $subshopId, 'account_id' => $config->recovery_income_account_id]);
+            throw new InvalidArgumentException($message);
+        }
+
+        if (! $incomeAccount->is_active) {
+            $message = "Recovery income account is inactive (ID: {$config->recovery_income_account_id}) (visit Accounting > Accounting Settings > Loan Write-off Accounts)";
+            Log::warning($message, ['subshop_id' => $subshopId, 'account_id' => $config->recovery_income_account_id]);
+            throw new InvalidArgumentException($message);
+        }
+
+        // Validate it's a Revenue account (Class 4)
+        $incomeClassId = $incomeAccount->accountClass->code;
+        if ($incomeClassId != 4) {
+            $message = "Recovery income account must be Class 4 (Revenue), got Class {$incomeClassId} (visit Accounting > Accounting Settings > Loan Write-off Accounts)";
+            Log::warning($message, [
+                'subshop_id' => $subshopId,
+                'account_id' => $config->recovery_income_account_id,
+                'account_class_id' => $incomeClassId,
+            ]);
+            throw new InvalidArgumentException($message);
+        }
+
+        // Cache and return
+        $this->recoveryIncomeAccountCache[$subshopId] = (int) $config->recovery_income_account_id;
+
+        Log::info('Recovery income account validated and cached', [
+            'subshop_id' => $subshopId,
+            'recovery_income_account_id' => $this->recoveryIncomeAccountCache[$subshopId],
+        ]);
+
+        return $this->recoveryIncomeAccountCache[$subshopId];
     }
 
     public function process(
@@ -76,6 +141,7 @@ class LoanRecoveryProcessor
                 'loan_id' => $loan->id,
                 'customer_id' => (int) $loan->customer_id,
                 'user_id' => $recordedBy > 0 ? $recordedBy : null,
+                'subshop_id' => (int) ($loan->subshop_id ?? 0),
                 'amount' => $totalRecovered,
                 'payment_date' => $date,
                 'payment_method' => $paymentMethod,
@@ -106,8 +172,31 @@ class LoanRecoveryProcessor
                 referenceId: (int) $recovery->id
             );
 
+            // Get recovery income account from configuration
+            $subshopId = (int) ($loan->subshop_id ?? 0);
+            if ($subshopId <= 0) {
+                throw new InvalidArgumentException('Loan must have a valid subshop_id for recovery posting');
+            }
+            $recoveryIncomeAccountId = $this->getRecoveryIncomeAccountId($subshopId);
+
+            // Prepare recovery data for journal entry
+            $recoveryData = [
+                'principal' => $recoveredPrincipal,
+                'interest' => $recoveredInterest,
+                'fees' => $recoveredFees,
+                'penalties' => $recoveredPenalties,
+                'total' => $totalRecovered,
+                'bank_account_id' => $bankAccountId,
+                'payment_method' => $paymentMethod,
+                'subshop_id' => $subshopId,
+            ];
+
             // Create journal entry for the recovery (bank account balance is tracked via journal/voucher)
-            $journal = $this->journalPostingEngine->postLoanRecovery($totalRecovered, $bankAccountId, $paymentMethod);
+            $journal = $this->journalPostingEngine->postLoanRecovery(
+                $recoveryData,
+                $recoveryIncomeAccountId,
+                (int) $recovery->id
+            );
 
             // Create receipt voucher for the recovery
             $this->voucherService->createVoucherFromJournalEntry(
@@ -121,6 +210,14 @@ class LoanRecoveryProcessor
                     'reference_id' => (int) $recovery->id,
                 ]
             );
+
+            Log::info('Loan recovery processed successfully', [
+                'loan_id' => $loan->id,
+                'recovery_id' => $recovery->id,
+                'writeoff_id' => $writeoff->id,
+                'total_recovered' => $totalRecovered,
+                'subshop_id' => $subshopId,
+            ]);
 
             return $recovery;
         });
@@ -264,8 +361,31 @@ class LoanRecoveryProcessor
                 'transaction_reference' => $transactionReference ?? $payment->reference_number,
             ]);
 
+            // Get recovery income account from configuration
+            $subshopId = (int) ($loan->subshop_id ?? 0);
+            if ($subshopId <= 0) {
+                throw new InvalidArgumentException('Loan must have a valid subshop_id for recovery posting');
+            }
+            $recoveryIncomeAccountId = $this->getRecoveryIncomeAccountId($subshopId);
+
+            // Prepare recovery data for journal entry
+            $recoveryData = [
+                'principal' => $recoveredPrincipal,
+                'interest' => $recoveredInterest,
+                'fees' => $recoveredFees,
+                'penalties' => $recoveredPenalties,
+                'total' => $totalRecovered,
+                'bank_account_id' => $bankAccountId,
+                'payment_method' => $paymentMethod ?? $payment->payment_method,
+                'subshop_id' => $subshopId,
+            ];
+
             // Create journal entry for the recovery (bank account balance is tracked via journal/voucher)
-            $journal = $this->journalPostingEngine->postLoanRecovery($totalRecovered, $bankAccountId, $paymentMethod ?? $payment->payment_method);
+            $journal = $this->journalPostingEngine->postLoanRecovery(
+                $recoveryData,
+                $recoveryIncomeAccountId,
+                (int) $recovery->id
+            );
 
             // Create receipt voucher for the recovery
             $this->voucherService->createVoucherFromJournalEntry(
@@ -279,6 +399,14 @@ class LoanRecoveryProcessor
                     'reference_id' => (int) $recovery->id,
                 ]
             );
+
+            Log::info('Loan recovery processed successfully via payment', [
+                'loan_id' => $loan->id,
+                'recovery_id' => $recovery->id,
+                'payment_id' => $payment->id,
+                'total_recovered' => $totalRecovered,
+                'subshop_id' => $subshopId,
+            ]);
 
             return $recovery;
         });

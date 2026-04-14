@@ -127,6 +127,26 @@
                 </div>
             </div>
 
+             <!-- Loan Write-Off Accounts Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-danger elevation-1">
+                        <i class="fas fa-ban"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Loan Write-Off Accounts</span>
+                        <span class="info-box-number">
+                            Configure loan write-off accounts
+                            </span>
+                            <div class="mt-2">
+                            <a href="{{ route('accounting.loan-write-off-accounts.index') }}" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

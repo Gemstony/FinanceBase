@@ -180,35 +180,90 @@ class LoanAccountingMapper
     }
 
     /**
-     * Build journal entry lines for a loan write-off.
+     * Build journal entry lines for a loan write-off (component-based).
      *
      * Financial meaning:
-     * - Debit: Recognize Loan Loss Expense (expense) because the receivable is deemed uncollectible.
-     * - Credit: Decrease Loan Portfolio (asset) to remove the receivable.
+     * - Debit: Recognize Loan Loss Expense by component (principal, interest, fees, penalties)
+     * - Credit: Decrease respective receivable accounts (Loan Portfolio, Interest Receivable, etc.)
      *
-     * @param Loans  $loan   The loan being written off
-     * @param float  $amount Write-off amount (typically outstanding principal)
+     * This provides detailed tracking of what was written off, not just a lump sum.
+     *
+     * @param Loans  $loan     The loan being written off
+     * @param array  $balances Array with keys: principal_written_off, interest_written_off, fees_written_off, penalties_written_off
+     * @param int    $writeOffExpenseAccountId  The expense account for write-offs
      *
      * @return array Journal lines ready for validation/posting
      */
-    public function buildLoanWriteOffEntry(Loans $loan, float $amount): array
+    public function buildLoanWriteOffEntry(Loans $loan, array $balances, int $writeOffExpenseAccountId): array
     {
         $builder = clone $this->builder;
         $builder->reset();
 
-        // Debit: Loan Loss Expense account (write_off_expense_account_id on loan)
+        $principal = (float) ($balances['principal_written_off'] ?? 0);
+        $interest = (float) ($balances['interest_written_off'] ?? 0);
+        $fees = (float) ($balances['fees_written_off'] ?? 0);
+        $penalties = (float) ($balances['penalties_written_off'] ?? 0);
+
+        $totalWrittenOff = round($principal + $interest + $fees + $penalties, 2);
+
+        if ($totalWrittenOff <= 0) {
+            throw new \InvalidArgumentException('Write-off amount must be greater than 0.');
+        }
+
+        // Debit: Loan Loss Expense (consolidated or we could split by component if needed)
         $builder->addDebit(
-            (int) $loan->write_off_expense_account_id,
-            $amount,
+            $writeOffExpenseAccountId,
+            $totalWrittenOff,
             "Loan write-off – {$loan->loan_code}"
         );
 
-        // Credit: Loan Portfolio (principal_account_id)
-        $builder->addCredit(
-            (int) $loan->principal_account_id,
-            $amount,
-            "Write-off of loan principal – {$loan->loan_code}"
-        );
+        // Credit: Loan Portfolio (principal receivable)
+        if ($principal > 0) {
+            if (! $loan->principal_account_id) {
+                throw new \InvalidArgumentException('Loan missing principal_account_id for write-off posting.');
+            }
+            $builder->addCredit(
+                (int) $loan->principal_account_id,
+                $principal,
+                "Write-off principal – {$loan->loan_code}"
+            );
+        }
+
+        // Credit: Interest Receivable
+        if ($interest > 0) {
+            if (! $loan->interest_receivable_account_id) {
+                throw new \InvalidArgumentException('Loan missing interest_receivable_account_id for write-off posting.');
+            }
+            $builder->addCredit(
+                (int) $loan->interest_receivable_account_id,
+                $interest,
+                "Write-off interest – {$loan->loan_code}"
+            );
+        }
+
+        // Credit: Fee Income/Receivable account
+        if ($fees > 0) {
+            if (! $loan->fee_income_account_id) {
+                throw new \InvalidArgumentException('Loan missing fee_income_account_id for write-off posting.');
+            }
+            $builder->addCredit(
+                (int) $loan->fee_income_account_id,
+                $fees,
+                "Write-off fees – {$loan->loan_code}"
+            );
+        }
+
+        // Credit: Penalty Receivable
+        if ($penalties > 0) {
+            if (! $loan->penalty_receivable_account_id) {
+                throw new \InvalidArgumentException('Loan missing penalty_receivable_account_id for write-off posting.');
+            }
+            $builder->addCredit(
+                (int) $loan->penalty_receivable_account_id,
+                $penalties,
+                "Write-off penalties – {$loan->loan_code}"
+            );
+        }
 
         return $builder->getLines();
     }
@@ -220,20 +275,33 @@ class LoanAccountingMapper
      * - Debit: Increase Cash/Bank (asset) because cash is received.
      * - Credit: Recognize Recovery Income (income) because it offsets previous loss.
      *
-     * @param float $amount Recovery amount received
-     * @param int|null $bankAccountId Bank account ID for the payment
-     * @param string|null $paymentMethod Payment method used
+     * Component-based recovery allows tracking what was recovered (principal vs interest vs fees vs penalties).
+     *
+     * @param array $recoveryData Array with keys: principal, interest, fees, penalties, total, bank_account_id, payment_method, subshop_id
+     * @param int $recoveryIncomeAccountId The configured recovery income account ID
      *
      * @return array Journal lines ready for validation/posting
      */
-    public function buildLoanRecoveryEntry(float $amount, ?int $bankAccountId = null, ?string $paymentMethod = null): array
+    public function buildLoanRecoveryEntry(array $recoveryData, int $recoveryIncomeAccountId): array
     {
         $builder = clone $this->builder;
         $builder->reset();
 
-        $recoveryIncomeAccountId = (int) (session('recovery_income_account_id') ?? 0);
+        $principal = (float) ($recoveryData['principal'] ?? 0);
+        $interest = (float) ($recoveryData['interest'] ?? 0);
+        $fees = (float) ($recoveryData['fees'] ?? 0);
+        $penalties = (float) ($recoveryData['penalties'] ?? 0);
+        $total = (float) ($recoveryData['total'] ?? 0);
+        $bankAccountId = $recoveryData['bank_account_id'] ?? null;
+        $paymentMethod = $recoveryData['payment_method'] ?? null;
+        $subshopId = (int) ($recoveryData['subshop_id'] ?? 0);
+
+        if ($total <= 0) {
+            throw new \InvalidArgumentException('Recovery amount must be greater than 0.');
+        }
+
         if ($recoveryIncomeAccountId <= 0) {
-            throw new \InvalidArgumentException('Recovery income account is not configured (recovery_income_account_id).');
+            throw new \InvalidArgumentException('Recovery income account is not configured.');
         }
 
         // Determine the cash/bank account to debit based on bank account or payment method
@@ -244,11 +312,7 @@ class LoanAccountingMapper
             if ($linked > 0) {
                 $cashAccountId = $linked;
             }
-        } elseif ($paymentMethod) {
-            $subshopId = (int) (session('subshop_id') ?? 0);
-            if ($subshopId <= 0) {
-                throw new \InvalidArgumentException('subshop_id is required to resolve payment account for recovery posting.');
-            }
+        } elseif ($paymentMethod && $subshopId > 0) {
             $cashAccountId = $this->resolvePaymentAccountId($paymentMethod, $subshopId);
         }
 
@@ -259,15 +323,16 @@ class LoanAccountingMapper
         // Debit: Cash/Bank account (money coming IN)
         $builder->addDebit(
             $cashAccountId,
-            $amount,
+            $total,
             'Loan recovery – cash received'
         );
 
-        // Credit: Recovery Income account (income recognized)
+        // Credit: Recovery Income account (income recognized by component for detail)
+        // We can post as single line or component lines - using single for simplicity
         $builder->addCredit(
             $recoveryIncomeAccountId,
-            $amount,
-            'Loan recovery – income recognized'
+            $total,
+            "Loan recovery – principal:{$principal}, interest:{$interest}, fees:{$fees}, penalties:{$penalties}"
         );
 
         return $builder->getLines();

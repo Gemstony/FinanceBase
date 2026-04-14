@@ -334,12 +334,8 @@
             </div>
         </div>
     </div>
-@stop
-@push('css')
-<link rel="stylesheet" href="{{ asset('css/custom.css') }}">
-@endpush
 
-<!-- Liability Configuration Modal -->
+    <!-- Liability Configuration Modal -->
 <div class="modal fade" id="liabilityConfigModal" tabindex="-1" role="dialog" aria-labelledby="liabilityConfigModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -390,6 +386,10 @@
         </div>
     </div>
 </div>
+@stop
+@push('css')
+<link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
 
 @push('js')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

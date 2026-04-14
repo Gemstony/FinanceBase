@@ -347,6 +347,13 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/{paymentMethodAccount}', [\App\Http\Controllers\PaymentMethodAccountsController::class, 'destroy'])->name('destroy');
         });
 
+        // Interest Accrual Accounts Routes
+        Route::prefix('accounting/interest-accrual-accounts')->name('accounting.interest-accrual-accounts.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Accounting\InterestAccrualController::class, 'index'])->name('index');
+            Route::post('/', [\App\Http\Controllers\Accounting\InterestAccrualController::class, 'store'])->name('store');
+            Route::delete('/', [\App\Http\Controllers\Accounting\InterestAccrualController::class, 'destroy'])->name('destroy');
+        });
+
         Route::prefix('accounting/manual-journals')->name('accounting.manual-journals.')->group(function () {
             Route::get('/', [ManualJournalController::class, 'index'])->name('index');
             Route::get('/create', [ManualJournalController::class, 'create'])->name('create');

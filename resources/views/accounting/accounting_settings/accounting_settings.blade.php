@@ -107,6 +107,25 @@
                 </div>
             </div>
 
+            <!-- Interest Accrual Accounts Card -->
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="info-box bg-gradient-white shadow-sm border">
+                    <span class="info-box-icon bg-warning elevation-1">
+                        <i class="fas fa-percentage"></i>
+                    </span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Interest Accrual Accounts</span>
+                        <span class="info-box-number">
+                            Configure interest accrual accounts
+                            </span>
+                            <div class="mt-2">
+                            <a href="{{ route('accounting.interest-accrual-accounts.index') }}" class="btn btn-sm btn-outline-warning">
+                                <i class="fas fa-cog mr-1"></i> Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>

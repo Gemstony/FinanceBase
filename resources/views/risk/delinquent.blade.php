@@ -57,14 +57,11 @@
                         <tbody>
                             @forelse($loans as $loan)
                                 @php
-                                    $risk = app(\App\Services\Loans\Risk\LoanDelinquencyEngine::class)->classifyLoanRisk($loan);
-                                    $outstanding = app(\App\Services\Loans\Risk\PortfolioRiskCalculator::class)->calculateLoanOutstanding($loan);
-                                    $maxOverdue = (int) $loan->installments()
-                                        ->where('is_active', true)
-                                        ->where('status', 'overdue')
-                                        ->get()
-                                        ->map(fn($i) => app(\App\Services\Loans\Risk\LoanDelinquencyEngine::class)->calculateDaysOverdue($i))
-                                        ->max();
+                                    // Use pre-computed data from controller to avoid N+1 queries
+                                    $data = $loanData[$loan->id] ?? [];
+                                    $risk = $data['risk_category'] ?? 'current';
+                                    $outstanding = $data['outstanding_balance'] ?? 0;
+                                    $maxOverdue = $data['max_days_overdue'] ?? 0;
                                     $lastPayment = $loan->repayments()->latest('payment_date')->first();
                                 @endphp
                                 <tr>
@@ -101,7 +98,7 @@
                         <tfoot>
                             <tr>
                                 <th colspan="4" class="text-right">Total Delinquent Outstanding:</th>
-                                <th colspan="4">{{ number_format($loans->sum(fn($l) => app(\App\Services\Loans\Risk\PortfolioRiskCalculator::class)->calculateLoanOutstanding($l)), 2) }}</th>
+                                <th colspan="4">{{ number_format(array_sum(array_column($loanData, 'outstanding_balance')), 2) }}</th>
                             </tr>
                         </tfoot>
                         @endif

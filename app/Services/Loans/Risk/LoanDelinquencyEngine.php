@@ -6,11 +6,23 @@ use App\Models\LoanInstallments;
 use App\Models\Loans;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class LoanDelinquencyEngine
 {
+    /**
+     * Cache TTL for PAR calculations (5 minutes).
+     */
+    protected const PAR_CACHE_TTL = 300;
+
+    /**
+     * Cache TTL for risk classifications (5 minutes).
+     */
+    protected const RISK_CLASS_CACHE_TTL = 300;
+
     public function __construct(
-        protected PortfolioRiskCalculator $portfolioRiskCalculator
+        protected PortfolioRiskCalculator $portfolioRiskCalculator,
+        protected DpdCalculator $dpdCalculator
     ) {
     }
 
@@ -22,38 +34,69 @@ class LoanDelinquencyEngine
      *
      * Returned value is a percentage (0 - 100).
      */
-    public function calculatePAR(int $days, ?int $subshopId = null): float
+    public function calculatePAR(int $days, array|int|null $subshopIds = null): float
     {
         $days = max(0, (int) $days);
 
-        $totalPortfolio = $subshopId
-            ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$subshopId])
-            : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding();
-        
+        // Handle array of subshop IDs
+        if (is_array($subshopIds) && !empty($subshopIds)) {
+            $totalPortfolio = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
+            $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstandingForSubshops($days, $subshopIds);
+        } else {
+            $subshopId = is_array($subshopIds) ? null : $subshopIds;
+            $totalPortfolio = $subshopId
+                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached($subshopId)
+                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached();
+
+            if ($totalPortfolio <= 0) {
+                return 0.0;
+            }
+
+            $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstandingCached($days, $subshopId);
+        }
+
         if ($totalPortfolio <= 0) {
             return 0.0;
         }
-
-        $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstanding($days, $subshopId);
 
         $par = ($delinquentOutstanding / $totalPortfolio) * 100;
 
         return round(max(0.0, $par), 2);
     }
 
-    public function calculatePAR30(?int $subshopId = null): float
+    /**
+     * Calculate PAR with caching.
+     */
+    public function calculatePARCached(int $days, array|int|null $subshopIds = null): float
     {
-        return $this->calculatePAR(30, $subshopId);
+        // Generate cache key based on subshop IDs
+        if (is_array($subshopIds)) {
+            sort($subshopIds); // Ensure consistent ordering
+            $cacheKey = "par:days:{$days}:subshops:" . implode(',', $subshopIds);
+        } else {
+            $cacheKey = $subshopIds
+                ? "par:days:{$days}:subshop:{$subshopIds}"
+                : "par:days:{$days}";
+        }
+
+        return Cache::remember($cacheKey, self::PAR_CACHE_TTL, function () use ($days, $subshopIds) {
+            return $this->calculatePAR($days, $subshopIds);
+        });
     }
 
-    public function calculatePAR60(?int $subshopId = null): float
+    public function calculatePAR30(array|int|null $subshopIds = null): float
     {
-        return $this->calculatePAR(60, $subshopId);
+        return $this->calculatePAR(30, $subshopIds);
     }
 
-    public function calculatePAR90(?int $subshopId = null): float
+    public function calculatePAR60(array|int|null $subshopIds = null): float
     {
-        return $this->calculatePAR(90, $subshopId);
+        return $this->calculatePAR(60, $subshopIds);
+    }
+
+    public function calculatePAR90(array|int|null $subshopIds = null): float
+    {
+        return $this->calculatePAR(90, $subshopIds);
     }
 
     /**
@@ -63,7 +106,7 @@ class LoanDelinquencyEngine
      * - status = overdue
      * - and days overdue > $days
      */
-    public function getDelinquentLoans(int $days, ?int $subshopId = null): Collection
+    public function getDelinquentLoans(int $days, array|int|null $subshopIds = null): Collection
     {
         $days = max(0, (int) $days);
         $cutoffDate = Carbon::today()->subDays($days);
@@ -83,33 +126,70 @@ class LoanDelinquencyEngine
             ->activeLoansQuery()
             ->whereIn('id', $loanIds);
 
-        if ($subshopId) {
-            $query->where('subshop_id', $subshopId);
+        if (is_array($subshopIds) && !empty($subshopIds)) {
+            $query->whereIn('subshop_id', $subshopIds);
+        } elseif ($subshopIds) {
+            $query->where('subshop_id', $subshopIds);
         }
 
         $loans = $query->get();
 
+        // Use bulk calculation for better performance
+        $outstandingMap = $this->portfolioRiskCalculator->bulkCalculateOutstanding($loanIds->toArray());
+
         return $loans
-            ->filter(function (Loans $loan) {
-                return $this->portfolioRiskCalculator->calculateLoanOutstanding($loan) > 0;
+            ->filter(function (Loans $loan) use ($outstandingMap) {
+                return ($outstandingMap[$loan->id] ?? 0) > 0;
             })
             ->values();
+    }
+
+    /**
+     * Get delinquent loans with enriched data (outstanding, risk category, max DPD).
+     *
+     * @return Collection<Loans>
+     */
+    public function getDelinquentLoansEnriched(int $days, array|int|null $subshopIds = null): Collection
+    {
+        $loans = $this->getDelinquentLoans($days, $subshopIds);
+
+        if ($loans->isEmpty()) {
+            return $loans;
+        }
+
+        $loanIds = $loans->pluck('id')->toArray();
+
+        // Bulk calculate all required data
+        $outstandingMap = $this->portfolioRiskCalculator->bulkCalculateOutstanding($loanIds);
+        $maxDpdMap = $this->dpdCalculator->bulkCalculateMaxDpd($loanIds);
+
+        foreach ($loans as $loan) {
+            $loan->outstanding_balance = $outstandingMap[$loan->id] ?? 0;
+            $loan->max_days_overdue = $maxDpdMap[$loan->id] ?? 0;
+            $loan->risk_category = $this->dpdCalculator->classifyByDpd($loan->max_days_overdue);
+        }
+
+        return $loans;
     }
 
     /**
      * Helper: calculate days overdue for an installment.
      *
      * If installment is not overdue yet, returns 0.
+     *
+     * @deprecated Use DpdCalculator::calculateDaysOverdue() instead for consistency.
      */
     public function calculateDaysOverdue(LoanInstallments $installment): int
     {
-        $dueDate = $installment->due_date instanceof Carbon
-            ? $installment->due_date
-            : Carbon::parse($installment->due_date);
+        return $this->dpdCalculator->calculateDaysOverdue($installment);
+    }
 
-        $days = Carbon::today()->diffInDays($dueDate, false) * -1;
-
-        return max(0, (int) $days);
+    /**
+     * Calculate max days overdue for a loan.
+     */
+    public function calculateMaxDaysOverdueForLoan(int $loanId): int
+    {
+        return $this->dpdCalculator->calculateMaxDaysOverdueForLoan($loanId);
     }
 
     /**
@@ -127,38 +207,25 @@ class LoanDelinquencyEngine
             return 'current';
         }
 
-        if ($this->portfolioRiskCalculator->calculateLoanOutstanding($loan) <= 0) {
+        if ($this->portfolioRiskCalculator->calculateLoanOutstandingCached($loan) <= 0) {
             return 'current';
         }
 
-        $maxDaysOverdue = (int) LoanInstallments::query()
-            ->where('loan_id', $loan->id)
-            ->where('is_active', true)
-            ->where('status', 'overdue')
-            ->get(['due_date'])
-            ->map(function ($i) {
-                $dueDate = $i->due_date instanceof Carbon ? $i->due_date : Carbon::parse($i->due_date);
-                return max(0, Carbon::today()->diffInDays($dueDate, false) * -1);
-            })
-            ->max();
+        $maxDaysOverdue = $this->dpdCalculator->calculateMaxDaysOverdueForLoan($loan->id);
 
-        if ($maxDaysOverdue <= 0) {
-            return 'current';
-        }
+        return $this->dpdCalculator->classifyByDpd($maxDaysOverdue);
+    }
 
-        if ($maxDaysOverdue <= 30) {
-            return 'par30';
-        }
+    /**
+     * Classify loan risk with caching.
+     */
+    public function classifyLoanRiskCached(Loans $loan): string
+    {
+        $cacheKey = "loan_risk:class:{$loan->id}";
 
-        if ($maxDaysOverdue <= 60) {
-            return 'par60';
-        }
-
-        if ($maxDaysOverdue <= 90) {
-            return 'par90';
-        }
-
-        return 'default';
+        return Cache::remember($cacheKey, self::RISK_CLASS_CACHE_TTL, function () use ($loan) {
+            return $this->classifyLoanRisk($loan);
+        });
     }
 
     /**
@@ -166,16 +233,75 @@ class LoanDelinquencyEngine
      *
      * @return array{portfolio_outstanding: float, par30: float, par60: float, par90: float, par180: float}
      */
-    public function getPortfolioRiskSummary(?int $subshopId = null): array
+    public function getPortfolioRiskSummary(array|int|null $subshopIds = null): array
     {
+        // Handle array of subshop IDs
+        if (is_array($subshopIds) && !empty($subshopIds)) {
+            $portfolioOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
+        } else {
+            $subshopId = is_array($subshopIds) ? null : $subshopIds;
+            $portfolioOutstanding = $subshopId
+                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached($subshopId)
+                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached();
+        }
+
         return [
-            'portfolio_outstanding' => $subshopId
-                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops([$subshopId])
-                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstanding(),
-            'par30' => $this->calculatePAR(30, $subshopId),
-            'par60' => $this->calculatePAR(60, $subshopId),
-            'par90' => $this->calculatePAR(90, $subshopId),
-            'par180' => $this->calculatePAR(180, $subshopId),
+            'portfolio_outstanding' => $portfolioOutstanding,
+            'par30' => $this->calculatePARCached(30, $subshopIds),
+            'par60' => $this->calculatePARCached(60, $subshopIds),
+            'par90' => $this->calculatePARCached(90, $subshopIds),
+            'par180' => $this->calculatePARCached(180, $subshopIds),
         ];
+    }
+
+    /**
+     * Get portfolio risk summary with full caching.
+     */
+    public function getPortfolioRiskSummaryCached(array|int|null $subshopIds = null): array
+    {
+        // Generate cache key based on subshop IDs
+        if (is_array($subshopIds)) {
+            sort($subshopIds); // Ensure consistent ordering
+            $cacheKey = "portfolio_risk_summary:subshops:" . implode(',', $subshopIds);
+        } else {
+            $cacheKey = $subshopIds
+                ? "portfolio_risk_summary:subshop:{$subshopIds}"
+                : 'portfolio_risk_summary:total';
+        }
+
+        return Cache::remember($cacheKey, self::PAR_CACHE_TTL, function () use ($subshopIds) {
+            return $this->getPortfolioRiskSummary($subshopIds);
+        });
+    }
+
+    /**
+     * Bulk classify loans into risk buckets.
+     *
+     * @param array<int> $loanIds
+     * @return array<int, string> Array of [loan_id => risk_category]
+     */
+    public function bulkClassifyLoanRisk(array $loanIds): array
+    {
+        if (empty($loanIds)) {
+            return [];
+        }
+
+        $results = [];
+        $maxDpdMap = $this->dpdCalculator->bulkCalculateMaxDpd($loanIds);
+        $outstandingMap = $this->portfolioRiskCalculator->bulkCalculateOutstanding($loanIds);
+
+        foreach ($loanIds as $loanId) {
+            $outstanding = $outstandingMap[$loanId] ?? 0;
+
+            if ($outstanding <= 0) {
+                $results[$loanId] = 'current';
+                continue;
+            }
+
+            $maxDpd = $maxDpdMap[$loanId] ?? 0;
+            $results[$loanId] = $this->dpdCalculator->classifyByDpd($maxDpd);
+        }
+
+        return $results;
     }
 }

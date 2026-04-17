@@ -88,6 +88,23 @@ Route::prefix('risk')->group(function () {
     Route::get('/delinquent', [PortfolioRiskController::class, 'delinquentLoans'])->name('risk.delinquent.index');
     Route::get('/delinquent/{days}', [PortfolioRiskController::class, 'delinquentByDays'])->name('risk.delinquent.by_days');
     Route::get('/collections', [CollectionsController::class, 'index'])->name('risk.collections');
+
+    // Risk Analytics & Reports
+    Route::get('/history', [PortfolioRiskController::class, 'history'])->name('risk.history');
+    Route::get('/provision-report', [PortfolioRiskController::class, 'provisionReport'])->name('risk.provision-report');
+    Route::match(['get', 'post'], '/stress-test', [PortfolioRiskController::class, 'stressTest'])->name('risk.stress-test');
+    Route::match(['get', 'post'], '/thresholds', [PortfolioRiskController::class, 'thresholds'])->name('risk.thresholds');
+});
+
+// Collections Management Routes
+Route::prefix('collections')->group(function () {
+    Route::get('/actions', [CollectionsController::class, 'actions'])->name('collections.actions');
+    Route::post('/create-action', [CollectionsController::class, 'createAction'])->name('collections.create-action');
+    Route::post('/record-action', [CollectionsController::class, 'recordAction'])->name('collections.record-action');
+    Route::get('/promises', [CollectionsController::class, 'promises'])->name('collections.promises');
+    Route::post('/create-promise', [CollectionsController::class, 'createPromise'])->name('collections.create-promise');
+    Route::post('/record-promise', [CollectionsController::class, 'recordPromise'])->name('collections.record-promise');
+    Route::get('/schedule', [CollectionsController::class, 'schedule'])->name('collections.schedule');
 });
 
 // Public Webhook Routes (outside auth middleware - no session required)

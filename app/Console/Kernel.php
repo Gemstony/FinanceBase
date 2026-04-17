@@ -23,6 +23,10 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ProcessMonthlyInterestPosting::class,
         \App\Console\Commands\ProcessNPLInterestReversal::class,
         \App\Console\Commands\DatabaseBackup::class,
+        // Risk Monitoring Commands
+        \App\Console\Commands\Risk\UpdateRiskStatusesCommand::class,
+        \App\Console\Commands\Risk\CreateDailySnapshotCommand::class,
+        \App\Console\Commands\Risk\ClearRiskCacheCommand::class,
     ];
 
     /**
@@ -59,6 +63,15 @@ class Kernel extends ConsoleKernel
         // Process overdue installment penalties daily at 09:30 AM server time
         $schedule->command('loans:process-penalties')->dailyAt('09:30');
 
+        // Update loan risk statuses daily at 00:05 AM (after installment statuses)
+        $schedule->command('risk:update-statuses')->dailyAt('00:05');
+
+        // Create daily risk snapshot at 23:55 PM (end of business day)
+        $schedule->command('risk:create-snapshot')->dailyAt('23:55');
+
+        # Clear cache for a specific loan after payment
+        // php artisan risk:clear-cache --loan=123
+        // $schedule->command('risk:clear-cache --loan=123');
     }
 
     /**

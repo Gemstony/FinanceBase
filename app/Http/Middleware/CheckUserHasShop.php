@@ -31,13 +31,13 @@ class CheckUserHasShop
         if (!$ownsShop && !$assigned) {
             // No ownership and no assignment: force owner to create a shop
             return redirect()->route('shop.create')
-                ->with('info', 'Tafadhali tengeneza duka lako kwanza kabla ya kuendelea');
+                ->with('info', 'Please create a Branch to continue');
         }
 
         // Check if user's shop is suspended
         if ($ownsShop && $user->shop->isSuspended()) {
             return redirect()->route('shop.status')
-                ->with('error', 'Duka lako limefungwa kwa sababu ya malipo. Tafadhali wasiliana na msimamizi au ongeza malipo.');
+                ->with('error', 'Your Main branch is not active please contact Super Admin');
         }
 
         return $next($request);

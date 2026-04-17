@@ -37,7 +37,7 @@
 
 
     <div class="card shop-selection-card">
-      <div class="card-header">
+      <div class="card-header" style="background: var(--sidebar-bg)">
         <h3 class="card-title mb-0"><i class="fas fa-shopping-bag mr-2"></i>Branch Selection</h3>
       </div>
       <div class="card-body" style="padding: 2rem;">
@@ -149,8 +149,8 @@
         <div class="modal-content">
             <form action="{{ route('subshops.create-modal') }}" method="POST" id="addSubShopForm">
                 @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addSubShopModalLabel">
+                <div class="modal-header" style="background: var(--sidebar-bg)">
+                    <h5 class="modal-title text-light" id="addSubShopModalLabel">
                         <i class="fas fa-plus-circle"></i> Add New Branch
                     </h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">

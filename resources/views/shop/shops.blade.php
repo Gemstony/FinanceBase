@@ -98,7 +98,7 @@
 
     <!-- Main Branch Info Card -->
     <div class="card main-shop-card mb-4">
-        <div class="card-header">
+        <div class="card-header" style="background: var(--sidebar-bg)">
             <h3 class="card-title text-light"><i class="fas fa-university"></i> Main Branch Information</h3>
             <div class="card-tools">
 
@@ -197,7 +197,7 @@
             @forelse($shop->subShops ?? [] as $subshop)
                 <div class="col-lg-4 col-md-6 mb-4">
                     <div class="card subshop-card h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="card-header d-flex justify-content-between align-items-center" style="background: var(--sidebar-bg);">
                             <h5 class="mb-0 text-light">
                                 <i class="fas fa-building"></i> {{ $subshop->name ?? 'N/A' }}
                             </h5>
@@ -263,7 +263,7 @@
             <div class="modal-content">
                 <form action="{{ route('subshop.store') }}" method="POST" id="addSubShopForm">
                     @csrf
-                    <div class="modal-header">
+                    <div class="modal-header" style="background: var(--sidebar-bg);">
                         <h5 class="modal-title text-light" id="addSubShopModalLabel">
                             <i class="fas fa-plus-circle"></i> Add New Branch
                         </h5>
@@ -341,7 +341,7 @@
                 <form action="" method="POST" id="editSubShopForm">
                     @csrf
                     @method('PUT')
-                    <div class="modal-header">
+                    <div class="modal-header" style="background: var(--sidebar-bg);">
                         <h5 class="modal-title text-light" id="editSubShopModalLabel">
                             <i class="fas fa-edit"></i> Edit Branch
                         </h5>
@@ -416,7 +416,7 @@
         <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
                 <form id="editMainShopForm" enctype="multipart/form-data">
-                    <div class="modal-header">
+                    <div class="modal-header" style="background: var(--sidebar-bg);">
                         <h5 class="modal-title text-light" id="editMainShopModalLabel">
                             <i class="fas fa-edit"></i> Edit Main Branch Information
                         </h5>

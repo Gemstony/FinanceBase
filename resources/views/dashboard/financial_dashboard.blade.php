@@ -214,6 +214,109 @@
             </div>
         </div>
     </div>
+
+    <!-- Collections & Promises Alert Card -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">
+                                <i class="fas fa-handshake text-info me-2"></i>
+                                Promises Due Today
+                            </h6>
+                            <div class="h3 mb-0 font-weight-bold {{ $pendingPromisesTodayCount > 0 ? 'text-warning' : 'text-success' }}">
+                                {{ $pendingPromisesTodayCount }}
+                                <small class="text-muted" style="font-size: 0.5em;">pending</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{{ route('collections.promises') }}" class="btn btn-outline-info btn-sm">
+                                <i class="fas fa-eye me-1"></i> View Promises
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Loan Approvals Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">
+                                <i class="fas fa-user-check text-primary me-2"></i>
+                                Pending Loan Approvals
+                            </h6>
+                            <div class="h3 mb-0 font-weight-bold {{ $pendingApprovalsCount > 0 ? 'text-warning' : 'text-success' }}">
+                                {{ $pendingApprovalsCount }}
+                                <small class="text-muted" style="font-size: 0.5em;">for you</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{{ route('loans.approvals.index') }}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i> View Approvals
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Disbursement Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">
+                                <i class="fas fa-money-bill-wave text-success me-2"></i>
+                                Pending Disbursement
+                            </h6>
+                            <div class="h3 mb-0 font-weight-bold {{ $pendingDisburseCount > 0 ? 'text-warning' : 'text-success' }}">
+                                {{ $pendingDisburseCount }}
+                                <small class="text-muted" style="font-size: 0.5em;">Pending</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{{ route('loans.disbursement.index') }}" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-eye me-1"></i> View Pending
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Restructure Approvals Card -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">
+                                <i class="fas fa-random text-warning me-2"></i>
+                                Pending Restructures
+                            </h6>
+                            <div class="h3 mb-0 font-weight-bold {{ $pendingRestructureCount > 0 ? 'text-warning' : 'text-success' }}">
+                                {{ $pendingRestructureCount }}
+                                <small class="text-muted" style="font-size: 0.5em;">Pending</small>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <a href="{{ route('loan.restructures.index') }}" class="btn btn-outline-warning btn-sm">
+                                <i class="fas fa-eye me-1"></i> View Restructures
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Top KPI Summary Cards -->
     <div class="row mb-4">
         <div class="col-md-4">

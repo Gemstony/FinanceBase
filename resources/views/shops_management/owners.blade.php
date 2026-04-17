@@ -340,14 +340,14 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
+                <div class="card-header" >
                     <h5 class="mb-0"><i class="fas fa-users"></i> Owners Management</h5>
                 </div>
                 <div class="card-body">
                     @if($owners->count() > 0)
                         <div class="table-responsive">
                             <table class="table table-striped table-hover" id="ownersTable">
-                                <thead class="thead-dark">
+                                <thead class="thead-light">
                                     <tr>
                                         <th>Owner</th>
                                         <th>Role</th>

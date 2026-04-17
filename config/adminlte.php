@@ -553,20 +553,69 @@ return [
         ],
 
         [
-            'text' => 'Risk Monitoring',
+            'text' => 'Risk Management',
             'icon' => 'fas fa-shield-alt',
             'submenu' => [
                 [
-                    'text' => 'Portfolio Risk',
+                    'text' => 'Dashboard',
                     'url' => 'risk/portfolio',
+                    'icon' => 'fas fa-tachometer-alt',
+                ],
+                [
+                    'text' => 'Historical Trends',
+                    'url' => 'risk/history',
+                    'icon' => 'fas fa-chart-line',
                 ],
                 [
                     'text' => 'Delinquent Loans',
                     'url' => 'risk/delinquent',
+                    'icon' => 'fas fa-exclamation-triangle',
                 ],
                 [
                     'text' => 'Collections',
-                    'url' => 'risk/collections',
+                    'icon' => 'fas fa-hand-holding-usd',
+                    'submenu' => [
+                        [
+                            'text' => 'Worklist',
+                            'url' => 'risk/collections',
+                        ],
+                        [
+                            'text' => 'Action Tracker',
+                            'url' => 'collections/actions',
+                        ],
+                        [
+                            'text' => 'Promises to Pay',
+                            'url' => 'collections/promises',
+                        ],
+                        [
+                            'text' => 'My Schedule',
+                            'url' => 'collections/schedule',
+                        ],
+                    ],
+                ],
+                [
+                    'text' => 'Analytics',
+                    'icon' => 'fas fa-chart-pie',
+                    'submenu' => [
+                        [
+                            'text' => 'Provision Report',
+                            'url' => 'risk/provision-report',
+                        ],
+                        [
+                            'text' => 'Stress Testing',
+                            'url' => 'risk/stress-test',
+                        ],
+                    ],
+                ],
+                [
+                    'text' => 'Configuration',
+                    'icon' => 'fas fa-cogs',
+                    'submenu' => [
+                        [
+                            'text' => 'Risk Thresholds',
+                            'url' => 'risk/thresholds',
+                        ],
+                    ],
                 ],
             ],
         ],

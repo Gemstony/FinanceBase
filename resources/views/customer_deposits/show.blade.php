@@ -282,7 +282,7 @@
                 <div class="card">
                     <div class="card-header"><strong>Accounts</strong></div>
                     <div class="card-body table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="depositAccountsTable">
                             <thead class="thead-light">
                                 <tr>
                                     <th>Account</th>
@@ -545,5 +545,17 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+    $(document).ready(function() {
+    if ($('#depositAccountsTable').length) {
+        $('#depositAccountsTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [5] },
+                { searchable: false, targets: [5] }
+            ],
+        });
+    }
+    });
 </script>
 @endpush

@@ -176,7 +176,7 @@
                                     <div><strong>Journal Entry #{{ $j->id }}</strong> <span class="text-muted">({{ $j->transaction_date?->format('Y-m-d') ?? '—' }})</span></div>
                                     <div class="small text-muted">Type: <strong>{{ $j->reference_type ?? '—' }}</strong> | Reference: <strong>{{ $j->reference_id ?? '—' }}</strong></div>
                                     <div class="small">{{ $j->description ?? '—' }}</div>
-                                    <div class="small text-muted">Created By: {{ $j->creator?->name ?? '—' }}</div>
+                                    <div class="small text-muted">Created By: {{ $j->creator?->name ?? 'System' }}</div>
                                 </div>
                                 <div class="text-right">
                                     <a href="{{ route('reports.accounting.general_ledger.journal_entry', ['journalEntryId' => $j->id, 'subshop_id' => request('subshop_id')]) }}" class="btn btn-sm btn-outline-primary">

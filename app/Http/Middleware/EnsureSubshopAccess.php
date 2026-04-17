@@ -51,9 +51,9 @@ class EnsureSubshopAccess
             }
 
             if (!$mainShopStatus) {
-                \Log::info('EnsureSubshopAccess: User has no shop ownership or assignments, redirecting to shop.create', ['user_id' => $user->id]);
+                \Log::info('EnsureSubshopAccess: User has no branch ownership or assignments, redirecting to branch.create', ['user_id' => $user->id]);
                 return redirect()->route('shop.create')
-                    ->withErrors(['error' => 'Please create a shop first']);
+                    ->withErrors(['error' => 'Please create a branch first']);
             }
         } else {
             $mainShopStatus = $shop->status;
@@ -62,7 +62,7 @@ class EnsureSubshopAccess
         // Check shop status - only allow active shops (for both owners and shopkeepers)
         if ($mainShopStatus !== 'active') {
             $statusShopName = $shop ? $shop->name : ($assignedSubshop && $assignedSubshop->shop ? $assignedSubshop->shop->name : 'Assigned Shop');
-            \Log::info('EnsureSubshopAccess: Main shop is not active, redirecting to shop.status', [
+            \Log::info('EnsureSubshopAccess: Main branch is not active, redirecting to shop.status', [
                 'user_id' => $user->id,
                 'shop_status' => $mainShopStatus,
                 'shop_name' => $statusShopName

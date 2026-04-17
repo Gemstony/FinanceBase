@@ -6,9 +6,136 @@ use App\Models\LoanInstallments;
 use App\Models\Loans;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class PortfolioRiskCalculator
 {
+    /**
+     * Cache TTL in seconds for individual loan calculations (5 minutes).
+     * Shorter TTL because loan payments can change outstanding balance frequently.
+     */
+    protected const LOAN_CACHE_TTL = 300;
+
+    /**
+     * Cache TTL in seconds for portfolio-level calculations (10 minutes).
+     */
+    protected const PORTFOLIO_CACHE_TTL = 600;
+
+    /**
+     * Cache TTL in seconds for delinquent calculations (5 minutes).
+     */
+    protected const DELINQUENT_CACHE_TTL = 300;
+
+    /**
+     * Cache key prefix for loan outstanding calculations.
+     */
+    protected const LOAN_CACHE_PREFIX = 'loan_outstanding:';
+
+    /**
+     * Generate cache key for a loan's outstanding balance.
+     */
+    protected function getLoanCacheKey(int $loanId): string
+    {
+        return self::LOAN_CACHE_PREFIX . $loanId;
+    }
+
+    /**
+     * Clear the cache for a specific loan.
+     */
+    public function clearLoanCache(int $loanId): void
+    {
+        Cache::forget($this->getLoanCacheKey($loanId));
+    }
+
+    /**
+     * Clear all loan outstanding caches.
+     */
+    public function clearAllLoanCaches(): void
+    {
+        // Note: This requires cache driver that supports pattern deletion
+        // For Redis, you would use: Cache::store('redis')->getRedis()->del(...)
+        // For file/database drivers, use with caution on large portfolios
+    }
+
+    /**
+     * Calculate outstanding balance with caching.
+     *
+     * This is the primary method that should be used by external callers.
+     * It caches results to avoid repeated expensive calculations.
+     */
+    public function calculateLoanOutstandingCached(Loans $loan): float
+    {
+        $loanId = (int) $loan->id;
+        $cacheKey = $this->getLoanCacheKey($loanId);
+
+        return Cache::remember($cacheKey, self::LOAN_CACHE_TTL, function () use ($loan) {
+            return $this->calculateLoanOutstanding($loan);
+        });
+    }
+
+    /**
+     * Bulk calculate outstanding balances for multiple loans with caching.
+     *
+     * @param array<int> $loanIds
+     * @return array<int, float> Array of [loan_id => outstanding_balance]
+     */
+    public function bulkCalculateOutstanding(array $loanIds): array
+    {
+        if (empty($loanIds)) {
+            return [];
+        }
+
+        $results = [];
+        $uncachedIds = [];
+
+        // Check cache first
+        foreach ($loanIds as $loanId) {
+            $cacheKey = $this->getLoanCacheKey($loanId);
+            $cached = Cache::get($cacheKey);
+
+            if ($cached !== null) {
+                $results[$loanId] = (float) $cached;
+            } else {
+                $uncachedIds[] = $loanId;
+            }
+        }
+
+        // Calculate uncached loans in bulk
+        if (!empty($uncachedIds)) {
+            $uncachedLoans = Loans::whereIn('id', $uncachedIds)->get();
+
+            foreach ($uncachedLoans as $loan) {
+                $outstanding = $this->calculateLoanOutstanding($loan);
+                $results[$loan->id] = $outstanding;
+
+                // Store in cache
+                Cache::put(
+                    $this->getLoanCacheKey($loan->id),
+                    $outstanding,
+                    self::LOAN_CACHE_TTL
+                );
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Calculate total portfolio outstanding with caching.
+     */
+    public function calculateTotalPortfolioOutstandingCached(?int $subshopId = null): float
+    {
+        $cacheKey = $subshopId
+            ? "portfolio_outstanding:subshop:{$subshopId}"
+            : 'portfolio_outstanding:total';
+
+        return Cache::remember($cacheKey, self::PORTFOLIO_CACHE_TTL, function () use ($subshopId) {
+            if ($subshopId) {
+                return $this->calculateTotalPortfolioOutstandingForSubshops([$subshopId]);
+            }
+            return $this->calculateTotalPortfolioOutstanding();
+        });
+    }
     /**
      * Calculate the outstanding balance for a single loan.
      *
@@ -155,6 +282,20 @@ class PortfolioRiskCalculator
     }
 
     /**
+     * Calculate delinquent outstanding with caching.
+     */
+    public function calculateDelinquentOutstandingCached(int $days, ?int $subshopId = null): float
+    {
+        $cacheKey = $subshopId
+            ? "delinquent_outstanding:days:{$days}:subshop:{$subshopId}"
+            : "delinquent_outstanding:days:{$days}";
+
+        return Cache::remember($cacheKey, self::DELINQUENT_CACHE_TTL, function () use ($days, $subshopId) {
+            return $this->calculateDelinquentOutstanding($days, $subshopId);
+        });
+    }
+
+    /**
      * Calculate total outstanding for loans within specific subshops.
      *
      * Uses the same active loan definition and per-loan outstanding calculation.
@@ -164,6 +305,45 @@ class PortfolioRiskCalculator
         $total = 0.0;
 
         $this->activeLoansQuery()
+            ->whereIn('subshop_id', $subshopIds)
+            ->select(['id'])
+            ->chunkById(200, function ($loans) use (&$total) {
+                foreach ($loans as $loan) {
+                    $outstanding = $this->calculateLoanOutstanding($loan);
+                    if ($outstanding > 0) {
+                        $total += $outstanding;
+                    }
+                }
+            });
+
+        return round($total, 2);
+    }
+
+    /**
+     * Calculate delinquent outstanding for loans within specific subshops.
+     *
+     * Uses the same active loan definition and per-loan outstanding calculation.
+     */
+    public function calculateDelinquentOutstandingForSubshops(int $days, array $subshopIds): float
+    {
+        $days = max(0, (int) $days);
+        $cutoffDate = Carbon::today()->subDays($days);
+
+        $delinquentLoanIds = LoanInstallments::query()
+            ->where('is_active', true)
+            ->where('status', 'overdue')
+            ->whereDate('due_date', '<', $cutoffDate)
+            ->distinct()
+            ->pluck('loan_id');
+
+        if ($delinquentLoanIds->isEmpty()) {
+            return 0.0;
+        }
+
+        $total = 0.0;
+
+        $this->activeLoansQuery()
+            ->whereIn('id', $delinquentLoanIds)
             ->whereIn('subshop_id', $subshopIds)
             ->select(['id'])
             ->chunkById(200, function ($loans) use (&$total) {

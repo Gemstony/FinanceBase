@@ -135,7 +135,7 @@
                 <div class="card">
                     <div class="card-header"><strong>Credit History</strong></div>
                     <div class="card-body table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" id="creditHistoryTable">
                             <thead class="thead-light">
                                 <tr>
                                     <th>Amount</th>
@@ -242,5 +242,17 @@
         refundMethodEl.addEventListener('change', updateBankAccountOptions);
         updateBankAccountOptions();
     })();
+
+    $(document).ready(function() {
+    if ($('#creditHistoryTable').length) {
+        $('#creditHistoryTable').DataTable({
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: [5] },
+                { searchable: false, targets: [5] }
+            ],
+        });
+    }
+    });
 </script>
 @endpush

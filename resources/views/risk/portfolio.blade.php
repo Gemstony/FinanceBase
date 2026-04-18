@@ -57,7 +57,7 @@
                     <div class="icon">
                         <i class="fas fa-check-circle"></i>
                     </div>
-                    <a href="#" class="small-box-footer">View List <i class="fas fa-arrow-circle-right"></i></a>
+                    <a href="{{ route('loan.repayments.index') }}" class="small-box-footer">View List <i class="fas fa-arrow-circle-right"></i></a>
 
                 </div>
             </div>

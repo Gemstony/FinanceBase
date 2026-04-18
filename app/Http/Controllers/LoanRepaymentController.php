@@ -6,10 +6,12 @@ use App\Models\BankAccounts;
 use App\Models\LoanInstallments;
 use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPayments;
+use App\Models\LoanProducts;
 use App\Models\Loans;
 use App\Models\SubShop;
 use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
+use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use App\Services\Sms\SmsManager;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -26,35 +28,117 @@ class LoanRepaymentController extends Controller
     public function __construct(
         private readonly PaymentProcessor $paymentProcessor,
         private readonly LoanAccountEngine $loanAccountEngine,
+        private readonly PortfolioRiskCalculator $portfolioRisk,
     ) {}
 
     public function index(Request $request): View
     {
-        $subshopId = (int) session('subshop_id');
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        $q = (string) $request->query('q', '');
+        $status = (string) $request->query('status', '');
+        $borrowerType = (string) $request->query('borrower_type', '');
+        $loanProductId = (string) $request->query('loan_product_id', '');
+        $dateFrom = (string) $request->query('date_from', '');
+        $dateTo = (string) $request->query('date_to', '');
 
         $query = Loans::query()
-            ->with(['customer', 'loanProduct', 'loanGroup'])
             ->where('subshop_id', $subshopId)
-            ->whereIn('status', ['disbursed', 'partially_paid']);
+            ->whereIn('status', ['disbursed', 'partially_paid'])
+            ->with([
+                'loanProduct' => fn ($p) => $p->with('repaymentFrequency'),
+                'customer',
+                'loanGroup',
+                'installments' => fn ($i) => $i->where('is_active', true),
+            ]);
 
-        if ($request->filled('loan_code')) {
-            $query->where('loan_code', 'like', '%'.$request->string('loan_code').'%');
-        }
-
-        if ($request->filled('borrower')) {
-            $borrower = $request->string('borrower');
-            $query->where(function ($q) use ($borrower) {
-                $q->whereHas('customer', function ($q2) use ($borrower) {
-                    $q2->where('name', 'like', '%'.$borrower.'%');
-                })->orWhereHas('loanGroup', function ($q2) use ($borrower) {
-                    $q2->where('name', 'like', '%'.$borrower.'%');
-                });
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('loan_code', 'like', '%'.$q.'%')
+                    ->orWhere('id', $q)
+                    ->orWhereHas('customer', function ($c) use ($q) {
+                        $c->where('name', 'like', '%'.$q.'%');
+                    })
+                    ->orWhereHas('loanGroup', function ($g) use ($q) {
+                        $g->where('name', 'like', '%'.$q.'%');
+                    })
+                    ->orWhereHas('loanProduct', function ($p) use ($q) {
+                        $p->where('name', 'like', '%'.$q.'%');
+                    });
             });
         }
 
-        $loans = $query->orderByDesc('id')->get();
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
 
-        return view('loans.repayments.index', compact('loans'));
+        if ($borrowerType !== '') {
+            $query->where('borrower_type', $borrowerType);
+        }
+
+        if ($loanProductId !== '') {
+            $query->where('loan_product_id', (int) $loanProductId);
+        }
+
+        if ($dateFrom !== '') {
+            $query->whereDate('disbursement_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo !== '') {
+            $query->whereDate('disbursement_date', '<=', $dateTo);
+        }
+
+        $outstandingSum = $this->portfolioRisk->calculateTotalPortfolioOutstandingForSubshops([$subshopId]);
+
+        $disbursedLoansQuery = Loans::query()
+            ->where('subshop_id', $subshopId)
+            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted']);
+
+        $principalSum = (float) $disbursedLoansQuery->sum('principal_amount');
+
+        $summaryBase = (clone $query)->selectRaw(
+            "COUNT(*) as total," .
+            "SUM(CASE WHEN status = 'disbursed' THEN 1 ELSE 0 END) as disbursed," .
+            "SUM(CASE WHEN status = 'partially_paid' THEN 1 ELSE 0 END) as partially_paid"
+        )->first();
+
+        $summary = [
+            'total' => (int) ($summaryBase->total ?? 0),
+            'disbursed' => (int) ($summaryBase->disbursed ?? 0),
+            'partially_paid' => (int) ($summaryBase->partially_paid ?? 0),
+            'principal_sum' => $principalSum,
+            'outstanding_sum' => $outstandingSum,
+        ];
+
+        $loans = $query
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        $loans->each(function ($loan) {
+            $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
+        });
+
+        $loanProducts = LoanProducts::query()
+            ->where('subshop_id', $subshopId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $statuses = ['disbursed', 'partially_paid'];
+
+        return view('loans.repayments.index', compact(
+            'subshop',
+            'loans',
+            'summary',
+            'loanProducts',
+            'statuses',
+            'q',
+            'status',
+            'borrowerType',
+            'loanProductId',
+            'dateFrom',
+            'dateTo'
+        ));
     }
 
     public function create(Loans $loan): View

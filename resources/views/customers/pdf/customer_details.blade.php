@@ -14,6 +14,10 @@
         .header-info { display: inline-block; vertical-align: top; width: calc(100% - 95px); }
         .logo { max-width: 85px; max-height: 85px; object-fit: contain; }
 
+        .customer-photo { display: inline-block; vertical-align: top; width: 80px; margin-right: 10px; }
+        .customer-photo img { width: 75px; height: 75px; object-fit: cover; border: 1px solid #ccc; border-radius: 4px; }
+        .customer-info-header { display: inline-block; vertical-align: top; width: calc(100% - 95px); }
+
         .inst-name { font-size: 14px; font-weight: 700; margin: 0 0 3px 0; }
         .inst-meta { font-size: 9px; line-height: 1.35; }
         .report-title { font-size: 12px; font-weight: 700; text-transform: uppercase; text-align: right; margin: 0 0 3px 0; }
@@ -50,6 +54,26 @@
         $shopCountry = $shop->country ?? null;
 
         $branchLabel = $subshop->name ?? 'All Branches';
+
+        // Build customer address from components
+        $customerAddress = collect([
+            $customer->street,
+            $customer->house_no ? 'House No: ' . $customer->house_no : null,
+            $customer->ward,
+            $customer->district,
+            $customer->region,
+        ])->filter()->implode(', ');
+
+        // Format customer status
+        $customerStatus = $customer->is_active ? 'Active' : 'Inactive';
+
+        // Get customer image path for PDF (base64 encoded for DOMPDF compatibility)
+        $customerImageBase64 = null;
+        if ($customer->customer_image && file_exists(storage_path('app/public/' . $customer->customer_image))) {
+            $imagePath = storage_path('app/public/' . $customer->customer_image);
+            $imageData = file_get_contents($imagePath);
+            $customerImageBase64 = 'data:image/' . pathinfo($imagePath, PATHINFO_EXTENSION) . ';base64,' . base64_encode($imageData);
+        }
     @endphp
 
     <div class="header">
@@ -96,53 +120,72 @@
     </div>
 
     <div class="block-title">Customer Information</div>
+    <div style="margin-bottom: 10px;">
+        @if($customerImageBase64)
+            <div class="customer-photo">
+                <img src="{{ $customerImageBase64 }}" alt="Customer Photo">
+            </div>
+        @endif
+        <div class="customer-info-header">
+            <table>
+                <tbody>
+                    <tr>
+                        <td><strong>Customer Code</strong></td>
+                        <td>{{ $customer->customer_code ?? 'N/A' }}</td>
+                        <td><strong>Full Name</strong></td>
+                        <td>{{ $customer->name ?? 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Email</strong></td>
+                        <td>{{ $customer->email ?? 'N/A' }}</td>
+                        <td><strong>Phone</strong></td>
+                        <td>{{ $customer->phone ?? 'N/A' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
     <table>
         <tbody>
             <tr>
-                <td><strong>Full Name</strong></td>
-                <td>{{ $customer->name ?? 'N/A' }}</td>
-                <td><strong>Email</strong></td>
-                <td>{{ $customer->email ?? 'N/A' }}</td>
-            </tr>
-            <tr>
-                <td><strong>Phone</strong></td>
-                <td>{{ $customer->phone ?? 'N/A' }}</td>
                 <td><strong>Alternative Phone</strong></td>
-                <td>{{ $customer->alternative_phone ?? 'N/A' }}</td>
-            </tr>
-            <tr>
+                <td>{{ $customer->altenative_phone ?? 'N/A' }}</td>
                 <td><strong>Gender</strong></td>
-                <td>{{ $customer->gender ?? 'N/A' }}</td>
-                <td><strong>Date of Birth</strong></td>
-                <td>{{ $customer->date_of_birth ?? 'N/A' }}</td>
+                <td>{{ ucfirst($customer->gender) ?? 'N/A' }}</td>
             </tr>
             <tr>
-                <td><strong>National ID</strong></td>
-                <td>{{ $customer->national_id ?? 'N/A' }}</td>
+                <td><strong>Date of Birth</strong></td>
+                <td>{{ $customer->birth_date ? \Carbon\Carbon::parse($customer->birth_date)->format('Y-m-d') : 'N/A' }}</td>
+                <td><strong>ID Type</strong></td>
+                <td>{{ $customer->id_type ?? 'N/A' }}</td>
+            </tr>
+            <tr>
+                <td><strong>ID Number</strong></td>
+                <td>{{ $customer->id_number ?? 'N/A' }}</td>
                 <td><strong>Status</strong></td>
-                <td>{{ $customer->status ?? 'N/A' }}</td>
+                <td>{{ $customerStatus }}</td>
             </tr>
             <tr>
                 <td><strong>Address</strong></td>
-                <td colspan="3">{{ $customer->address ?? 'N/A' }}</td>
+                <td colspan="3">{{ $customerAddress ?: 'N/A' }}</td>
             </tr>
             <tr>
-                <td><strong>City</strong></td>
-                <td>{{ $customer->city ?? 'N/A' }}</td>
-                <td><strong>Country</strong></td>
-                <td>{{ $customer->country ?? 'N/A' }}</td>
+                <td><strong>District</strong></td>
+                <td>{{ $customer->district ?? 'N/A' }}</td>
+                <td><strong>Region</strong></td>
+                <td>{{ $customer->region ?? 'N/A' }}</td>
             </tr>
             <tr>
-                <td><strong>Occupation</strong></td>
-                <td>{{ $customer->occupation ?? 'N/A' }}</td>
-                <td><strong>Employer</strong></td>
-                <td>{{ $customer->employer ?? 'N/A' }}</td>
+                <td><strong>Work/Occupation</strong></td>
+                <td>{{ $customer->work ?? 'N/A' }}</td>
+                <td><strong>Work Address</strong></td>
+                <td>{{ $customer->work_address ?? 'N/A' }}</td>
             </tr>
             <tr>
-                <td><strong>Monthly Income</strong></td>
-                <td class="num">{{ number_format($customer->monthly_income ?? 0, 2) }}</td>
+                <td><strong>Category</strong></td>
+                <td>{{ $customer->category ?? 'N/A' }}</td>
                 <td><strong>Registration Date</strong></td>
-                <td>{{ $customer->created_at ?? 'N/A' }}</td>
+                <td>{{ $customer->created_at ? $customer->created_at->format('Y-m-d H:i') : 'N/A' }}</td>
             </tr>
         </tbody>
     </table>

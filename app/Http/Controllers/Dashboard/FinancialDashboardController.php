@@ -88,19 +88,22 @@ class FinancialDashboardController extends Controller
 
         $dashboardData = $this->service->build($filters, $accessibleSubshopIds);
 
+        // Determine effective subshop IDs for counts - filter by selected subshop if provided
+        $effectiveSubshopIds = $subshopId ? [$subshopId] : $accessibleSubshopIds;
+
         // Get today's pending promises count (cached in service for 1 minute)
         $promisesDueToday = Cache::remember(
-            'promises_due_today:' . md5(implode(',', $accessibleSubshopIds)),
+            'promises_due_today:' . md5(implode(',', $effectiveSubshopIds)),
             60,
-            fn () => $this->promiseService->getPromisesDueToday($accessibleSubshopIds)
+            fn () => $this->promiseService->getPromisesDueToday($effectiveSubshopIds)
         );
         $pendingPromisesTodayCount = $promisesDueToday->count();
 
         // Get pending loan approvals count for current user (cached for 1 minute)
-        $pendingApprovalsCount = $this->getPendingLoanApprovalsCount($user, $accessibleSubshopIds);
+        $pendingApprovalsCount = $this->getPendingLoanApprovalsCount($user, $effectiveSubshopIds);
 
         // Get combined counts for disburse and restructure (both cached for 1 minute)
-        $combinedCounts = $this->getCombinedCounts($accessibleSubshopIds);
+        $combinedCounts = $this->getCombinedCounts($effectiveSubshopIds);
 
         return view('dashboard.financial_dashboard', [
             'shop' => $shop,

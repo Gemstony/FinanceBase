@@ -237,7 +237,7 @@ class LoansController extends Controller
 
         $loans = $query
             ->orderByDesc('id')
-            ->paginate(30);
+            ->paginate(20);
 
         $loans->each(function ($loan) {
             $loan->calculated_outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);

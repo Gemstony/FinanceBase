@@ -10,6 +10,7 @@ use App\Models\CustomerCreditLiabilityAccount;
 use App\Models\Customers;
 use App\Models\Loans;
 use App\Models\PaymentMethodAccount;
+use App\Models\SubShop;
 use App\Services\Loans\Credits\CustomerCreditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -64,6 +65,10 @@ class CustomerCreditsController extends Controller
             abort(403);
         }
 
+        // Get shop-level subshop IDs for accounting configuration
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $query = CustomerCreditBalances::query()
             ->with(['loan', 'payment', 'appliedToLoan', 'refundedBy'])
             ->where('subshop_id', $subshopId)
@@ -110,8 +115,9 @@ class CustomerCreditsController extends Controller
             ->orderBy('account_name')
             ->get();
 
+        // Use shop-level scoping for liability accounts (all subshops under same shop)
         $liabilityAccounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get();
@@ -215,7 +221,7 @@ class CustomerCreditsController extends Controller
     }
 
     /**
-     * Configure customer credit liability account for the current subshop
+     * Configure customer credit liability account for the current shop (shared across all subshops)
      */
     public function configureLiabilityAccount(Request $request): RedirectResponse
     {
@@ -226,28 +232,34 @@ class CustomerCreditsController extends Controller
             ]);
 
             $subshopId = (int) session('subshop_id');
-            
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
+
+            // Get all subshop IDs under this shop for validation
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
             // Validate that the selected account is a liability account
             $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
-            
+
             if ((int) $chartAccount->accountClass->code !== 2) {
                 return redirect()->back()
                     ->with('error', 'Selected account must be a liability account (Account Class 2).');
             }
-            
-            if ((int) $chartAccount->subshop_id !== $subshopId) {
+
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
                 return redirect()->back()
-                    ->with('error', 'Selected account does not belong to this branch.');
+                    ->with('error', 'Selected account does not belong to this shop.');
             }
-            
+
             if (!$chartAccount->is_active) {
                 return redirect()->back()
                     ->with('error', 'Selected account is not active.');
             }
 
-            // Create or update liability account configuration
+            // Create or update liability account configuration at shop level
             CustomerCreditLiabilityAccount::updateOrCreate(
-                ['subshop_id' => $subshopId],
+                ['shop_id' => $shopId],
                 [
                     'chart_of_account_id' => (int) $validated['chart_of_account_id'],
                     'notes' => $validated['notes'] ?? null,
@@ -255,7 +267,7 @@ class CustomerCreditsController extends Controller
             );
 
             return redirect()->back()
-                ->with('success', 'Customer credit liability account configured successfully.');
+                ->with('success', 'Customer credit liability account configured successfully for all branches.');
 
         } catch (\Exception $e) {
             Log::error('Liability account configuration failed', [

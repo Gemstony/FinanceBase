@@ -42,6 +42,13 @@
 
 @section('content')
     <div class="container-fluid">
+        
+        @if(session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+        @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
         <!-- Date Display -->
         <div class="row mb-3">
             <div class="col-md-12 text-center">

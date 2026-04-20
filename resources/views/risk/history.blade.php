@@ -31,6 +31,16 @@
 
 @section('content')
     <div class="container-fluid">
+        
+        @if(session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+        @if(session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+        @if(session('info'))
+            <div class="alert alert-info">{{ session('info') }}</div>
+        @endif
         <!-- Date Range Filter -->
         <div class="row mb-3">
             <div class="col-md-12">

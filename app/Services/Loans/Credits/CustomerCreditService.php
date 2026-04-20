@@ -10,6 +10,7 @@ use App\Models\CustomerCreditBalances;
 use App\Models\CustomerCreditLiabilityAccount;
 use App\Models\Loans;
 use App\Models\PaymentMethodAccount;
+use App\Models\SubShop;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Account\LoanAccountEngine;
@@ -380,18 +381,28 @@ class CustomerCreditService
     }
 
     /**
-     * Get customer credit liability account for a subshop
+     * Get customer credit liability account for a subshop (uses shop-level configuration)
      */
     public function getCustomerCreditLiabilityAccount(int $subshopId): int
     {
         Log::debug('Getting customer credit liability account', ['subshop_id' => $subshopId]);
-        
-        $liabilityAccount = CustomerCreditLiabilityAccount::forSubshop($subshopId);
-        
+
+        // Get the shop ID from the subshop for shop-level configuration
+        $subshop = SubShop::find($subshopId);
+        if (!$subshop) {
+            Log::error('Subshop not found', ['subshop_id' => $subshopId]);
+            throw new InvalidArgumentException('Invalid branch selected.');
+        }
+
+        $shopId = $subshop->shop_id;
+        Log::debug('Resolved shop ID for liability account', ['shop_id' => $shopId]);
+
+        $liabilityAccount = CustomerCreditLiabilityAccount::forShop($shopId);
+
         if (!$liabilityAccount) {
-            Log::error('Liability account not configured', ['subshop_id' => $subshopId]);
+            Log::error('Liability account not configured', ['shop_id' => $shopId, 'subshop_id' => $subshopId]);
             throw new InvalidArgumentException(
-                'Customer credit liability account is not configured for this branch. ' .
+                'Customer credit liability account is not configured for this shop. ' .
                 'Please configure it first before processing refunds.'
             );
         }
@@ -403,34 +414,36 @@ class CustomerCreditService
 
         // Validate that account is still a liability account and active
         $chartAccount = ChartsOfAccount::query()->whereKey($liabilityAccount->chart_of_account_id)->first();
-        
+
         if (!$chartAccount) {
             Log::error('Configured liability account no longer exists', [
                 'liability_account_id' => $liabilityAccount->chart_of_account_id,
             ]);
             throw new InvalidArgumentException('Configured liability account no longer exists.');
         }
-        
+
         if ((int) $chartAccount->accountClass->code !== 2) {
             Log::error('Configured liability account not liability class', [
                 'account_class_code' => $chartAccount->accountClass->code,
             ]);
             throw new InvalidArgumentException('Configured liability account is not a liability account (Account Class 2).');
         }
-        
+
         if (!$chartAccount->is_active) {
             Log::error('Configured liability account not active', [
                 'liability_account_id' => $liabilityAccount->chart_of_account_id,
             ]);
             throw new InvalidArgumentException('Configured liability account is not active.');
         }
-        
-        if ((int) $chartAccount->subshop_id !== $subshopId) {
-            Log::error('Configured liability account wrong subshop', [
+
+        // Validate account belongs to any subshop under the same shop (shop-level scope)
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
+            Log::error('Configured liability account does not belong to this shop', [
                 'account_subshop_id' => $chartAccount->subshop_id,
-                'session_subshop_id' => $subshopId,
+                'shop_id' => $shopId,
             ]);
-            throw new InvalidArgumentException('Configured liability account does not belong to this branch.');
+            throw new InvalidArgumentException('Configured liability account does not belong to this shop.');
         }
 
         Log::debug('Liability account validated', [

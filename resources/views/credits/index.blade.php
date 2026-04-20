@@ -77,8 +77,11 @@
                         <div class="d-flex justify-content-between gap-2 flex-wrap">
                             @php
                                 $subshopId = session('subshop_id');
-                                $liabilityConfigured = \App\Models\CustomerCreditLiabilityAccount::isConfiguredForSubshop($subshopId);
-                                $liabilityAccount = \App\Models\CustomerCreditLiabilityAccount::forSubshop($subshopId);
+                                $subshop = \App\Models\SubShop::find($subshopId);
+                                $shopId = $subshop?->shop_id;
+                                $shopSubshopIds = \App\Models\SubShop::where('shop_id', $shopId)->pluck('id');
+                                $liabilityConfigured = \App\Models\CustomerCreditLiabilityAccount::isConfiguredForShop($shopId);
+                                $liabilityAccount = \App\Models\CustomerCreditLiabilityAccount::forShop($shopId);
                             @endphp
                             
                             @if($liabilityConfigured && $liabilityAccount)
@@ -191,7 +194,7 @@ $(document).ready(function() {
                 <div class="modal-body">
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
-                        <strong>Note:</strong> This account will be used as the liability account for all customer credit refunds in this branch. 
+                        <strong>Note:</strong> This account will be used as the liability account for all customer credit refunds across all branches in this shop.
                         It should be a liability account (Account Class 2) that represents customer credit obligations.
                     </div>
                     
@@ -200,10 +203,9 @@ $(document).ready(function() {
                         <select name="chart_of_account_id" id="chart_of_account_id" class="form-control" required>
                             <option value="">Select a liability account...</option>
                             @php
-                                $subshopId = session('subshop_id');
-
+                                // Use shop-level scoping for liability accounts (all subshops under same shop)
                                 $liabilityAccounts = \App\Models\ChartsOfAccount::with('accountClass')
-                                    ->where('subshop_id', $subshopId)
+                                    ->whereIn('subshop_id', $shopSubshopIds)
                                     ->whereHas('accountClass', function ($query) {
                                         $query->where('code', 2);
                                     })

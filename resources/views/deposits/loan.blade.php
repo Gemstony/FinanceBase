@@ -328,8 +328,14 @@
                         <select name="chart_of_account_id" class="form-control" required>
                             <option value="">Select Liability Account</option>
                             @php
+                                // Use shop-level scoping for liability accounts (all subshops under same shop)
+                                $subshopId = session('subshop_id');
+                                $subshop = \App\Models\SubShop::find($subshopId);
+                                $shopId = $subshop?->shop_id;
+                                $shopSubshopIds = \App\Models\SubShop::where('shop_id', $shopId)->pluck('id');
+
                                 $liabilityAccounts = \App\Models\ChartsOfAccount::with('accountClass')
-                                    ->where('subshop_id', session('subshop_id'))
+                                    ->whereIn('subshop_id', $shopSubshopIds)
                                     ->where('is_active', true)
                                     ->get()
                                     ->filter(fn($acc) => (int)($acc->accountClass?->code ?? 0) === 2);
@@ -340,6 +346,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        <small class="form-text text-muted">Showing liability accounts from all branches in this shop.</small>
                     </div>
                     <div class="form-group">
                         <label>Notes</label>
@@ -380,11 +387,17 @@
                         <select name="chart_of_account_id" class="form-control" required>
                             <option value="">Select Income Account</option>
                             @php
+                                // Use shop-level scoping for income accounts (all subshops under same shop)
+                                $subshopId = session('subshop_id');
+                                $subshop = \App\Models\SubShop::find($subshopId);
+                                $shopId = $subshop?->shop_id;
+                                $shopSubshopIds = \App\Models\SubShop::where('shop_id', $shopId)->pluck('id');
+
                                 $incomeAccounts = \App\Models\ChartsOfAccount::with('accountClass')
-                                    ->where('subshop_id', session('subshop_id'))
+                                    ->whereIn('subshop_id', $shopSubshopIds)
                                     ->where('is_active', true)
                                     ->get()
-                                    ->filter(fn($acc) => (int)($acc->accountClass?->code ?? 0) === 4);
+                                    ->filter(fn($acc) => in_array((int)($acc->accountClass?->code ?? 0), [4, 5]));
                             @endphp
                             @foreach($incomeAccounts as $acc)
                                 <option value="{{ $acc->id }}" @selected(($forfeitureConfig?->chart_of_account_id) == $acc->id)>
@@ -392,6 +405,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        <small class="form-text text-muted">Showing income accounts (Class 4 & 5) from all branches in this shop.</small>
                     </div>
                     <div class="form-group">
                         <label>Notes</label>

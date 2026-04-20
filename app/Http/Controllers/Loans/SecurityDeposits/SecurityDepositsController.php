@@ -10,6 +10,7 @@ use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
 use App\Models\SecurityDepositForfeitureAccount;
 use App\Models\SecurityDepositLiabilityAccount;
+use App\Models\SubShop;
 use App\Services\Loans\SecurityDeposits\SecurityDepositService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -128,10 +129,14 @@ class SecurityDepositsController extends Controller
             ->orderBy('account_name')
             ->get();
 
-        $liabilityConfig = SecurityDepositLiabilityAccount::forSubshop($subshopId);
+        // Get shop-level configuration (shared across all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $liabilityConfig = SecurityDepositLiabilityAccount::forShop($shopId);
         $liabilityConfigured = $liabilityConfig !== null;
 
-        $forfeitureConfig = SecurityDepositForfeitureAccount::forSubshop($subshopId);
+        $forfeitureConfig = SecurityDepositForfeitureAccount::forShop($shopId);
         $forfeitureConfigured = $forfeitureConfig !== null;
 
         return view('deposits.loan', compact('loan', 'deposits', 'heldDeposits', 'heldTotal', 'appliedTotal', 'refundedTotal', 'forfeitedTotal', 'activeLoans', 'bankAccounts', 'liabilityConfig', 'liabilityConfigured', 'forfeitureConfig', 'forfeitureConfigured'));
@@ -273,6 +278,11 @@ class SecurityDepositsController extends Controller
             ]);
 
             $subshopId = (int) session('subshop_id');
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
+
+            // Get all subshop IDs under this shop for validation
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
             $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
 
@@ -281,9 +291,10 @@ class SecurityDepositsController extends Controller
                     ->with('error', 'Selected account must be a liability account (Account Class 2).');
             }
 
-            if ((int) $chartAccount->subshop_id !== $subshopId) {
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
                 return redirect()->back()
-                    ->with('error', 'Selected account does not belong to this branch.');
+                    ->with('error', 'Selected account does not belong to this shop.');
             }
 
             if (!$chartAccount->is_active) {
@@ -291,8 +302,9 @@ class SecurityDepositsController extends Controller
                     ->with('error', 'Selected account is not active.');
             }
 
+            // Create or update liability account configuration at shop level
             SecurityDepositLiabilityAccount::updateOrCreate(
-                ['subshop_id' => $subshopId],
+                ['shop_id' => $shopId],
                 [
                     'chart_of_account_id' => (int) $validated['chart_of_account_id'],
                     'notes' => $validated['notes'] ?? null,
@@ -300,7 +312,7 @@ class SecurityDepositsController extends Controller
             );
 
             return redirect()->back()
-                ->with('success', 'Security deposit liability account configured successfully.');
+                ->with('success', 'Security deposit liability account configured successfully for all branches.');
 
         } catch (\Exception $e) {
             Log::error('Security deposit liability account configuration failed', [
@@ -324,6 +336,11 @@ class SecurityDepositsController extends Controller
             ]);
 
             $subshopId = (int) session('subshop_id');
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
+
+            // Get all subshop IDs under this shop for validation
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
             $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
 
@@ -334,9 +351,10 @@ class SecurityDepositsController extends Controller
                     ->with('error', 'Selected account must be a revenue/income account (Account Class 4 or 5).');
             }
 
-            if ((int) $chartAccount->subshop_id !== $subshopId) {
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
                 return redirect()->back()
-                    ->with('error', 'Selected account does not belong to this branch.');
+                    ->with('error', 'Selected account does not belong to this shop.');
             }
 
             if (!$chartAccount->is_active) {
@@ -344,8 +362,9 @@ class SecurityDepositsController extends Controller
                     ->with('error', 'Selected account is not active.');
             }
 
+            // Create or update forfeiture account configuration at shop level
             SecurityDepositForfeitureAccount::updateOrCreate(
-                ['subshop_id' => $subshopId],
+                ['shop_id' => $shopId],
                 [
                     'chart_of_account_id' => (int) $validated['chart_of_account_id'],
                     'notes' => $validated['notes'] ?? null,
@@ -353,7 +372,7 @@ class SecurityDepositsController extends Controller
             );
 
             return redirect()->back()
-                ->with('success', 'Security deposit forfeiture income account configured successfully.');
+                ->with('success', 'Security deposit forfeiture income account configured successfully for all branches.');
 
         } catch (\Exception $e) {
             Log::error('Security deposit forfeiture account configuration failed', [

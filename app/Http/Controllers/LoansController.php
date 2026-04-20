@@ -20,6 +20,7 @@ use App\Services\Loans\Fees\FeeEngine;
 use App\Services\Loans\LoanScheduleEngine;
 use App\Services\Loans\Penalties\PenaltyEngine;
 use App\Services\Loans\Risk\PortfolioRiskCalculator;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -1363,5 +1364,53 @@ class LoansController extends Controller
 
             return back()->with('error', 'Failed to delete loan. Please try again.');
         }
+    }
+
+    /**
+     * Export loan installment schedule as PDF.
+     */
+    public function exportSchedule(Loans $loan)
+    {
+        $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+
+        // Ensure the loan belongs to the current subshop (security check)
+        if ((int) $loan->subshop_id !== $subshopId) {
+            abort(404);
+        }
+
+        $latestScheduleVersion = (int) (LoanInstallments::query()
+            ->where('loan_id', $loan->id)
+            ->max('schedule_version') ?: 1);
+
+        $allInstallments = LoanInstallments::query()
+            ->where('loan_id', $loan->id)
+            ->orderByDesc('schedule_version')
+            ->orderBy('installment_number')
+            ->get();
+
+        $installmentsByVersion = $allInstallments->groupBy('schedule_version');
+
+        // Load shop information for the PDF header
+        $shop = $subshop->shop;
+        $shopLogoPath = $shop && $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
+
+        // Calculate outstanding balance
+        $outstanding = $this->portfolioRisk->calculateLoanOutstanding($loan);
+
+        $pdf = Pdf::loadView('loans.loans.pdf.loan_schedule', [
+            'loan' => $loan,
+            'subshop' => $subshop,
+            'shop' => $shop,
+            'installmentsByVersion' => $installmentsByVersion,
+            'latestScheduleVersion' => $latestScheduleVersion,
+            'shopLogoPath' => $shopLogoPath,
+            'outstanding' => $outstanding,
+            'generatedAt' => now()->format('Y-m-d H:i:s'),
+        ]);
+
+        $filename = 'loan-schedule-' . ($loan->loan_code ?? 'loan') . '-' . now()->format('Y-m-d-His') . '.pdf';
+
+        return $pdf->download($filename);
     }
 }

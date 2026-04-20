@@ -371,7 +371,12 @@
 
             <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header"><strong>Installments</strong></div>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <strong><i class="fas fa-calendar-alt"></i> Installments</strong>
+                        <a href="{{ route('loans.loans.schedule.export', $loan) }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-file-pdf"></i> Export Schedule
+                        </a>
+                    </div>
                     <div class="card-body table-responsive">
                         @php
                             $versions = isset($installmentsByVersion) ? $installmentsByVersion->keys()->sortDesc()->values() : collect();

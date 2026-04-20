@@ -150,6 +150,9 @@
                         <a href="{{ route('loan.restructures.history', $loan) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-history"></i> History
                         </a>
+                        <a href="{{ route('loans.loans.schedule.export', $loan) }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-file-pdf"></i> Export Schedule
+                        </a>
                     </div>
                 </div>
             </div>
@@ -390,7 +393,12 @@
     </div>
 
     <div class="card">
-        <div class="card-header"><strong>Installment Schedule</strong></div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong><i class="fas fa-calendar-alt"></i> Installment Schedule</strong>
+            <a href="{{ route('loans.loans.schedule.export', $loan) }}" class="btn btn-sm btn-info">
+                <i class="fas fa-file-pdf"></i> Export PDF
+            </a>
+        </div>
         <div class="card-body table-responsive">
             @php
                 $versions = isset($installmentsByVersion) ? $installmentsByVersion->keys()->sortDesc()->values() : collect();

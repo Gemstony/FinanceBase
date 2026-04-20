@@ -674,6 +674,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/{loan:loan_code}/edit', [LoansController::class, 'edit'])->name('edit');
             Route::put('/{loan:loan_code}', [LoansController::class, 'update'])->name('update');
             Route::delete('/{loan:loan_code}', [LoansController::class, 'destroy'])->name('destroy');
+            Route::get('/{loan:loan_code}/schedule/export', [LoansController::class, 'exportSchedule'])->name('schedule.export');
 
             Route::post('/{loan:loan_code}/recoveries', [\App\Http\Controllers\LoanRecoveryPaymentsController::class, 'store'])->name('recoveries.store');
         });

@@ -259,6 +259,19 @@
 </div>
 @stop
 
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // SweetAlert is available for any future alerts or confirmations
+    });
+</script>
+@endpush
+
+@push('css')
+    <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
+@endpush
+
 @push('css')
 <link rel="stylesheet" href="{{ asset('css/custom.css') }}">
 <style>

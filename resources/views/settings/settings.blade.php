@@ -246,12 +246,14 @@
                         <input type="text" class="form-control" id="role_name" name="name" required>
                     </div>
                     <div class="form-group">
+                        @role('Super Admin')
                         <div class="custom-control custom-checkbox">
                             <input class="custom-control-input" type="checkbox" name="is_global" value="1" id="is_global">
                             <label class="custom-control-label" for="is_global">
                                 Global role (visible to all shops)
                             </label>
                         </div>
+                        @endrole
                     </div>
                 </div>
                 <div class="modal-footer">

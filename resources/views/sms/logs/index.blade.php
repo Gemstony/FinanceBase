@@ -29,14 +29,18 @@
 
 @section('content')
 <div class="container-fluid">
-     
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+        @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show mb-4">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert alert-danger alert-dismissible fade show mb-4">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
-
 
     <div class="row">
         <div class="col-12">
@@ -195,10 +199,10 @@
                                                     <a href="{{ route('sms.logs.show', $log->id) }}" class="btn btn-outline-primary">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <form action="{{ route('sms.logs.destroy', $log->id) }}" method="POST" class="d-inline">
+                                                    <form action="{{ route('sms.logs.destroy', $log->id) }}" method="POST" class="d-inline" data-swal-confirm>
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete this SMS log?')">
+                                                        <button type="submit" class="btn btn-outline-danger">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </form>
@@ -237,24 +241,66 @@
  @endpush
 
  @push('js')
- <script>
-$(document).ready(function() {
-    // Initialize DataTable
-    $('#logsTable').DataTable({
-        responsive: true,
-        columnDefs: [{
-                orderable: false,
-                targets: [0, 7]
-            }, // Disable sorting on action column
-            {
-                searchable: false,
-                targets: [0, 4, 5, 6,  7]
-            } // Disable search on action and status columns
-        ],
-        order: [
-            [7, 'desc']
-        ] // Sort by code by default
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteForms = document.querySelectorAll('form[data-swal-confirm]');
+
+        deleteForms.forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                Swal.fire({
+                    title: 'Delete SMS Log',
+                    text: 'Are you sure you want to delete this SMS log?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete it',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Deleting...',
+                            text: 'Please wait while the SMS log is deleted.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        @if(session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: {!! json_encode(session('success')) !!},
+                confirmButtonText: 'OK'
+            });
+        @endif
+
+
+        $('#logsTable').DataTable({
+            responsive: true,
+            columnDefs: [{
+                    orderable: false,
+                    targets: [0, 7]
+                },
+                {
+                    searchable: false,
+                    targets: [0, 4, 5, 6, 7]
+                }
+            ],
+            order: [
+                [7, 'desc']
+            ]
+        });
     });
-});
- </script>
- @endpush
+</script>
+@endpush

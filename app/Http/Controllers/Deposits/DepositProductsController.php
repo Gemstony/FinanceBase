@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Deposits;
 
 use App\Http\Controllers\Controller;
 use App\Models\DepositProduct;
+use App\Models\SubShop;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,8 +17,15 @@ class DepositProductsController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        // Get shop-level products (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $query = DepositProduct::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->withCount('depositAccounts')
             ->orderBy('name');
 
@@ -52,6 +60,7 @@ class DepositProductsController extends Controller
             'is_active' => ['boolean'],
         ]);
 
+        // Create product at shop level (store with current subshop but accessible to all shop subshops)
         DepositProduct::create([
             'subshop_id' => (int) session('subshop_id'),
             'name' => $validated['name'],
@@ -68,7 +77,13 @@ class DepositProductsController extends Controller
 
     public function edit(DepositProduct $product): View
     {
-        if ((int) $product->subshop_id !== (int) session('subshop_id')) {
+        $subshopId = (int) session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Validate product belongs to any subshop under the same shop
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!$shopSubshopIds->contains($product->subshop_id)) {
             abort(403);
         }
 
@@ -77,7 +92,13 @@ class DepositProductsController extends Controller
 
     public function update(Request $request, DepositProduct $product): RedirectResponse
     {
-        if ((int) $product->subshop_id !== (int) session('subshop_id')) {
+        $subshopId = (int) session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Validate product belongs to any subshop under the same shop
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!$shopSubshopIds->contains($product->subshop_id)) {
             abort(403);
         }
 
@@ -106,7 +127,13 @@ class DepositProductsController extends Controller
 
     public function destroy(DepositProduct $product): RedirectResponse
     {
-        if ((int) $product->subshop_id !== (int) session('subshop_id')) {
+        $subshopId = (int) session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Validate product belongs to any subshop under the same shop
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!$shopSubshopIds->contains($product->subshop_id)) {
             abort(403);
         }
 

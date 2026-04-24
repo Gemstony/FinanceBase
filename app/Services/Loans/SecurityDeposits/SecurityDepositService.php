@@ -75,9 +75,13 @@ class SecurityDepositService
                 throw new InvalidArgumentException('Bank account is required for this payment method.');
             }
 
+            $shopId = SubShop::whereKey($subshopId)->value('shop_id');
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
             if ($paymentBankAccountId) {
                 $bankAccount = BankAccounts::query()->whereKey($paymentBankAccountId)->firstOrFail();
-                if ((int) $bankAccount->subshop_id !== $subshopId) {
+                if (!in_array((int) $bankAccount->subshop_id, $shopSubshopIds->toArray())) {
                     throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
                 }
             }
@@ -592,6 +596,9 @@ class SecurityDepositService
             'bank_account_id' => $bankAccountId,
             'subshop_id' => $subshopId,
         ]);
+        $shopId = SubShop::whereKey($subshopId)->value('shop_id');
+        // Validate account belongs to any subshop under the same shop (shop-level scope)
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
         // If bank account provided, use its chart of account
         if ($bankAccountId) {
@@ -602,7 +609,7 @@ class SecurityDepositService
                 throw new InvalidArgumentException('Selected bank account not found.');
             }
 
-            if ((int) $bank->subshop_id !== $subshopId) {
+            if (!in_array((int) $bank->subshop_id, $shopSubshopIds->toArray())) {
                 Log::error('Bank account wrong subshop', [
                     'bank_subshop_id' => $bank->subshop_id,
                     'session_subshop_id' => $subshopId,

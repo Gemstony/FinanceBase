@@ -29,12 +29,17 @@
 
 @section('content')
 <div class="container-fluid">
-     
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+         @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show mb-4">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
     @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert alert-danger alert-dismissible fade show mb-4">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
     @endif
 
     @if($errors->any())
@@ -46,6 +51,7 @@
             </ul>
         </div>
     @endif
+
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -125,10 +131,10 @@
                                                     <a href="{{ route('sms.templates.edit', $template->id) }}" class="btn btn-outline-secondary">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    <form action="{{ route('sms.templates.destroy', $template->id) }}" method="POST" class="d-inline">
+                                                    <form action="{{ route('sms.templates.destroy', $template->id) }}" method="POST" class="d-inline" data-swal-confirm>
                                                         @csrf
                                                         @method('DELETE')
-                                                        <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete this SMS template?')">
+                                                        <button type="submit" class="btn btn-outline-danger">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </form>
@@ -150,6 +156,73 @@
      </div>
  </div>
  @endsection
+
+@push('js')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteForms = document.querySelectorAll('form[data-swal-confirm]');
+
+        deleteForms.forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+
+                Swal.fire({
+                    title: 'Delete SMS Template',
+                    text: 'Are you sure you want to delete this SMS template?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete it',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        Swal.fire({
+                            title: 'Deleting...',
+                            text: 'Please wait while the SMS template is deleted.',
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        form.submit();
+                    }
+                });
+            });
+        });
+
+        @if(session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: {!! json_encode(session('success')) !!},
+                confirmButtonText: 'OK'
+            });
+        @endif
+
+        @if(session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: {!! json_encode(session('error')) !!},
+                confirmButtonText: 'OK'
+            });
+        @endif
+
+        @if($errors->any())
+            const validationErrors = {!! json_encode($errors->all()) !!};
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                html: validationErrors.map(error => `<div class="text-start">&bull; ${error}</div>`).join(''),
+                confirmButtonText: 'OK'
+            });
+        @endif
+    });
+</script>
+@endpush
 
  @push('css')
  <link rel="stylesheet" href="{{ asset('css/custom.css') }}">

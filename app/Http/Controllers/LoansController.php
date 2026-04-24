@@ -54,11 +54,16 @@ class LoansController extends Controller
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $q = $request->get('q');
         $id = $request->get('id');
 
         $customers = Customers::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->when($id, function ($query) use ($id) {
                 $query->where('id', (int) $id);
@@ -90,11 +95,16 @@ class LoansController extends Controller
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $q = $request->get('q');
         $id = $request->get('id');
 
         $groups = LoanGroups::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->when($id, function ($query) use ($id) {
                 $query->where('id', (int) $id);
@@ -123,12 +133,17 @@ class LoansController extends Controller
             return response()->json(['error' => 'No subshop selected'], 400);
         }
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $q = $request->get('q');
         $id = $request->get('id');
         $customerId = $request->get('customer_id');
 
         $query = CustomerCollaterals::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true);
 
         if ($customerId) {
@@ -283,8 +298,12 @@ class LoansController extends Controller
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $loanProducts = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->where('is_visible', true)
             ->with(['rules', 'cashConfigs', 'accounts', 'repaymentFrequency', 'interestMethod'])
@@ -292,13 +311,13 @@ class LoansController extends Controller
             ->get();
 
         $customers = Customers::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanGroups = LoanGroups::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->with(['members' => function ($q) {
                 $q->where('is_active', true)->with('customer');
@@ -307,7 +326,7 @@ class LoansController extends Controller
             ->get();
 
         $customerCollaterals = CustomerCollaterals::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderByDesc('id')
             ->get();
@@ -326,8 +345,12 @@ class LoansController extends Controller
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $loanProducts = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->where('is_visible', true)
             ->with(['rules', 'repaymentFrequency', 'interestMethod'])
@@ -354,14 +377,19 @@ class LoansController extends Controller
             'repayment_start_date' => ['nullable', 'date'],
         ]);
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $product = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->with(['rules', 'repaymentFrequency', 'interestMethod'])
             ->find((int) $validated['loan_product_id']);
 
         if (! $product) {
-            return response()->json(['message' => 'Invalid loan product for this branch.'], 422);
+            return response()->json(['message' => 'Invalid loan product for this shop.'], 422);
         }
 
         $rules = $product->rules;
@@ -498,8 +526,13 @@ class LoansController extends Controller
                 $v->errors()->add('customer_id', 'You cannot select an individual customer for a group loan.');
             }
 
+            // Get shop-level scope for product validation
+            $currentSubshop = SubShop::findOrFail($subshopId);
+            $currentShopId = $currentSubshop->shop_id;
+            $currentShopSubshopIds = SubShop::where('shop_id', $currentShopId)->pluck('id');
+
             $product = LoanProducts::query()
-                ->where('subshop_id', $subshopId)
+                ->whereIn('subshop_id', $currentShopSubshopIds)
                 ->where('is_active', true)
                 ->with(['rules'])
                 ->find((int) $request->input('loan_product_id'));
@@ -669,8 +702,13 @@ class LoansController extends Controller
 
     private function getLoanProductForSubshop(array $validated, int $subshopId): LoanProducts
     {
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         return LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->with(['rules', 'cashConfigs', 'accounts', 'repaymentFrequency', 'interestMethod', 'approvalLevels'])
             ->findOrFail((int) $validated['loan_product_id']);
     }
@@ -788,8 +826,13 @@ class LoansController extends Controller
         }
 
         $totalCollateralValue = 0.0;
+        // Get shop-level scope for collaterals validation
+        $currentSubshop = SubShop::findOrFail($subshopId);
+        $currentShopId = $currentSubshop->shop_id;
+        $currentShopSubshopIds = SubShop::where('shop_id', $currentShopId)->pluck('id');
+
         $collaterals = CustomerCollaterals::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $currentShopSubshopIds)
             ->whereIn('id', $collateralIds)
             ->get();
 
@@ -872,8 +915,13 @@ class LoansController extends Controller
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+
         // Ensure the loan belongs to the current subshop (security check)
-        if ((int) $loan->subshop_id !== $subshopId) {
+        if (!in_array((int) $loan->subshop_id, $shopSubshopIds->toArray())) {
             abort(404);
         }
 
@@ -939,7 +987,7 @@ class LoansController extends Controller
             ->get();
 
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', (int) $loan->subshop_id)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get();
@@ -971,15 +1019,19 @@ class LoansController extends Controller
         $subshopId = (int) session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
-        // Ensure the loan belongs to the current subshop (security check)
-        if ((int) $loan->subshop_id !== $subshopId) {
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        // Ensure the loan belongs to the current shop (security check)
+        if (! $shopSubshopIds->contains($loan->subshop_id)) {
             abort(404);
         }
 
         $loan->load(['loanProduct.rules', 'customer', 'loanGroup']);
 
         $loanProducts = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->where('is_visible', true)
             ->with(['rules', 'cashConfigs', 'accounts', 'repaymentFrequency', 'interestMethod'])
@@ -987,13 +1039,13 @@ class LoansController extends Controller
             ->get();
 
         $customers = Customers::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
         $loanGroups = LoanGroups::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->with(['members' => function ($q) {
                 $q->where('is_active', true)->with('customer');
@@ -1002,7 +1054,7 @@ class LoansController extends Controller
             ->get();
 
         $customerCollaterals = CustomerCollaterals::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderByDesc('id')
             ->get();
@@ -1114,8 +1166,13 @@ class LoansController extends Controller
                 $v->errors()->add('customer_id', 'You cannot select an individual customer for a group loan.');
             }
 
+            // Get shop-level scope for product validation
+            $currentSubshop = SubShop::findOrFail($subshopId);
+            $currentShopId = $currentSubshop->shop_id;
+            $currentShopSubshopIds = SubShop::where('shop_id', $currentShopId)->pluck('id');
+
             $product = LoanProducts::query()
-                ->where('subshop_id', $subshopId)
+                ->whereIn('subshop_id', $currentShopSubshopIds)
                 ->with(['rules'])
                 ->find((int) $request->input('loan_product_id'));
 

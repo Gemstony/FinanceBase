@@ -83,6 +83,7 @@ class LoanManagementController extends Controller
 
         $restructuredLoansCount = LoanRestructures::query()
             ->whereHas('loan', fn ($q) => $q->where('subshop_id', $subshopId))
+            ->where('status', 'executed')
             ->count();
 
         $completedLoansCount = Loans::query()

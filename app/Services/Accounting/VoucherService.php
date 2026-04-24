@@ -12,6 +12,7 @@ use App\Models\VoucherLines;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use App\Models\SubShop;
 
 class VoucherService
 {
@@ -172,9 +173,12 @@ class VoucherService
         return DB::transaction(function () use ($data, $voucherType, $sourceType, $voucherDate, $voucherNumber, $normalizedLines, $totalAmount) {
             $subshopId = isset($data['subshop_id']) && $data['subshop_id'] ? (int) $data['subshop_id'] : (int) session('subshop_id');
 
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            $shopSubshopIds = SubShop::where('shop_id', $subshopId)->pluck('id');
+
             $accountIds = array_values(array_unique(array_map(static fn ($l) => (int) ($l['account_id'] ?? 0), $normalizedLines)));
             $validAccountCount = ChartsOfAccount::query()
-                ->where('subshop_id', $subshopId)
+                ->whereIn('subshop_id', $shopSubshopIds)
                 ->whereIn('id', $accountIds ?: [-1])
                 ->count();
             if ($validAccountCount !== count($accountIds)) {

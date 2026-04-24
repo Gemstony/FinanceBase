@@ -220,7 +220,7 @@
         </div>
 
         <div class="text-right mb-3">
-            <button type="submit" class="btn btn-success">
+            <button type="button" id="btnCreateLoan" class="btn btn-success">
                 <i class="fas fa-save"></i> Create Loan
             </button>
         </div>
@@ -272,6 +272,7 @@
 
 @section('js')
 <script src="{{ asset('vendor/select2/js/select2.min.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 (function () {
     const $form = $('form[action="{{ route('loans.loans.store') }}"]');
@@ -827,6 +828,30 @@
             updateProductRulesCard(opt);
         }
     }, 0);
+
+    // SweetAlert confirmation before submitting loan
+    $('#btnCreateLoan').on('click', function (e) {
+        e.preventDefault();
+
+        if (!validateFormLive()) {
+            return;
+        }
+
+        Swal.fire({
+            title: 'Confirm Loan Creation',
+            text: 'Are you sure you want to create this loan?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, Create Loan',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $form.submit();
+            }
+        });
+    });
 
     if ($form && $form.length) {
         $form.on('submit', function (e) {

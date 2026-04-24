@@ -193,7 +193,7 @@
                                 
                                 $today = now()->toDateString();
                                 $hasOverdue = $loanInstallments->contains(function($inst) use ($today) {
-                                    return $inst->status !== 'paid' && $inst->due_date < $today;
+                                    return $inst->status !== 'paid' && $inst->status !== 'pending' && $inst->due_date < $today;
                                 });
                             }
                             

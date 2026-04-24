@@ -12,6 +12,7 @@ use App\Models\Customers;
 use App\Models\DepositAccount;
 use App\Models\DepositProduct;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Deposits\DepositAccountService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\RedirectResponse;
@@ -114,7 +115,14 @@ class DepositAccountsController extends Controller
     public function show(Customers $customer, Request $request): View
     {
         $subshopId = (int) session('subshop_id');
-        if ((int) $customer->subshop_id !== $subshopId) {
+
+
+        // Get shop-level context
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        if (!$shopSubshopIds->contains($customer->subshop_id)) {
             abort(403);
         }
 
@@ -122,14 +130,15 @@ class DepositAccountsController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Get shop-level deposit products (accessible by all subshops under the same shop)
         $depositProducts = DepositProduct::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
 
         $activeLoans = Loans::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->whereIn('status', ['disbursed', 'partially_paid'])
             ->where('outstanding_balance', '>', 0)
@@ -141,7 +150,8 @@ class DepositAccountsController extends Controller
             ->orderBy('account_name')
             ->get();
 
-        $liabilityConfig = CustomerDepositLiabilityAccount::forSubshop($subshopId);
+        // Get shop-level configuration (shared across all subshops under the same shop)
+        $liabilityConfig = CustomerDepositLiabilityAccount::forShop($shopId);
         $liabilityConfigured = $liabilityConfig !== null;
 
         return view('customer_deposits.show', compact('customer', 'accounts', 'depositProducts', 'activeLoans', 'bankAccounts', 'liabilityConfig', 'liabilityConfigured'));
@@ -151,8 +161,13 @@ class DepositAccountsController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        // Get shop-level deposit products (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $depositProducts = DepositProduct::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
@@ -162,7 +177,7 @@ class DepositAccountsController extends Controller
         }
 
         $customers = Customers::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -374,6 +389,11 @@ class DepositAccountsController extends Controller
             ]);
 
             $subshopId = (int) session('subshop_id');
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
+
+            // Get all subshop IDs under this shop for validation
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
             $chartAccount = ChartsOfAccount::query()->whereKey($validated['chart_of_account_id'])->firstOrFail();
 
@@ -382,9 +402,10 @@ class DepositAccountsController extends Controller
                     ->with('error', 'Selected account must be a liability account (Account Class 2).');
             }
 
-            if ((int) $chartAccount->subshop_id !== $subshopId) {
+            // Validate account belongs to any subshop under the same shop (shop-level scope)
+            if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
                 return redirect()->back()
-                    ->with('error', 'Selected account does not belong to this branch.');
+                    ->with('error', 'Selected account does not belong to this shop.');
             }
 
             if (!$chartAccount->is_active) {
@@ -392,8 +413,9 @@ class DepositAccountsController extends Controller
                     ->with('error', 'Selected account is not active.');
             }
 
+            // Create or update liability account configuration at shop level
             CustomerDepositLiabilityAccount::updateOrCreate(
-                ['subshop_id' => $subshopId],
+                ['shop_id' => $shopId],
                 [
                     'chart_of_account_id' => (int) $validated['chart_of_account_id'],
                     'notes' => $validated['notes'] ?? null,
@@ -401,7 +423,7 @@ class DepositAccountsController extends Controller
             );
 
             return redirect()->back()
-                ->with('success', 'Customer deposits liability account configured successfully.');
+                ->with('success', 'Customer deposits liability account configured successfully for all branches.');
 
         } catch (\Exception $e) {
             Log::error('Deposit liability account configuration failed', [

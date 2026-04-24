@@ -12,6 +12,7 @@ use App\Models\DepositProduct;
 use App\Models\DepositTransaction;
 use App\Models\Loans;
 use App\Models\PaymentMethodAccount;
+use App\Models\SubShop;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Repayment\PaymentProcessor;
@@ -32,14 +33,18 @@ class DepositAccountService
     public function createAccount(int $customerId, int $depositProductId, ?string $accountNumber = null): DepositAccount
     {
         $subshopId = (int) session('subshop_id');
+        // Get shop-level deposit products (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         if ($subshopId <= 0) {
             throw new InvalidArgumentException('Active subshop context is required to create a deposit account.');
         }
 
-        return DB::transaction(function () use ($subshopId, $customerId, $depositProductId, $accountNumber) {
+        return DB::transaction(function () use ($subshopId, $customerId, $depositProductId, $accountNumber, $shopSubshopIds) {
             $product = DepositProduct::query()
                 ->whereKey($depositProductId)
-                ->where('subshop_id', $subshopId)
+                ->whereIn('subshop_id', $shopSubshopIds)
                 ->firstOrFail();
 
             if (!(bool) $product->is_active) {
@@ -83,6 +88,11 @@ class DepositAccountService
             throw new InvalidArgumentException('Active subshop context is required to deposit.');
         }
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         // Get and validate liability account from configuration
         $liabilityAccountId = $this->getCustomerDepositsLiabilityAccount($subshopId);
 
@@ -91,6 +101,7 @@ class DepositAccountService
 
         Log::info('Processing deposit', [
             'subshop_id' => $subshopId,
+            'shop_id' => $shopId,
             'deposit_account_id' => $account->id,
             'amount' => $amount,
             'payment_method' => $paymentMethod,
@@ -99,10 +110,10 @@ class DepositAccountService
             'liability_account_id' => $liabilityAccountId,
         ]);
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
+        return DB::transaction(function () use ($subshopId, $shopId, $shopSubshopIds, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
             $account = DepositAccount::query()->whereKey((int) $account->id)->lockForUpdate()->firstOrFail();
 
-            if ((int) $account->subshop_id !== $subshopId) {
+            if (!$shopSubshopIds->contains($account->subshop_id)) {
                 abort(403);
             }
 
@@ -165,6 +176,11 @@ class DepositAccountService
             throw new InvalidArgumentException('Active subshop context is required to withdraw.');
         }
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         // Get and validate liability account from configuration
         $liabilityAccountId = $this->getCustomerDepositsLiabilityAccount($subshopId);
 
@@ -173,6 +189,7 @@ class DepositAccountService
 
         Log::info('Processing withdrawal', [
             'subshop_id' => $subshopId,
+            'shop_id' => $shopId,
             'deposit_account_id' => $account->id,
             'amount' => $amount,
             'payment_method' => $paymentMethod,
@@ -181,14 +198,14 @@ class DepositAccountService
             'liability_account_id' => $liabilityAccountId,
         ]);
 
-        return DB::transaction(function () use ($subshopId, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
+        return DB::transaction(function () use ($subshopId, $shopId, $shopSubshopIds, $account, $amount, $paymentMethod, $bankAccountId, $liabilityAccountId, $cashAccountId, $reference, $notes) {
             $account = DepositAccount::query()
                 ->with('depositProduct')
                 ->whereKey((int) $account->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ((int) $account->subshop_id !== $subshopId) {
+            if (!$shopSubshopIds->contains($account->subshop_id)) {
                 abort(403);
             }
 
@@ -258,11 +275,16 @@ class DepositAccountService
 
         $subshopId = (int) session('subshop_id');
 
-        return DB::transaction(function () use ($subshopId, $fromAccount, $toAccount, $amount, $reference, $notes) {
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        return DB::transaction(function () use ($subshopId, $shopId, $shopSubshopIds, $fromAccount, $toAccount, $amount, $reference, $notes) {
             $from = DepositAccount::query()->whereKey((int) $fromAccount->id)->lockForUpdate()->firstOrFail();
             $to = DepositAccount::query()->whereKey((int) $toAccount->id)->lockForUpdate()->firstOrFail();
 
-            if ((int) $from->subshop_id !== $subshopId || (int) $to->subshop_id !== $subshopId) {
+            if (!$shopSubshopIds->contains($from->subshop_id) || !$shopSubshopIds->contains($to->subshop_id)) {
                 abort(403);
             }
 
@@ -313,7 +335,12 @@ class DepositAccountService
 
         $subshopId = (int) session('subshop_id');
 
-        return DB::transaction(function () use ($subshopId, $account, $loan, $amount, $reference, $notes) {
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        return DB::transaction(function () use ($subshopId, $shopId, $shopSubshopIds, $account, $loan, $amount, $reference, $notes) {
             $account = DepositAccount::query()
                 ->with('depositProduct')
                 ->whereKey((int) $account->id)
@@ -322,7 +349,7 @@ class DepositAccountService
 
             $loan = Loans::query()->whereKey((int) $loan->id)->lockForUpdate()->firstOrFail();
 
-            if ((int) $account->subshop_id !== $subshopId || (int) $loan->subshop_id !== $subshopId) {
+            if (!$shopSubshopIds->contains($account->subshop_id) || !$shopSubshopIds->contains($loan->subshop_id)) {
                 abort(403);
             }
 
@@ -394,9 +421,14 @@ class DepositAccountService
     {
         $subshopId = (int) session('subshop_id');
 
+        // Get shop-level scope (accessible by all subshops under the same shop)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         return DepositAccount::query()
             ->with(['depositProduct', 'depositTransactions' => fn($q) => $q->latest()->limit(5)])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', $customerId)
             ->orderBy('opened_at', 'desc');
     }
@@ -432,18 +464,28 @@ class DepositAccountService
     }
 
     /**
-     * Get customer deposits liability account for a subshop with full validation
+     * Get customer deposits liability account for a subshop (uses shop-level configuration)
      */
     public function getCustomerDepositsLiabilityAccount(int $subshopId): int
     {
         Log::debug('Getting customer deposits liability account', ['subshop_id' => $subshopId]);
 
-        $liabilityAccount = CustomerDepositLiabilityAccount::forSubshop($subshopId);
+        // Get the shop ID from the subshop for shop-level configuration
+        $subshop = SubShop::find($subshopId);
+        if (!$subshop) {
+            Log::error('Subshop not found', ['subshop_id' => $subshopId]);
+            throw new InvalidArgumentException('Invalid branch selected.');
+        }
+
+        $shopId = $subshop->shop_id;
+        Log::debug('Resolved shop ID for liability account', ['shop_id' => $shopId]);
+
+        $liabilityAccount = CustomerDepositLiabilityAccount::forShop($shopId);
 
         if (!$liabilityAccount) {
-            Log::error('Customer deposits liability account not configured', ['subshop_id' => $subshopId]);
+            Log::error('Customer deposits liability account not configured', ['shop_id' => $shopId, 'subshop_id' => $subshopId]);
             throw new InvalidArgumentException(
-                'Customer deposits liability account is not configured for this branch. ' .
+                'Customer deposits liability account is not configured for this shop. ' .
                 'Please configure it first before processing deposits or withdrawals.'
             );
         }
@@ -477,12 +519,14 @@ class DepositAccountService
             throw new InvalidArgumentException('Configured liability account is not active.');
         }
 
-        if ((int) $chartAccount->subshop_id !== $subshopId) {
-            Log::error('Configured liability account wrong subshop', [
+        // Validate account belongs to any subshop under the same shop (shop-level scope)
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!$shopSubshopIds->contains($chartAccount->subshop_id)) {
+            Log::error('Configured liability account does not belong to this shop', [
                 'account_subshop_id' => $chartAccount->subshop_id,
-                'session_subshop_id' => $subshopId,
+                'shop_id' => $shopId,
             ]);
-            throw new InvalidArgumentException('Configured liability account does not belong to this branch.');
+            throw new InvalidArgumentException('Configured liability account does not belong to this shop.');
         }
 
         Log::debug('Liability account validated', [

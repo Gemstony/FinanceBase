@@ -549,6 +549,10 @@ class DepositAccountService
             'subshop_id' => $subshopId,
         ]);
 
+        // Get shop_id from subshop for shop-level account validation
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
         // If bank account provided, use its chart of account
         if ($bankAccountId) {
             $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
@@ -656,13 +660,14 @@ class DepositAccountService
             throw new InvalidArgumentException('Payment method linked chart of account is not active.');
         }
 
-        if ((int) $chartAccount->subshop_id !== $subshopId) {
-            Log::error('Payment method linked chart account wrong subshop', [
+        // Validate account belongs to the same shop (shop-level scope)
+        if ((int) $chartAccount->shop_id !== (int) $shopId) {
+            Log::error('Payment method linked chart account wrong shop', [
                 'chart_account_id' => $accountId,
-                'account_subshop_id' => $chartAccount->subshop_id,
-                'session_subshop_id' => $subshopId,
+                'account_shop_id' => $chartAccount->shop_id,
+                'expected_shop_id' => $shopId,
             ]);
-            throw new InvalidArgumentException('Payment method linked chart of account does not belong to this branch.');
+            throw new InvalidArgumentException('Payment method linked chart of account does not belong to this shop.');
         }
 
         Log::debug('Using payment method mapping', [

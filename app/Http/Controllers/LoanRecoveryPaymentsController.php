@@ -6,6 +6,7 @@ use App\Models\BankAccounts;
 use App\Models\LoanPayments;
 use App\Models\Loans;
 use App\Services\Loans\WriteOff\LoanRecoveryProcessor;
+use App\Models\SubShop;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,8 +37,13 @@ class LoanRecoveryPaymentsController extends Controller
             abort(403, 'Recovery payments are only allowed for written-off loans.');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id',  $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get(['id', 'account_name', 'account_number']);

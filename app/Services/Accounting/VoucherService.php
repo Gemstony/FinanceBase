@@ -173,16 +173,18 @@ class VoucherService
         return DB::transaction(function () use ($data, $voucherType, $sourceType, $voucherDate, $voucherNumber, $normalizedLines, $totalAmount) {
             $subshopId = isset($data['subshop_id']) && $data['subshop_id'] ? (int) $data['subshop_id'] : (int) session('subshop_id');
 
-            // Validate account belongs to any subshop under the same shop (shop-level scope)
-            $shopSubshopIds = SubShop::where('shop_id', $subshopId)->pluck('id');
+            // Get shop_id from subshop for shop-level account validation
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
 
+            // Validate accounts belong to the same shop (shop-level scope using shop_id column)
             $accountIds = array_values(array_unique(array_map(static fn ($l) => (int) ($l['account_id'] ?? 0), $normalizedLines)));
             $validAccountCount = ChartsOfAccount::query()
-                ->whereIn('subshop_id', $shopSubshopIds)
+                ->where('shop_id', $shopId)
                 ->whereIn('id', $accountIds ?: [-1])
                 ->count();
             if ($validAccountCount !== count($accountIds)) {
-                throw new InvalidArgumentException('One or more selected accounts are not valid for this branch.');
+                throw new InvalidArgumentException('One or more selected accounts are not valid for this shop.');
             }
 
             $voucher = Vouchers::query()->create([

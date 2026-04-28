@@ -7,7 +7,7 @@
         <div class="card-body text-center justify-content-between ">
             <h1 class="d-none d-md-block text-light"><i class="fas fa-university"></i> Main Finance Branch (Branches)</h1>
             <h1 class="d-md-none text-light"><i class="fas fa-university"></i> Main Finance Branch</h1>
-            <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light btn-sm">
+            <a href="{{ url()->previous() }}" class="btn btn-light btn-sm">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

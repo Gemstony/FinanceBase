@@ -181,8 +181,13 @@ class LoanRepaymentController extends Controller
             ->where('is_active', true)
             ->values();
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get(['id', 'account_name', 'account_number']);
@@ -217,6 +222,12 @@ class LoanRepaymentController extends Controller
         // Load loan and verify subshop access
         $loan = Loans::query()->where('loan_code', $validated['loan_code'])->firstOrFail();
         $subshopId = (int) session('subshop_id');
+
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         
         if ((int) $loan->subshop_id !== $subshopId) {
             abort(403); // Access denied - wrong subshop
@@ -229,7 +240,7 @@ class LoanRepaymentController extends Controller
                 'payer_customer_id' => [
                     'required',
                     'integer',
-                    Rule::exists('customers', 'id')->where(fn ($q) => $q->where('subshop_id', $subshopId)),
+                    Rule::exists('customers', 'id')->where(fn ($q) => $q->whereIn('subshop_id', $shopSubshopIds)),
                 ],
             ]);
             $payerCustomerId = (int) $payerValidated['payer_customer_id'];

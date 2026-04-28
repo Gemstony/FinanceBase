@@ -11,7 +11,7 @@
                  <h1 class="d-md-none text-light"><i class="fas fa-hand-holding-usd"></i> Disburse Loan</h1>
                  <p class="mb-0 text-light">Loan Code: <strong>{{ $loan->loan_code }}</strong></p>
              </div>
-             <a href="{{ route('loans.disbursement.index') }}" class="btn btn-light border">
+             <a href="{{ url()->previous() }}" class="btn btn-light border">
                  <i class="fas fa-arrow-left"></i> Back
              </a>
          </div>

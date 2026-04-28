@@ -11,9 +11,6 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-users"></i> Groups</h1>
                 <p class="mb-0 text-light">Managing loan groups for: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Change Branch
-            </a>
         </div>
     </div>
 </div>

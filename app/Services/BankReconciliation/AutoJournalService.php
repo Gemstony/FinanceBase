@@ -9,6 +9,7 @@ use App\Models\BankStatement;
 use App\Models\BankStatementLine;
 use App\Models\ChartsOfAccount;
 use App\Models\JournalEntries;
+use App\Models\SubShop;
 use App\Services\Accounting\DoubleEntryValidator;
 use App\Services\Accounting\JournalEntryBuilder;
 use App\Services\Accounting\JournalPostingEngine;
@@ -25,7 +26,7 @@ class AutoJournalService
     ) {
     }
 
-    public function suggestAccountId(BankStatementLine $line, array $shopSubshopIds): ?int
+    public function suggestAccountId(BankStatementLine $line, int $shopId): ?int
     {
         $description = strtolower(trim((string) ($line->description ?? '')));
 
@@ -34,7 +35,7 @@ class AutoJournalService
         }
 
         $query = ChartsOfAccount::query()
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('shop_id', $shopId)
             ->where('is_active', true);
 
         if (str_contains($description, 'charge') || str_contains($description, 'fee')) {
@@ -85,12 +86,14 @@ class AutoJournalService
                 throw new RuntimeException('Selected bank account is not mapped to a GL account.');
             }
 
-            $selectedAccount = ChartsOfAccount::query()->whereKey($selectedAccountId)->firstOrFail(['id', 'subshop_id', 'is_active']);
+            $selectedAccount = ChartsOfAccount::query()->whereKey($selectedAccountId)->firstOrFail(['id', 'shop_id', 'is_active']);
             if (!(bool) $selectedAccount->is_active) {
                 throw new RuntimeException('Selected account is inactive.');
             }
-            if ((int) $selectedAccount->subshop_id !== (int) session('subshop_id')) {
-                throw new RuntimeException('Selected account is not in the active branch context.');
+            // Validate account belongs to the same shop as the current subshop
+            $currentSubshop = SubShop::findOrFail((int) session('subshop_id'));
+            if ((int) $selectedAccount->shop_id !== (int) $currentSubshop->shop_id) {
+                throw new RuntimeException('Selected account is not in the active shop context.');
             }
 
             $isDebit = ((float) $line->debit) > 0.0;

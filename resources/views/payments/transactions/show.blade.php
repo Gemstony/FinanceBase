@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-receipt"></i> Details</h1>
                 <p class="mb-0 text-light">View transaction information and logs</p>
             </div>
-            <a href="{{ route('payments.transactions') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+            <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
         </div>
     </div>
 </div>

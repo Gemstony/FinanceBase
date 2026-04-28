@@ -11,8 +11,8 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-sms"></i> Log Details</h1>
                 <p class="mb-0 text-light">View detailed SMS log information</p>
             </div>
-            <a href="{{ route('sms.logs.index') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Back to List
+            <a href="{{ url()->previous() }}" class="btn btn-light">
+                <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>
     </div>

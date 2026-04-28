@@ -1,4 +1,4 @@
-@extends('adminlte::page')
+ @extends('adminlte::page')
 
 @php($isEdit = isset($loanProduct))
 

@@ -41,7 +41,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-money-bill-wave"></i> Record Recovery</h1>
                     <p class="mb-0 text-light">Loan Code: <strong>{{ $loan->loan_code }}</strong></p>
                 </div>
-                <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-light">
+                <a href="{{ url()->previous() }}" class="btn btn-light">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>
@@ -57,7 +57,7 @@
                 <li class="breadcrumb-item active" aria-current="page">Record Recovery</li>
             </ol>
         </nav>
-        <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-light border">
+        <a href="{{ url()->previous() }}" class="btn btn-light border">
             <i class="fas fa-arrow-left"></i> Back
         </a>
     </div>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Loans\StoreLoanRecoveryRequest;
 use App\Models\BankAccounts;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Loans\WriteOff\LoanRecoveryProcessor;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -29,9 +30,14 @@ class LoanRecoveryController extends Controller
         if (Str::lower((string) $loan->status) !== 'written_off') {
             abort(403, 'Recovery payments are only allowed for written-off loans.');
         }
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id',  $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get(['id', 'account_name', 'account_number']);
@@ -61,10 +67,17 @@ class LoanRecoveryController extends Controller
                     ->with('error', 'Bank account is required for this payment method.');
             }
 
+            $subshopId = (int) session('subshop_id');
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopId = $subshop->shop_id;
+
+            // Get all subshop IDs under this shop for validation
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
             // Validate bank account belongs to same subshop
             if ($bankAccountId) {
                 $bankAccount = BankAccounts::query()->find($bankAccountId);
-                if ($bankAccount && (int) $bankAccount->subshop_id !== (int) $loan->subshop_id) {
+                if ($bankAccount && !in_array((int) $bankAccount->subshop_id, $shopSubshopIds->toArray(), true)) {
                     return back()
                         ->withInput()
                         ->with('error', 'Selected bank account does not belong to this branch.');
@@ -83,7 +96,7 @@ class LoanRecoveryController extends Controller
             );
 
             return redirect()
-                ->route('loans.loans.show', $loan)
+                ->route('writeoffs.index')
                 ->with('success', 'Recovery recorded successfully.');
         } catch (\Throwable $e) {
             return back()

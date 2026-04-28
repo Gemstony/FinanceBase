@@ -11,6 +11,7 @@ use App\Models\LoanWriteOffAccount;
 use App\Models\LoanWriteoffRecoveries;
 use App\Models\LoanWriteoffs;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Accounting\VoucherService;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
@@ -47,7 +48,13 @@ class LoanRecoveryProcessor
             return $this->recoveryIncomeAccountCache[$subshopId];
         }
 
-        $config = LoanWriteOffAccount::where('subshop_id', $subshopId)->first();
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        $config = LoanWriteOffAccount::whereIn('subshop_id', $shopSubshopIds)->first();
 
         if (! $config) {
             $message = "Loan write-off accounts not configured. Recovery income account is required. (visit Accounting > Accounting Settings > Loan Write-off Accounts)";

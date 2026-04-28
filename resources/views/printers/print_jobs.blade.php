@@ -24,7 +24,7 @@
                 <li class="breadcrumb-item active text-dark" aria-current="page">Print Jobs</li>
             </ol>
         </nav>
-        <a href="{{ route('printers.settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+        <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
     </div>
 @stop
 

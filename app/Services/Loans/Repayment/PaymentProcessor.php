@@ -462,6 +462,12 @@ class PaymentProcessor
             throw new InvalidArgumentException('subshop_id is required to resolve payment method GL account.');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         // If bank account provided, use its chart of account
         if ($bankAccountId) {
             $bank = BankAccounts::query()->whereKey($bankAccountId)->first();
@@ -469,7 +475,7 @@ class PaymentProcessor
                 throw new InvalidArgumentException('Selected bank account not found.');
             }
             
-            if ((int) $bank->subshop_id !== $subshopId) {
+            if (! in_array($bank->subshop_id, $shopSubshopIds->toArray())) {
                 throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
             }
             
@@ -488,15 +494,15 @@ class PaymentProcessor
         }
 
         $mapping = PaymentMethodAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('payment_method', $method)
             ->first();
 
         if (! $mapping) {
             Log::error('Payment method account mapping not found', [
-                'subshop_id' => $subshopId,
+                'subshop_id' => $shopSubshopIds,
                 'payment_method' => $method,
-                'available_methods' => PaymentMethodAccount::where('subshop_id', $subshopId)->pluck('payment_method')->toArray(),
+                'available_methods' => PaymentMethodAccount::whereIn('subshop_id', $shopSubshopIds)->pluck('payment_method')->toArray(),
             ]);
             throw new InvalidArgumentException("Payment method not mapped to GL account: {$method}.");
         }

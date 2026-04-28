@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-exchange-alt"></i> Transactions</h1>
                 <p class="mb-0 text-light">View and manage payment transactions</p>
             </div>
-            <a href="{{ route('settings.payment_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+            <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
         </div>
     </div>
 </div>

@@ -11,9 +11,6 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-hand-holding-usd"></i> Loan Management</h1>
                 <p class="mb-0 text-light">Managing Loans for: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ route('categories.subshops') }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Change Branch
-            </a>
         </div>
     </div>
 </div>

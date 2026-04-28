@@ -9,6 +9,7 @@ use App\Models\LoanInstallments;
 use App\Models\LoanWriteOffAccount;
 use App\Models\LoanWriteoffs;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Accounting\JournalPostingEngine;
 use App\Services\Loans\Ledger\LoanTransactionLedger;
 use Carbon\Carbon;
@@ -55,8 +56,14 @@ class LoanWriteOffEngine
             throw new InvalidArgumentException($this->unconfiguredSubshops[$subshopId]);
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $config = LoanWriteOffAccount::with(['writeOffExpenseAccount.accountClass', 'recoveryIncomeAccount.accountClass'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->first();
 
         if (! $config) {
@@ -82,20 +89,23 @@ class LoanWriteOffEngine
             throw new InvalidArgumentException($message);
         }
 
-        if ($expenseAccount->subshop_id !== $subshopId) {
-            $message = "Write-off expense account does not belong to this subshop (ID: {$config->write_off_expense_account_id})";
+        // Validate account belongs to the same shop (shop-level scope)
+        $currentSubshop = SubShop::findOrFail($subshopId);
+        if ((int) $expenseAccount->shop_id !== (int) $currentSubshop->shop_id) {
+            $message = "Write-off expense account does not belong to this shop (ID: {$config->write_off_expense_account_id})";
             $this->unconfiguredSubshops[$subshopId] = $message;
             Log::warning($message, [
                 'subshop_id' => $subshopId,
+                'shop_id' => $currentSubshop->shop_id,
                 'account_id' => $config->write_off_expense_account_id,
-                'account_subshop_id' => $expenseAccount->subshop_id,
+                'account_shop_id' => $expenseAccount->shop_id,
             ]);
             throw new InvalidArgumentException($message);
         }
 
         // Validate it's an Expense account (Class 5)
-        $expenseClassId = $expenseAccount->account_class_id;
-        if ($expenseClassId !== 5) {
+        $expenseClassId = $expenseAccount->accountClass->code;
+        if ($expenseClassId != 5) {
             $message = "Write-off expense account must be Class 5 (Expense), got Class {$expenseClassId}";
             $this->unconfiguredSubshops[$subshopId] = $message;
             Log::warning($message, [
@@ -122,21 +132,23 @@ class LoanWriteOffEngine
             throw new InvalidArgumentException($message);
         }
 
-        if ($incomeAccount->subshop_id !== $subshopId) {
-            $message = "Recovery income account does not belong to this subshop (ID: {$config->recovery_income_account_id})";
+        // Validate account belongs to the same shop (shop-level scope)
+        if ((int) $incomeAccount->shop_id !== (int) $currentSubshop->shop_id) {
+            $message = "Recovery income account does not belong to this shop (ID: {$config->recovery_income_account_id})";
             $this->unconfiguredSubshops[$subshopId] = $message;
             Log::warning($message, [
                 'subshop_id' => $subshopId,
+                'shop_id' => $currentSubshop->shop_id,
                 'account_id' => $config->recovery_income_account_id,
-                'account_subshop_id' => $incomeAccount->subshop_id,
+                'account_shop_id' => $incomeAccount->shop_id,
             ]);
             throw new InvalidArgumentException($message);
         }
 
         // Validate it's a Revenue account (Class 4)
-        $incomeClassId = $incomeAccount->account_class_id;
-        if ($incomeClassId !== 4) {
-            $message = "Recovery income account must be Class 4 (Revenue), got Class {$incomeClassId}";
+        $incomeClassId = $incomeAccount->accountClass->code;
+        if ($incomeClassId != 4) {
+            $message = "Recovery income account must be Class 4 (Income), got Class {$incomeClassId}";
             $this->unconfiguredSubshops[$subshopId] = $message;
             Log::warning($message, [
                 'subshop_id' => $subshopId,

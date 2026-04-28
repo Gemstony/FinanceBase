@@ -32,7 +32,7 @@
                         <h4 class="mb-3">Receipt</h4>
                         <div><strong>Receipt Number:</strong> {{ $payment->id }}</div>
                         <div><strong>Loan Number:</strong> {{ $payment->loan?->loan_code ?? '—' }}</div>
-                        <div><strong>Borrower:</strong> {{ $payment->loan?->customer?->name ?? '—' }}</div>
+                        <div><strong>Borrower:</strong> {{ $payment->loan?->customer?->name ?? $payment->loan?->loanGroup?->name ?? '—' }}</div>
                         <div><strong>Officer:</strong> {{ $payment->user?->name ?? '—' }}</div>
                         <div><strong>Date:</strong> {{ $payment->payment_date?->format('Y-m-d') }}</div>
                     </div>

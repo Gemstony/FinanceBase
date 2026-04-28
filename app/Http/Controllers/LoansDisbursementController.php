@@ -129,14 +129,17 @@ class LoansDisbursementController extends Controller
         $securityDepositStatus = $this->getSecurityDepositStatus($loan);
 
         $subshopId = (int) session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         $disbursementMethods = DisbursementMethods::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'requires_reference']);
 
-        $subshop = SubShop::findOrFail($subshopId);
-        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
         $bankAccounts = BankAccounts::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
 
@@ -193,7 +196,13 @@ class LoansDisbursementController extends Controller
         }
 
         $subshopId = (int) session('subshop_id');
-        if ((int) $method->subshop_id !== $subshopId) {
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+        if (!in_array($method->subshop_id, $shopSubshopIds->toArray())) {
             return redirect()->back()->with('error', 'Invalid disbursement method for this branch.')->withInput();
         }
 

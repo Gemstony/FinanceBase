@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-layer-group"></i> Account Classes</h1>
                 <p class="mb-0 text-light">Managing account classes for: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ route('accounting.accounting_settings.index') }}" class="btn btn-light btn-sm">
+            <a href="{{ url()->previous() }}" class="btn btn-light btn-sm">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-cash-register"></i> Cash Book</h1>
                 <p class="mb-0 text-light">Daily cash and bank movements with running balance</p>
             </div>
-            <a href="{{ route('reports.accounting_reports.index') }}" class="btn btn-light">
+            <a href="{{ url()->previous() }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

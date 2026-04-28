@@ -9,6 +9,7 @@ use App\Models\BankStatement;
 use App\Models\BankStatementLine;
 use App\Models\ChartsOfAccount;
 use App\Models\JournalEntries;
+use App\Models\SubShop;
 use App\Services\BankReconciliation\AutoJournalService;
 use App\Services\BankReconciliation\ReconciliationMatcher;
 use App\Services\BankReconciliation\ReconciliationService;
@@ -251,13 +252,17 @@ class BankReconciliationController extends Controller
                 ->with('error', 'This statement line is already matched.');
         }
 
+        // Get shop_id for shop-level account scoping
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
         $accounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->where('shop_id', $shopId)
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get(['id', 'account_code', 'account_name']);
 
-        $suggestedAccountId = $this->autoJournalService->suggestAccountId($line, [$subshopId]);
+        $suggestedAccountId = $this->autoJournalService->suggestAccountId($line, $shopId);
 
         return view('bank_reconciliation.create_journal', compact(
             'statement',

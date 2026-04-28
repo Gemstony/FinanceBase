@@ -11,7 +11,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-calculator"></i> Calculator</h1>
                     <p class="mb-0 text-light">Simulate loan schedule without saving anything.</p>
                 </div>
-                <a href="{{ route('loans.management') }}" class="btn btn-light btn-sm">
+                <a href="{{ url()->previous() }}" class="btn btn-light btn-sm">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>

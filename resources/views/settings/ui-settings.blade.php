@@ -25,7 +25,7 @@
                 <li class="breadcrumb-item active text-dark" aria-current="page">UI Settings</li>
             </ol>
         </nav>
-        <a href="{{ route('settings.general_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+        <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
 
     </div>
 @stop

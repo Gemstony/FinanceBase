@@ -11,7 +11,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-ban"></i> Write-Off Accounts</h1>
                     <p class="mb-0 text-light">Configure GL accounts for loan write-offs and recoveries</p>
                 </div>
-                <a href="{{ route('accounting.accounting_settings.index') }}" class="btn btn-light">
+                <a href="{{ url()->previous() }}" class="btn btn-light">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>
@@ -25,7 +25,7 @@
                 <li class="breadcrumb-item active" aria-current="page">Write-Off Accounts</li>
             </ol>
         </nav>
-        <a href="{{ route('accounting.accounting_settings.index') }}" class="btn btn-light border">
+        <a href="{{ url()->previous() }}" class="btn btn-light border">
             <i class="fas fa-arrow-left"></i> Back
         </a>
     </div>

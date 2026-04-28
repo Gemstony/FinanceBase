@@ -7,6 +7,7 @@ use App\Models\InterestAccrualAccount;
 use App\Models\LoanInterestAccruals;
 use App\Models\LoanInstallments;
 use App\Models\Loans;
+use App\Models\SubShop;
 use App\Services\Accounting\JournalEntryBuilder;
 use App\Services\Accounting\JournalPostingEngine;
 use Carbon\Carbon;
@@ -316,13 +317,15 @@ class InterestAccrualEngine
             throw new InvalidArgumentException('Interest receivable account is not active.');
         }
 
-        if ((int) $receivableAccount->subshop_id !== $subshopId) {
-            Log::error('Interest receivable account wrong subshop', [
+        // Validate account belongs to the same shop (shop-level scope)
+        $currentSubshop = SubShop::findOrFail($subshopId);
+        if ((int) $receivableAccount->shop_id !== (int) $currentSubshop->shop_id) {
+            Log::error('Interest receivable account wrong shop', [
                 'account_id' => $receivableAccountId,
-                'account_subshop' => $receivableAccount->subshop_id,
-                'expected_subshop' => $subshopId,
+                'account_shop_id' => $receivableAccount->shop_id,
+                'expected_shop_id' => $currentSubshop->shop_id,
             ]);
-            throw new InvalidArgumentException('Interest receivable account does not belong to this branch.');
+            throw new InvalidArgumentException('Interest receivable account does not belong to this shop.');
         }
 
         // Validate income account (should be Class 4 - income)
@@ -348,13 +351,14 @@ class InterestAccrualEngine
             throw new InvalidArgumentException('Interest income account is not active.');
         }
 
-        if ((int) $incomeAccount->subshop_id !== $subshopId) {
-            Log::error('Interest income account wrong subshop', [
+        // Validate account belongs to the same shop (shop-level scope)
+        if ((int) $incomeAccount->shop_id !== (int) $currentSubshop->shop_id) {
+            Log::error('Interest income account wrong shop', [
                 'account_id' => $incomeAccountId,
-                'account_subshop' => $incomeAccount->subshop_id,
-                'expected_subshop' => $subshopId,
+                'account_shop_id' => $incomeAccount->shop_id,
+                'expected_shop_id' => $currentSubshop->shop_id,
             ]);
-            throw new InvalidArgumentException('Interest income account does not belong to this branch.');
+            throw new InvalidArgumentException('Interest income account does not belong to this shop.');
         }
 
         Log::debug('Interest accrual accounts validated', [

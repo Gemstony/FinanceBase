@@ -11,7 +11,7 @@
                  <h1 class="d-md-none text-light"><i class="fas fa-file-invoice-dollar"></i> View Loan</h1>
                  <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
              </div>
-                <a href="{{ route('loans.loans.index') }}" class="btn btn-light btn-sm border">
+                <a href="{{ url()->previous() }}" class="btn btn-light btn-sm border">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
          </div>

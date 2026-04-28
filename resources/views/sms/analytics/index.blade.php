@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-chart-bar"></i> SMS Analytics</h1>
                 <p class="mb-0 text-light">Monitor SMS delivery and performance</p>
             </div>
-            <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+            <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
 
         </div>
     </div>
@@ -25,7 +25,7 @@
             <li class="breadcrumb-item"><a href="{{ route('settings.sms_settings.index') }}">SMS Settings</a></li>
             <li class="breadcrumb-item active text-dark" aria-current="page">SMS Analytics</li>
         </ol>
-     <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+     <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
    </nav>
 </div>
 @stop

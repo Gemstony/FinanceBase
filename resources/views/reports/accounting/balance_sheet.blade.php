@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-file-invoice-dollar"></i> Balance Sheet</h1>
                 <p class="mb-0 text-light">As-of: <strong>{{ $asOf ?? '' }}</strong></p>
             </div>
-            <a href="{{ route('reports.accounting_reports.index') }}" class="btn btn-light">
+            <a href="{{ url()->previous() }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

@@ -17,9 +17,6 @@
                             <i class="fas fa-plus"></i> New Customer
                         </a>
                     @endcan
-                    <a href="{{ route('customers.subshops') }}" class="btn btn-light border ml-2">
-                        <i class="fas fa-random"></i> Change Shop
-                    </a>
                 </div>
             </div>
         </div>

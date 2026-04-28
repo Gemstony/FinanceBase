@@ -10,7 +10,7 @@
       <h1 class="d-md-none text-light"><i class="fas fa-exclamation-triangle"></i> Delinquency</h1>
       <div class="small text-light-50">Period: {{ $dateFrom ?? '' }} to {{ $dateTo ?? '' }}</div>
     </div>
-    <a href="{{ route('reports.loan_reports.index') }}" class="btn btn-light">
+    <a href="{{ url()->previous() }}" class="btn btn-light">
       <i class="fas fa-arrow-left"></i> Back
     </a>
   </div>

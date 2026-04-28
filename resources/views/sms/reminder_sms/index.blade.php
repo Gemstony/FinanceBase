@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-bell"></i> Reminder SMS</h1>
                 <p class="mb-0 text-light">Send SMS reminders to customers based on loan status</p>
             </div>
-            <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+            <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
         </div>
     </div>
 </div>
@@ -25,7 +25,7 @@
             <li class="breadcrumb-item active text-dark" aria-current="page">Reminder SMS</li>
         </ol>
     </nav>
-    <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+    <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
 </div>
 @stop
 

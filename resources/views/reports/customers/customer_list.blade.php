@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-users"></i> Customers</h1>
                 <p class="mb-0 text-light">Customer overview and loan portfolio analysis</p>
             </div>
-            <a href="{{ route('reports.customers_reports.index') }}" class="btn btn-light">
+            <a href="{{ url()->previous() }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

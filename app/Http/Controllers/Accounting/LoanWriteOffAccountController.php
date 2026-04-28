@@ -27,19 +27,20 @@ class LoanWriteOffAccountController extends Controller
         }
 
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
-        // Get current configuration
-        $config = LoanWriteOffAccount::getBySubshop($subshopId);
+        // Get current configuration - check shop level (any subshop in the shop)
+        $config = LoanWriteOffAccount::getByShop($subshop->shop_id);
 
-        // Get available GL accounts - use same pattern as InterestAccrualController
+        // Get available GL accounts - scoped to shop level
         $expenseAccounts = ChartsOfAccount::with('accountClass')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->get()
             ->filter(fn($acc) => (int) ($acc->accountClass?->code ?? 0) === 5); // Class 5 = Expense
 
         $incomeAccounts = ChartsOfAccount::with('accountClass')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->get()
             ->filter(fn($acc) => (int) ($acc->accountClass?->code ?? 0) === 4); // Class 4 = Revenue
@@ -72,10 +73,13 @@ class LoanWriteOffAccountController extends Controller
         $expenseAccountId = (int) $validated['write_off_expense_account_id'];
         $incomeAccountId = (int) $validated['recovery_income_account_id'];
 
-        // Validate that the expense account belongs to this subshop and is Class 5 (Expense)
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+        // Validate that the expense account belongs to this shop and is Class 5 (Expense)
         $expenseAccount = ChartsOfAccount::with('accountClass')
             ->where('id', $expenseAccountId)
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->first();
 
@@ -88,13 +92,13 @@ class LoanWriteOffAccountController extends Controller
         if (! $expenseAccount) {
             return back()
                 ->withInput()
-                ->with('error', 'The selected write-off expense account is invalid. It must be an active Class 5 (Expense) account belonging to your branch.');
+                ->with('error', 'The selected write-off expense account is invalid. It must be an active Class 5 (Expense) account belonging to your shop.');
         }
 
-        // Validate that the income account belongs to this subshop and is Class 4 (Revenue)
+        // Validate that the income account belongs to this shop and is Class 4 (Revenue)
         $incomeAccount = ChartsOfAccount::with('accountClass')
             ->where('id', $incomeAccountId)
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->first();
 
@@ -107,7 +111,7 @@ class LoanWriteOffAccountController extends Controller
         if (! $incomeAccount) {
             return back()
                 ->withInput()
-                ->with('error', 'The selected recovery income account is invalid. It must be an active Class 4 (Revenue) account belonging to your branch.');
+                ->with('error', 'The selected recovery income account is invalid. It must be an active Class 4 (Revenue) account belonging to your shop.');
         }
 
         try {
@@ -153,11 +157,15 @@ class LoanWriteOffAccountController extends Controller
             return redirect()->route('subshops.choose');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         try {
-            LoanWriteOffAccount::where('subshop_id', $subshopId)->delete();
+            LoanWriteOffAccount::whereIn('subshop_id', $shopSubshopIds)->delete();
 
             Log::info('Loan write-off accounts configuration removed', [
-                'subshop_id' => $subshopId,
+                'shop_id' => $subshop->shop_id,
+                'subshop_ids' => $shopSubshopIds->toArray(),
             ]);
 
             return redirect()
@@ -165,7 +173,7 @@ class LoanWriteOffAccountController extends Controller
                 ->with('success', 'Loan write-off accounts configuration removed successfully.');
         } catch (\Throwable $e) {
             Log::error('Failed to remove loan write-off accounts configuration', [
-                'subshop_id' => $subshopId,
+                'shop_id' => $subshop->shop_id,
                 'error' => $e->getMessage(),
             ]);
 

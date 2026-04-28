@@ -404,9 +404,12 @@ class CustomersController extends Controller
                 return response()->json(['error' => 'No subshop selected'], 400);
             }
 
-            // Verify customer belongs to the current subshop
-            if ($customer->subshop_id != $subshopId) {
-                return response()->json(['error' => 'Customer not found in current subshop'], 404);
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+            // Verify customer belongs to the current shop
+            if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
+                return response()->json(['error' => 'Customer not found in current shop'], 404);
             }
 
             // Debug: Log the request and customer ID
@@ -435,7 +438,7 @@ class CustomersController extends Controller
                     $join->on('sales_orders.id', '=', 'payments.order_id');
                 })
                 ->where('sales_orders.customer_id', $customer->id)
-                ->where('sales_orders.subshop_id', $subshopId)
+                ->whereIn('sales_orders.subshop_id', $shopSubshopIds)
                 ->orderBy('sales_orders.created_at', 'desc')
                 ->paginate(10);
 
@@ -548,9 +551,12 @@ class CustomersController extends Controller
                 return response()->json(['error' => 'No subshop selected'], 400);
             }
 
-            // Verify customer belongs to the current subshop
-            if ($customer->subshop_id != $subshopId) {
-                return response()->json(['error' => 'Customer not found in current subshop'], 404);
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+            // Verify customer belongs to the current shop
+            if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
+                return response()->json(['error' => 'Customer not found in current shop'], 404);
             }
 
             // Payments per order subquery
@@ -560,7 +566,7 @@ class CustomersController extends Controller
 
             // Base orders query for this customer
             $base = SalesOrders::where('customer_id', $customer->id)
-                ->where('subshop_id', $subshopId)  // Ensure we only get orders from current subshop
+                ->whereIn('subshop_id', $shopSubshopIds)  // Ensure we only get orders from current shop
                 ->leftJoinSub($paymentsSub, 'pays', function ($join) {
                     $join->on('pays.order_id', '=', 'sales_orders.id');
                 })
@@ -576,6 +582,7 @@ class CustomersController extends Controller
             // Monthly spending for last 12 months (DB-agnostic: aggregate in PHP)
             $since = now()->subMonths(11)->startOfMonth();
             $monthlyOrders = SalesOrders::where('customer_id', $customer->id)
+                ->whereIn('subshop_id', $shopSubshopIds)
                 ->where('created_at', '>=', $since)
                 ->get(['grand_total', 'created_at']);
 
@@ -605,6 +612,7 @@ class CustomersController extends Controller
                 ->leftJoin('items', 'items.id', '=', 'sales_orders_items.item_id')
                 ->leftJoin('categories', 'categories.id', '=', 'items.category_id')
                 ->where('sales_orders.customer_id', $customer->id)
+                ->whereIn('sales_orders.subshop_id', $shopSubshopIds)
                 ->groupBy('categories.name')
                 ->selectRaw("COALESCE(categories.name, 'Uncategorized') as category, SUM(sales_orders_items.line_total) as total")
                 ->orderByDesc('total')
@@ -618,6 +626,7 @@ class CustomersController extends Controller
 
             // Recent activity: last 5 orders
             $recent = SalesOrders::where('customer_id', $customer->id)
+                ->whereIn('subshop_id', $shopSubshopIds)
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get(['id', 'order_no', 'grand_total', 'created_at'])
@@ -691,14 +700,14 @@ class CustomersController extends Controller
                 return redirect()->route('subshops.choose', ['intended' => route('customers.edit', $id)]);
             }
 
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
             $customer = Customers::findOrFail($id);
 
-            // Verify customer belongs to the current subshop
-            if ($customer->subshop_id != $subshopId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Customer not found in current subshop.',
-                ], 404);
+            // Verify customer belongs to the current shop
+            if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
+                return redirect()->back()->with('error', 'Customer not found in current shop.');
             }
 
             $request->validate([
@@ -846,18 +855,14 @@ class CustomersController extends Controller
                 return redirect()->route('subshops.choose', ['intended' => route('customers.index')]);
             }
 
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
             $customer = Customers::findOrFail($id);
 
-            // Verify customer belongs to the current subshop
-            if ($customer->subshop_id != $subshopId) {
-                if (request()->ajax() || request()->wantsJson()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'This Customer (Name: '.$customer->name.') was not registered in current branch, please change branch to delete this Customer.',
-                    ], 404);
-                }
-
-                return redirect()->back()->with('error', 'This Customer (Name: '.$customer->name.') was not registered in current branch, please change branch to delete this Customer.');
+            // Verify customer belongs to the current shop
+            if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
+                return redirect()->back()->with('error', 'This Customer (Name: '.$customer->name.') was not registered in current shop, please change shop to delete this Customer.');
             }
 
             // Delete customer image from storage
@@ -911,7 +916,10 @@ class CustomersController extends Controller
             $customer = $file->customer;
             $subshopId = session('subshop_id');
 
-            if (! $subshopId || $customer->subshop_id != $subshopId) {
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+            if (! $subshopId || ! $shopSubshopIds->contains((int) $customer->subshop_id)) {
                 abort(404);
             }
 
@@ -935,21 +943,18 @@ class CustomersController extends Controller
         try {
             $subshopId = session('subshop_id');
             if (! $subshopId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No subshop selected. Please select a shop first.',
-                ], 400);
+                return redirect()->route('subshops.choose')->with('error', 'No shop selected. Please select a shop first.');
             }
+
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
             $file = CustomerFile::findOrFail($id);
             $customer = $file->customer;
 
-            // Verify customer belongs to the current subshop
-            if ($customer->subshop_id != $subshopId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'File not found.',
-                ], 404);
+            // Verify customer belongs to the current shop
+            if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
+                return redirect()->back()->with('error', 'File not found.');
             }
 
             // Delete file from storage
@@ -958,10 +963,10 @@ class CustomersController extends Controller
             // Delete record from database
             $file->delete();
 
-            return back()->with('success', 'File deleted successfully.');
+            return redirect()->back()->with('success', 'File deleted successfully.');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'An error occurred while deleting the file.');
+            return redirect()->back()->with('error', 'An error occurred while deleting the file.');
         }
     }
 
@@ -997,6 +1002,9 @@ class CustomersController extends Controller
                 ->with('error', 'Please select a shop first');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         // Stats subquery with optional date range on loans
         $statsSub = Loans::selectRaw('
             customer_id,
@@ -1006,7 +1014,7 @@ class CustomersController extends Controller
             COALESCE(SUM(CASE WHEN is_written_off = 1 THEN 1 ELSE 0 END), 0) as written_off_loans,
             COALESCE(SUM(principal_amount), 0) as total_disbursed
         ')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true);
         if ($request->filled('date_from')) {
             $statsSub->whereDate('created_at', '>=', $request->input('date_from'));
@@ -1022,7 +1030,7 @@ class CustomersController extends Controller
             ->selectRaw('loans.customer_id as customer_id, COALESCE(SUM(li.outstanding_amount), 0) as outstanding_balance')
             ->where('li.is_active', true)
             ->where('li.outstanding_amount', '>', 0)
-            ->where('loans.subshop_id', $subshopId)
+            ->whereIn('loans.subshop_id', $shopSubshopIds)
             ->where('loans.is_active', true)
             ->where('loans.is_written_off', false)
             ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
@@ -1031,14 +1039,14 @@ class CustomersController extends Controller
         // Overdue loans subquery
         $overdueSub = Loans::selectRaw('customer_id, COUNT(DISTINCT loans.id) as overdue_loans')
             ->join('loan_installments', 'loans.id', '=', 'loan_installments.loan_id')
-            ->where('loans.subshop_id', $subshopId)
+            ->whereIn('loans.subshop_id', $shopSubshopIds)
             ->where('loans.is_active', true)
             ->where('loan_installments.is_active', true)
             ->where('loan_installments.status', 'overdue')
             ->groupBy('customer_id');
 
         // Base customers query with loan stats
-        $base = Customers::where('customers.subshop_id', $subshopId)
+        $base = Customers::whereIn('customers.subshop_id', $shopSubshopIds)
             ->leftJoinSub($statsSub, 'stats', function ($join) {
                 $join->on('stats.customer_id', '=', 'customers.id');
             })
@@ -1625,12 +1633,15 @@ class CustomersController extends Controller
                 ->with('error', 'Please select a shop first');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $customer = Customers::withTrashed()->findOrFail($id);
-        if ((int) $customer->subshop_id !== (int) $subshopId) {
+        if (! $shopSubshopIds->contains((int) $customer->subshop_id)) {
             abort(404);
         }
 
-        $subshop = SubShop::with('shop')->findOrFail($subshopId);
+        $subshop = SubShop::with('shop')->find($subshopId);
         $shop = $subshop->shop;
 
         // Get shop logo path

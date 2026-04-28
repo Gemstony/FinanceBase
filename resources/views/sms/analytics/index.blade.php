@@ -25,7 +25,7 @@
             <li class="breadcrumb-item"><a href="{{ route('settings.sms_settings.index') }}">SMS Settings</a></li>
             <li class="breadcrumb-item active text-dark" aria-current="page">SMS Analytics</li>
         </ol>
-     <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+     <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
    </nav>
 </div>
 @stop

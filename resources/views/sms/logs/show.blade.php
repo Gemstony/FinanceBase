@@ -12,7 +12,7 @@
                 <p class="mb-0 text-light">View detailed SMS log information</p>
             </div>
             <a href="{{ url()->previous() }}" class="btn btn-light">
-                <i class="fas fa-arrow-left"></i> Back
+                <i class="fas fa-arrow-left"></i> Back to List
             </a>
         </div>
     </div>

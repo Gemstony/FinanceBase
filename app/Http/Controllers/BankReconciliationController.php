@@ -34,10 +34,15 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statements = BankStatement::query()
             ->with(['bankAccount'])
-            ->whereHas('bankAccount', function ($q) use ($subshopId) {
-                $q->where('subshop_id', $subshopId);
+            ->whereHas('bankAccount', function ($q) use ($shopSubshopIds) {
+                $q->whereIn('subshop_id', $shopSubshopIds);
             })
             ->orderByDesc('id')
             ->paginate(20);
@@ -49,8 +54,14 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('account_name')
             ->get(['id', 'account_name']);
@@ -62,6 +73,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+                
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $data = $request->validate([
             'bank_account_id' => 'required|integer|exists:bank_accounts,id',
             'statement_date' => 'required|date',
@@ -72,7 +90,7 @@ class BankReconciliationController extends Controller
         ]);
 
         $bank = BankAccounts::query()->whereKey((int) $data['bank_account_id'])->firstOrFail();
-        if ((int) $bank->subshop_id !== $subshopId) {
+        if (!in_array((int) $bank->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -94,12 +112,17 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()
             ->with(['bankAccount', 'lines'])
             ->whereKey($id)
             ->firstOrFail();
 
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -112,8 +135,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()->with('bankAccount')->whereKey($id)->firstOrFail();
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -135,12 +163,17 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()
             ->with(['bankAccount', 'lines.matchedJournalEntry.lines'])
             ->whereKey($id)
             ->firstOrFail();
 
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -148,7 +181,7 @@ class BankReconciliationController extends Controller
 
         $journals = JournalEntries::query()
             ->with('lines')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->orderByDesc('id')
             ->limit(300)
             ->get();
@@ -175,8 +208,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()->with('bankAccount')->whereKey($id)->firstOrFail();
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -194,8 +232,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()->with('bankAccount')->whereKey($id)->firstOrFail();
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -213,8 +256,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()->with('bankAccount')->whereKey($id)->firstOrFail();
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -232,12 +280,17 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()
             ->with(['bankAccount'])
             ->whereKey($id)
             ->firstOrFail();
 
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 
@@ -276,8 +329,13 @@ class BankReconciliationController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $statement = BankStatement::query()->with('bankAccount')->whereKey($id)->firstOrFail();
-        if ((int) $statement->bankAccount->subshop_id !== $subshopId) {
+        if (!in_array((int) $statement->bankAccount->subshop_id, $shopSubshopIds->toArray())) {
             abort(403);
         }
 

@@ -17,8 +17,8 @@
                 </p>
             </div>
             <div class="mt-2 mt-md-0">
-                <a href="{{ url()->previous() }}" class="btn btn-light">
-                    <i class="fas fa-arrow-left"></i> Back
+                <a href="{{ route('accounting.bank_accounts.index') }}" class="btn btn-light">
+                    <i class="fas fa-arrow-left"></i> Back to Bank Accounts
                 </a>
             </div>
         </div>

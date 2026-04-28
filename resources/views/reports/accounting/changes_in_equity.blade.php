@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-exchange-alt"></i> Changes in Equity</h1>
                 <p class="mb-0 text-light">Statement of changes in equity</p>
             </div>
-            <a href="{{ url()->previous() }}" class="btn btn-light">
+            <a href="{{ route('reports.accounting_reports.index') }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

@@ -11,7 +11,7 @@
                     <h1 class="d-md-none text-light"><i class="fas fa-book"></i> Journal #{{ $journal->id }}</h1>
                     <p class="mb-0 text-light">View journal details</p>
                 </div>
-                <a href="{{ url()->previous() }}" class="btn btn-light border">
+                <a href="{{ route('accounting.manual-journals.index') }}" class="btn btn-light border">
                     <i class="fas fa-arrow-left"></i> Back
                 </a>
             </div>

@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-clipboard-list"></i> Journal</h1>
                 <p class="mb-0 text-light">Journal entries with full debit/credit lines</p>
             </div>
-            <a href="{{ url()->previous() }}" class="btn btn-light">
+            <a href="{{ route('reports.accounting_reports.index') }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

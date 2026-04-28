@@ -57,7 +57,7 @@
                 <li class="breadcrumb-item active" aria-current="page">Record Recovery</li>
             </ol>
         </nav>
-        <a href="{{ url()->previous() }}" class="btn btn-light border">
+        <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-light border">
             <i class="fas fa-arrow-left"></i> Back
         </a>
     </div>

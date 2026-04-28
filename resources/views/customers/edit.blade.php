@@ -175,6 +175,7 @@
                                 <option value="NIDA" @selected(old('id_type', $customer->id_type) === 'NIDA')>NIDA ID</option>
                                 <option value="Driving License" @selected(old('id_type', $customer->id_type) === 'Driving License')>Driving License ID</option>
                                 <option value="Voter ID" @selected(old('id_type', $customer->id_type) === 'Voter ID')>Voter ID</option>
+                                <option value="other" @selected(old('id_type', $customer->id_type) === 'other')>Other</option>
                             </select>
                         </div>
                     </div>

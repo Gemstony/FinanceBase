@@ -75,14 +75,17 @@ class VoucherController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $accounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get(['id', 'account_code', 'account_name']);
-
-        $subshop = SubShop::findOrFail($subshopId);
-        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
         $bankAccounts = BankAccounts::query()
             ->whereIn('subshop_id', $shopSubshopIds)

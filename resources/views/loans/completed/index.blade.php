@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-check-circle"></i> Completed</h1>
                 <p class="mb-0 text-light">Branch: <strong>{{ $subshop->name }}</strong></p>
             </div>
-            <a href="{{ url()->previous() }}" class="btn btn-light">
+            <a href="{{ route('loans.management') }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

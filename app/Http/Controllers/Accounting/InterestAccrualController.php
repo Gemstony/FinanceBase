@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\ChartsOfAccount;
 use App\Models\InterestAccrualAccount;
+use App\Models\SubShop;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,18 +17,21 @@ class InterestAccrualController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
-        $config = InterestAccrualAccount::forSubshop($subshopId);
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+        $config = InterestAccrualAccount::forShop($subshop->shop_id);
         $isConfigured = $config !== null;
 
-        // Get available accounts for configuration
+        // Get available accounts for configuration - scoped to shop level
         $assetAccounts = ChartsOfAccount::with('accountClass')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->get()
             ->filter(fn($acc) => (int) ($acc->accountClass?->code ?? 0) === 1);
 
         $revenueAccounts = ChartsOfAccount::with('accountClass')
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->get()
             ->filter(fn($acc) => (int) ($acc->accountClass?->code ?? 0) === 4);
@@ -51,6 +55,9 @@ class InterestAccrualController extends Controller
         try {
             $subshopId = (int) session('subshop_id');
 
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
             // Validate receivable account is Class 1 (Asset)
             $receivableAccount = ChartsOfAccount::query()
                 ->whereKey($validated['interest_receivable_account_id'])
@@ -63,10 +70,10 @@ class InterestAccrualController extends Controller
                     ->with('error', 'Interest receivable account must be an Asset account (Account Class 1).');
             }
 
-            if ((int) $receivableAccount->subshop_id !== $subshopId) {
+            if (! in_array((int) $receivableAccount->subshop_id, $shopSubshopIds->toArray())) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Selected receivable account does not belong to this branch.');
+                    ->with('error', 'Selected receivable account does not belong to this shop.');
             }
 
             if (!$receivableAccount->is_active) {
@@ -87,10 +94,10 @@ class InterestAccrualController extends Controller
                     ->with('error', 'Interest income account must be a Revenue account (Account Class 4).');
             }
 
-            if ((int) $incomeAccount->subshop_id !== $subshopId) {
+            if (! in_array((int) $incomeAccount->subshop_id, $shopSubshopIds->toArray())) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Selected income account does not belong to this branch.');
+                    ->with('error', 'Selected income account does not belong to this shop.');
             }
 
             if (!$incomeAccount->is_active) {
@@ -99,7 +106,7 @@ class InterestAccrualController extends Controller
                     ->with('error', 'Selected income account is not active.');
             }
 
-            // Create or update configuration
+            // Create or update configuration (use current subshop_id to store)
             InterestAccrualAccount::updateOrCreate(
                 ['subshop_id' => $subshopId],
                 [
@@ -136,12 +143,15 @@ class InterestAccrualController extends Controller
         try {
             $subshopId = (int) session('subshop_id');
 
-            $config = InterestAccrualAccount::forSubshop($subshopId);
-            if ($config) {
-                $config->delete();
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
-                Log::info('Interest accrual accounts configuration deleted', ['subshop_id' => $subshopId]);
-            }
+            InterestAccrualAccount::whereIn('subshop_id', $shopSubshopIds)->delete();
+
+            Log::info('Interest accrual accounts configuration deleted', [
+                'shop_id' => $subshop->shop_id,
+                'subshop_ids' => $shopSubshopIds->toArray(),
+            ]);
 
             return redirect()->route('accounting.interest-accrual-accounts.index')
                 ->with('success', 'Interest accrual accounts configuration removed successfully.');

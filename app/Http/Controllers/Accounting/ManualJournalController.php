@@ -9,6 +9,7 @@ use App\Models\ChartsOfAccount;
 use App\Models\JournalEntries;
 use App\Models\User;
 use App\Services\Accounting\ManualJournalService;
+use App\Models\SubShop;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -132,8 +133,15 @@ class ManualJournalController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
         $accounts = ChartsOfAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get(['id', 'account_code', 'account_name']);

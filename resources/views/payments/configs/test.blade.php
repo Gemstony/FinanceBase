@@ -11,7 +11,7 @@
                 <h1 class="d-md-none text-light"><i class="fas fa-vial"></i> Test Provider</h1>
                 <p class="mb-0 text-light">Verify provider connectivity and credentials</p>
             </div>
-            <a href="{{ url()->previous() }}" class="btn btn-light">
+            <a href="{{ route('payments.configs') }}" class="btn btn-light">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
         </div>

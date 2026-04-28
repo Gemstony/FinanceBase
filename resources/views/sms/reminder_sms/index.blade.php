@@ -25,7 +25,7 @@
             <li class="breadcrumb-item active text-dark" aria-current="page">Reminder SMS</li>
         </ol>
     </nav>
-    <a href="{{ url()->previous() }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
+    <a href="{{ route('settings.sms_settings.index') }}" class="btn btn-light"><i class="fas fa-arrow-left"></i> Back</a>
 </div>
 @stop
 

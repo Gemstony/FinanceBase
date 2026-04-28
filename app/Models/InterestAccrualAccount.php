@@ -49,4 +49,30 @@ class InterestAccrualAccount extends Model
     {
         return static::query()->where('subshop_id', $subshopId)->exists();
     }
+
+    /**
+     * Get configuration by shop ID (checks if any subshop in the shop has a configuration).
+     * Returns the first configuration found for any subshop in the shop.
+     */
+    public static function forShop(int $shopId): ?self
+    {
+        return static::query()
+            ->whereHas('subshop', function ($query) use ($shopId) {
+                $query->where('shop_id', $shopId);
+            })
+            ->with(['interestReceivableAccount.accountClass', 'interestIncomeAccount.accountClass'])
+            ->first();
+    }
+
+    /**
+     * Check if configuration exists for a shop (any subshop in the shop).
+     */
+    public static function existsForShop(int $shopId): bool
+    {
+        return static::query()
+            ->whereHas('subshop', function ($query) use ($shopId) {
+                $query->where('shop_id', $shopId);
+            })
+            ->exists();
+    }
 }

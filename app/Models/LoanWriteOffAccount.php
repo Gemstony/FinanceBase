@@ -68,4 +68,27 @@ class LoanWriteOffAccount extends Model
     {
         return self::where('subshop_id', $subshopId)->exists();
     }
+
+    /**
+     * Get configuration by shop ID (checks if any subshop in the shop has a configuration).
+     * Returns the first configuration found for any subshop in the shop.
+     */
+    public static function getByShop(int $shopId): ?self
+    {
+        return self::with(['writeOffExpenseAccount', 'recoveryIncomeAccount'])
+            ->whereHas('subshop', function ($query) use ($shopId) {
+                $query->where('shop_id', $shopId);
+            })
+            ->first();
+    }
+
+    /**
+     * Check if configuration exists for a shop (any subshop in the shop).
+     */
+    public static function existsForShop(int $shopId): bool
+    {
+        return self::whereHas('subshop', function ($query) use ($shopId) {
+            $query->where('shop_id', $shopId);
+        })->exists();
+    }
 }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Loans\Risk;
 use App\Http\Controllers\Controller;
 use App\Models\RiskSnapshot;
 use App\Models\RiskThreshold;
-use App\Models\Shop;
 use App\Models\SubShop;
 use App\Services\Loans\Risk\DpdCalculator;
 use App\Services\Loans\Risk\LoanDelinquencyEngine;
@@ -16,7 +15,6 @@ use App\Services\Loans\Risk\StressTestingService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
 use Illuminate\View\View;
 
 class PortfolioRiskController extends Controller
@@ -28,25 +26,11 @@ class PortfolioRiskController extends Controller
     ) {
     }
 
-    /**
-     * Get all subshop IDs under the current shop for data aggregation.
-     *
-     * @return array<int>|null Array of subshop IDs or null for all
-     */
-    private function getShopSubshopIds(): ?array
+    private function getCurrentSubshopId(): ?int
     {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
-            return null;
-        }
 
-        $subshop = SubShop::find($subshopId);
-        if (!$subshop) {
-            return null;
-        }
-
-        // Aggregate across all subshops under the same shop
-        return SubShop::where('shop_id', $subshop->shop_id)->pluck('id')->toArray();
+        return $subshopId > 0 ? $subshopId : null;
     }
 
     /**
@@ -54,18 +38,18 @@ class PortfolioRiskController extends Controller
      */
     public function dashboard(Request $request): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Use cached summary for better performance
-        $summary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($shopSubshopIds);
+        $summary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($subshopId);
 
         // Count performing vs delinquent loans within the active portfolio only.
         // Use enriched method that pre-computes all metrics
-        $delinquentLoans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $shopSubshopIds);
+        $delinquentLoans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $subshopId);
         $delinquentCount = $delinquentLoans->count();
 
         // Calculate performing count efficiently
-        $totalActiveWithOutstanding = $this->countActiveLoansWithOutstanding($shopSubshopIds);
+        $totalActiveWithOutstanding = $this->countActiveLoansWithOutstanding($subshopId);
         $performingCount = max(0, $totalActiveWithOutstanding - $delinquentCount);
 
         return view('risk.portfolio', compact('summary', 'delinquentCount', 'performingCount'));
@@ -74,12 +58,12 @@ class PortfolioRiskController extends Controller
     /**
      * Count active loans that have outstanding balance.
      */
-    private function countActiveLoansWithOutstanding(?array $shopSubshopIds): int
+    private function countActiveLoansWithOutstanding(?int $subshopId): int
     {
         $query = $this->portfolioRisk->activeLoansQuery()->select(['id']);
 
-        if ($shopSubshopIds) {
-            $query->whereIn('subshop_id', $shopSubshopIds);
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
         }
 
         $count = 0;
@@ -102,10 +86,10 @@ class PortfolioRiskController extends Controller
      */
     public function delinquentLoans(Request $request): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Use enriched method that pre-computes all risk metrics in bulk
-        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $shopSubshopIds);
+        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $subshopId);
 
         // Apply eager loading to avoid N+1
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
@@ -126,10 +110,10 @@ class PortfolioRiskController extends Controller
      */
     public function delinquentByDays(int $days): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Use enriched method that pre-computes all risk metrics in bulk
-        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched($days, $shopSubshopIds);
+        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched($days, $subshopId);
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
         // Pre-compute additional data for the view
@@ -173,20 +157,14 @@ class PortfolioRiskController extends Controller
      */
     public function history(Request $request, RiskSnapshotService $snapshotService): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
         $range = (int) $request->input('range', 90);
 
         $endDate = Carbon::today();
         $startDate = $endDate->copy()->subDays($range);
 
-        // Get current shop ID for scoping
-        $currentSubshopId = (int) session('subshop_id');
-        $currentShopId = SubShop::where('id', $currentSubshopId)->value('shop_id');
-
-        // Get shop-specific portfolio-wide snapshots
-        // Portfolio snapshots have shop_id set and subshop_id = NULL
-        $snapshots = RiskSnapshot::where('shop_id', $currentShopId)
-            ->whereNull('subshop_id')
+        $snapshots = RiskSnapshot::query()
+            ->where('subshop_id', $subshopId)
             ->forDateRange($startDate, $endDate)
             ->orderBy('snapshot_date')
             ->get();
@@ -194,7 +172,7 @@ class PortfolioRiskController extends Controller
         // Get trend analysis
         $trendAnalysis = null;
         if ($snapshots->count() >= 2) {
-            $trendAnalysis = $snapshotService->getTrendAnalysis($startDate, $endDate, $shopSubshopIds);
+            $trendAnalysis = $snapshotService->getTrendAnalysis($startDate, $endDate, $subshopId);
         }
 
         return view('risk.history', compact('snapshots', 'trendAnalysis', 'range'));
@@ -205,10 +183,10 @@ class PortfolioRiskController extends Controller
      */
     public function provisionReport(ProvisionCalculationService $provisionService): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Generate provision report
-        $report = $provisionService->generateProvisionReport($shopSubshopIds);
+        $report = $provisionService->generateProvisionReport($subshopId);
 
         return view('risk.provision-report', compact('report'));
     }
@@ -218,7 +196,7 @@ class PortfolioRiskController extends Controller
      */
     public function stressTest(Request $request, StressTestingService $stressService): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         $result = null;
         $params = [];
@@ -229,11 +207,11 @@ class PortfolioRiskController extends Controller
             $params = $request->except(['_token', 'scenario']);
 
             // Run the stress test
-            $result = $stressService->runScenario($scenario, $params, $shopSubshopIds);
+            $result = $stressService->runScenario($scenario, $params, $subshopId);
         }
 
         // Get historical stress comparison
-        $historicalStress = $stressService->compareAgainstHistoricalStress($shopSubshopIds);
+        $historicalStress = $stressService->compareAgainstHistoricalStress($subshopId);
 
         return view('risk.stress-test', compact('result', 'params', 'scenario', 'historicalStress'));
     }
@@ -244,7 +222,7 @@ class PortfolioRiskController extends Controller
     public function thresholds(Request $request): View|RedirectResponse
     {
         $subshopId = (int) session('subshop_id');
-
+ 
         // Get current thresholds
         $thresholds = RiskThreshold::forSubshop($subshopId);
 
@@ -285,14 +263,9 @@ class PortfolioRiskController extends Controller
             return redirect()->route('risk.thresholds')->with('success', 'Risk thresholds updated successfully.');
         }
 
-        // Get current shop ID and scope subshops to the current shop
-        $currentSubshopId = (int) session('subshop_id');
-        $currentShopId = SubShop::where('id', $currentSubshopId)->value('shop_id');
-
-        $subshops = SubShop::where('is_active', true)
-            ->when($currentShopId, function ($query) use ($currentShopId) {
-                $query->where('shop_id', $currentShopId);
-            })
+        $subshops = SubShop::query()
+            ->whereKey($subshopId)
+            ->where('is_active', true)
             ->get();
 
         return view('risk.thresholds', compact('thresholds', 'subshops'));

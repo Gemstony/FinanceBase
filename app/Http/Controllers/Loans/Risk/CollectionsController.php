@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Loans\Risk;
 use App\Http\Controllers\Controller;
 use App\Models\CollectionsAction;
 use App\Models\PromiseToPay;
-use App\Models\SubShop;
 use App\Models\User;
 use App\Services\Loans\Risk\CollectionsActionService;
 use App\Services\Loans\Risk\CollectionsScoringService;
@@ -29,25 +28,11 @@ class CollectionsController extends Controller
     ) {
     }
 
-    /**
-     * Get all subshop IDs under the current shop for data aggregation.
-     *
-     * @return array<int>|null Array of subshop IDs or null for all
-     */
-    private function getShopSubshopIds(): ?array
+    private function getCurrentSubshopId(): ?int
     {
         $subshopId = (int) session('subshop_id');
-        if (!$subshopId) {
-            return null;
-        }
 
-        $subshop = SubShop::find($subshopId);
-        if (!$subshop) {
-            return null;
-        }
-
-        // Aggregate across all subshops under the same shop
-        return SubShop::where('shop_id', $subshop->shop_id)->pluck('id')->toArray();
+        return $subshopId > 0 ? $subshopId : null;
     }
 
     /**
@@ -55,10 +40,10 @@ class CollectionsController extends Controller
      */
     public function index(Request $request): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Use enriched method that pre-computes all metrics in bulk (avoids N+1)
-        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $shopSubshopIds);
+        $loans = $this->delinquencyEngine->getDelinquentLoansEnriched(1, $subshopId);
 
         // Apply eager loading to avoid N+1 on relationships
         $loans->load(['customer', 'loanGroup', 'latestDisbursement.processor']);
@@ -84,14 +69,14 @@ class CollectionsController extends Controller
      */
     public function actions(Request $request, CollectionsActionService $actionService): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Build query with filters
         $query = CollectionsAction::with(['loan', 'customer', 'assignedTo'])
             ->orderBy('created_at', 'desc');
 
-        if ($shopSubshopIds) {
-            $query->whereIn('subshop_id', $shopSubshopIds);
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
         }
 
         // Apply filters
@@ -114,10 +99,10 @@ class CollectionsController extends Controller
         $actions = $query->paginate(50);
 
         // Get statistics
-        $stats = $actionService->getDashboardStats($shopSubshopIds);
+        $stats = $actionService->getDashboardStats($subshopId);
 
         // Get overdue actions for alerts
-        $overdueActions = $actionService->getOverdueActions($shopSubshopIds);
+        $overdueActions = $actionService->getOverdueActions($subshopId);
 
         // Get staff for filter dropdown
         $staff = User::all();
@@ -191,14 +176,14 @@ class CollectionsController extends Controller
      */
     public function promises(Request $request, PromiseToPayService $promiseService): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
 
         // Build query
         $query = PromiseToPay::with(['loan', 'customer'])
             ->orderBy('promise_date', 'asc');
 
-        if ($shopSubshopIds) {
-            $query->whereIn('subshop_id', $shopSubshopIds);
+        if ($subshopId) {
+            $query->where('subshop_id', $subshopId);
         }
 
         // Apply filters
@@ -222,11 +207,11 @@ class CollectionsController extends Controller
         $promises = $query->paginate(50);
 
         // Get statistics
-        $stats = $promiseService->getStatistics($shopSubshopIds);
+        $stats = $promiseService->getStatistics($subshopId);
 
         // Get overdue and due today for alerts
-        $overduePromises = $promiseService->getOverduePromises($shopSubshopIds);
-        $dueToday = $promiseService->getPromisesDueToday($shopSubshopIds);
+        $overduePromises = $promiseService->getOverduePromises($subshopId);
+        $dueToday = $promiseService->getPromisesDueToday($subshopId);
 
         return view('collections.promises', compact('promises', 'stats', 'overduePromises', 'dueToday'));
     }
@@ -300,14 +285,14 @@ class CollectionsController extends Controller
      */
     public function schedule(Request $request): View
     {
-        $shopSubshopIds = $this->getShopSubshopIds();
+        $subshopId = $this->getCurrentSubshopId();
         $date = $request->filled('date') ? Carbon::parse($request->input('date')) : Carbon::today();
 
         // Get actions scheduled for this date
         $todaysActions = CollectionsAction::with(['loan', 'customer'])
             ->whereDate('scheduled_at', $date)
             ->whereIn('status', ['pending', 'in_progress'])
-            ->when($shopSubshopIds, fn($q) => $q->whereIn('subshop_id', $shopSubshopIds))
+            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
             ->orderBy('scheduled_at')
             ->get();
 
@@ -315,7 +300,7 @@ class CollectionsController extends Controller
         $duePromises = PromiseToPay::with(['loan', 'customer'])
             ->whereDate('promise_date', $date)
             ->whereIn('status', ['pending'])
-            ->when($shopSubshopIds, fn($q) => $q->whereIn('subshop_id', $shopSubshopIds))
+            ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
             ->orderBy('amount_promised', 'desc')
             ->get();
 
@@ -329,11 +314,11 @@ class CollectionsController extends Controller
             $dateStr = $dayDate->toDateString();
 
             $weekActions[$dateStr] = CollectionsAction::whereDate('scheduled_at', $dayDate)
-                ->when($shopSubshopIds, fn($q) => $q->whereIn('subshop_id', $shopSubshopIds))
+                ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
                 ->get();
 
             $weekPromises[$dateStr] = PromiseToPay::whereDate('promise_date', $dayDate)
-                ->when($shopSubshopIds, fn($q) => $q->whereIn('subshop_id', $shopSubshopIds))
+                ->when($subshopId, fn($q) => $q->where('subshop_id', $subshopId))
                 ->get();
         }
 

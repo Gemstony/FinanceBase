@@ -325,10 +325,10 @@
                                 <div class="col-md-5">
                                     <div class="form-group">
                                         <label>Customer <span class="text-danger">*</span></label>
-                                        <select class="form-control customer-select" name="members[0][customer_id]" required>
+                                        <select class="form-control customer-select select2" name="members[0][customer_id]" required>
                                             <option value="">-- Select customer --</option>
                                             @foreach($customers as $c)
-                                                <option value="{{ $c->id }}">{{ $c->name }}</option>
+                                                <option value="{{ $c->id }}" data-phone="{{ $c->phone }}">{{ $c->name }} - {{ $c->phone }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -646,28 +646,80 @@ $(document).ready(function() {
 
     // Dynamic member rows functionality
     var memberRowCount = 1;
-    
-    $('#addMemberRowBtn').click(function() {
-        var newRow = $('.member-row:first').clone();
-        var newRowNum = memberRowCount++;
-        
-        // Update all name attributes with new row number
-        newRow.find('select, input').each(function() {
-            var name = $(this).attr('name');
-            if (name) {
-                $(this).attr('name', name.replace(/members\[\d+\]/, 'members[' + newRowNum + ']'));
+
+    // Initialize Select2 for customer selects
+    function initCustomerSelect2($element) {
+        $element.select2({
+            placeholder: 'Search by name or phone...',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: $('#manageMembersModal .modal-body'),
+            templateResult: function(data) {
+                if (!data.id) return data.text;
+                var phone = $(data.element).data('phone') || '';
+                return $('<span>').text(data.text);
             }
-            $(this).val('');
         });
-        
-        // Update data-row attribute
-        newRow.attr('data-row', newRowNum);
-        
-        // Show remove button
-        newRow.find('.remove-member-row').show();
-        
+    }
+
+    // Initialize on modal show (not page load, to ensure modal is in DOM)
+    $('#manageMembersModal').on('shown.bs.modal', function () {
+        $('.customer-select').each(function() {
+            if (!$(this).data('select2')) {
+                initCustomerSelect2($(this));
+            }
+        });
+    });
+
+    $('#addMemberRowBtn').click(function() {
+        var newRowNum = memberRowCount++;
+
+        // Build fresh row HTML without Select2 artifacts
+        var newRowHtml = '<div class="member-row" data-row="' + newRowNum + '">' +
+            '<div class="row">' +
+                '<div class="col-md-5">' +
+                    '<div class="form-group">' +
+                        '<label>Customer <span class="text-danger">*</span></label>' +
+                        '<select class="form-control customer-select select2" name="members[' + newRowNum + '][customer_id]" required>' +
+                            '<option value="">-- Select customer --</option>' +
+                            '@foreach($customers as $c)<option value="{{ $c->id }}" data-phone="{{ $c->phone }}">{{ $c->name }} - {{ $c->phone }}</option>@endforeach' +
+                        '</select>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="col-md-3">' +
+                    '<div class="form-group">' +
+                        '<label>Role <span class="text-danger">*</span></label>' +
+                        '<select class="form-control" name="members[' + newRowNum + '][role]" required>' +
+                            '<option value="member">Member</option>' +
+                            '<option value="leader">Leader</option>' +
+                            '<option value="secretary">Secretary</option>' +
+                            '<option value="treasurer">Treasurer</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="col-md-3">' +
+                    '<div class="form-group">' +
+                        '<label>Joined At</label>' +
+                        '<input type="date" class="form-control" name="members[' + newRowNum + '][joined_at]" value="{{ now()->format('Y-m-d') }}">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="col-md-1">' +
+                    '<div class="form-group">' +
+                        '<label>&nbsp;</label><br>' +
+                        '<button type="button" class="btn btn-danger btn-sm remove-member-row">' +
+                            '<i class="fas fa-trash"></i>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
         // Add to container
-        $('#membersRowsContainer').append(newRow);
+        var $newRow = $(newRowHtml);
+        $('#membersRowsContainer').append($newRow);
+
+        // Initialize Select2 on the new row's select
+        initCustomerSelect2($newRow.find('.customer-select'));
     });
     
     $(document).on('click', '.remove-member-row', function() {
@@ -685,17 +737,34 @@ $(document).ready(function() {
                 selectedCustomers.push(val);
             }
         });
-        
+
+        // Update all selects to disable already-selected options
         $('.customer-select').each(function() {
-            var currentVal = $(this).val();
-            $(this).find('option').each(function() {
+            var $select = $(this);
+            var currentVal = $select.val();
+
+            // Get all options
+            var options = [];
+            $select.find('option').each(function() {
                 var optionVal = $(this).val();
-                if (optionVal && optionVal !== currentVal && selectedCustomers.includes(optionVal)) {
-                    $(this).prop('disabled', true);
-                } else {
-                    $(this).prop('disabled', false);
-                }
+                var optionText = $(this).text();
+                var optionPhone = $(this).data('phone');
+                var isDisabled = optionVal && optionVal !== currentVal && selectedCustomers.includes(optionVal);
+                options.push({
+                    id: optionVal,
+                    text: optionText,
+                    phone: optionPhone,
+                    disabled: isDisabled
+                });
             });
+
+            // Rebuild options
+            $select.find('option').each(function(index) {
+                $(this).prop('disabled', options[index].disabled);
+            });
+
+            // Trigger Select2 update
+            $select.trigger('change.select2');
         });
     });
 

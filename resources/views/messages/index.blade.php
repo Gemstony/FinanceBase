@@ -112,7 +112,12 @@
                             <thead>
                                 <tr>
                                     <th style="width: 40px;">Type</th>
-                                    <th>{{ $folder == 'sent' ? 'Recipients' : 'Sender' }}</th>
+                                    @if(($canMonitor ?? false))
+                                        <th>From</th>
+                                        <th>To</th>
+                                    @else
+                                        <th>{{ $folder == 'sent' ? 'Recipients' : 'Sender' }}</th>
+                                    @endif
                                     <th>Subject</th>
                                     <th style="width: 40px;">Status</th>
                                     <th style="width: 120px;">Date</th>
@@ -130,23 +135,42 @@
                                                 <i class="{{ $message->getTypeIcon() }}"></i>
                                             </span>
                                         </td>
-                                        <td class="mailbox-name">
-                                            @if($folder == 'sent')
+                                        @if(($canMonitor ?? false))
+                                            <td class="mailbox-name">
+                                                <a href="{{ route('messages.show', $message) }}">
+                                                    {{ $message->sender->name ?? '-' }}
+                                                </a>
+                                            </td>
+                                            <td class="mailbox-name">
                                                 @php
                                                     $recipientNames = $message->recipients->map(function($r) {
                                                         return $r->user->name;
                                                     })->take(2)->implode(', ');
                                                     $totalRecipients = $message->recipients->count();
                                                 @endphp
-                                                <span title="{{ $message->recipients->pluck('user.name')->implode(', ') }}">
+                                                <a href="{{ route('messages.show', $message) }}" title="{{ $message->recipients->pluck('user.name')->implode(', ') }}">
                                                     {{ $recipientNames }}{{ $totalRecipients > 2 ? ' +' . ($totalRecipients - 2) . ' more' : '' }}
-                                                </span>
-                                            @else
-                                                <a href="{{ route('messages.show', $message) }}">
-                                                    {{ $message->sender->name }}
                                                 </a>
-                                            @endif
-                                        </td>
+                                            </td>
+                                        @else
+                                            <td class="mailbox-name">
+                                                @if($folder == 'sent')
+                                                    @php
+                                                        $recipientNames = $message->recipients->map(function($r) {
+                                                            return $r->user->name;
+                                                        })->take(2)->implode(', ');
+                                                        $totalRecipients = $message->recipients->count();
+                                                    @endphp
+                                                    <span title="{{ $message->recipients->pluck('user.name')->implode(', ') }}">
+                                                        {{ $recipientNames }}{{ $totalRecipients > 2 ? ' +' . ($totalRecipients - 2) . ' more' : '' }}
+                                                    </span>
+                                                @else
+                                                    <a href="{{ route('messages.show', $message) }}">
+                                                        {{ $message->sender->name }}
+                                                    </a>
+                                                @endif
+                                            </td>
+                                        @endif
                                         <td class="mailbox-subject">
                                             <a href="{{ route('messages.show', $message) }}">
                                                 <b>{{ $message->subject }}</b> -
@@ -192,7 +216,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center py-4">
+                                        <td colspan="{{ ($canMonitor ?? false) ? 7 : 6 }}" class="text-center py-4">
                                             <i class="fas fa-paper-plane fa-3x text-muted mb-3"></i>
                                             <h5 class="text-muted">{{ $folder == 'sent' ? 'No sent messages' : 'No messages found' }}</h5>
                                             <p class="text-muted">{{ $folder == 'sent' ? 'You haven\'t sent any messages yet.' : 'You don\'t have any messages yet.' }}</p>

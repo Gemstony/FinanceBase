@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Customers;
 use App\Models\LoanGroupMembers;
 use App\Models\LoanGroups;
+use App\Models\Shop;
 use App\Models\SubShop;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,11 @@ use Illuminate\View\View;
 
 class LoanGroupController extends Controller
 {
+    private function getShopSubshopIds(SubShop $subshop)
+    {
+        return SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -21,9 +27,10 @@ class LoanGroupController extends Controller
     {
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $groups = LoanGroups::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->with([
                 'members' => function ($q) {
                     $q->where('is_active', true)
@@ -55,7 +62,7 @@ class LoanGroupController extends Controller
 
 
         $customers = Customers::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
@@ -77,6 +84,8 @@ class LoanGroupController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -84,7 +93,7 @@ class LoanGroupController extends Controller
                 'nullable',
                 'string',
                 'max:50',
-                Rule::unique('loan_groups', 'code')->where(fn ($q) => $q->where('subshop_id', $subshopId)),
+                Rule::unique('loan_groups', 'code')->where(fn ($q) => $q->whereIn('subshop_id', $shopSubshopIds)),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
             'formation_date' => ['nullable', 'date'],
@@ -121,7 +130,9 @@ class LoanGroupController extends Controller
     public function update(Request $request, string $id): RedirectResponse
     {
         $subshopId = session('subshop_id');
-        $group = LoanGroups::where('subshop_id', $subshopId)->findOrFail($id);
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
+        $group = LoanGroups::whereIn('subshop_id', $shopSubshopIds)->findOrFail($id);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -130,7 +141,7 @@ class LoanGroupController extends Controller
                 'string',
                 'max:50',
                 Rule::unique('loan_groups', 'code')
-                    ->where(fn ($q) => $q->where('subshop_id', $subshopId))
+                    ->where(fn ($q) => $q->whereIn('subshop_id', $shopSubshopIds))
                     ->ignore($group->id),
             ],
             'description' => ['nullable', 'string', 'max:1000'],
@@ -150,7 +161,9 @@ class LoanGroupController extends Controller
     public function destroy(string $id): RedirectResponse
     {
         $subshopId = session('subshop_id');
-        $group = LoanGroups::where('subshop_id', $subshopId)->findOrFail($id);
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
+        $group = LoanGroups::whereIn('subshop_id', $shopSubshopIds)->findOrFail($id);
 
         $group->delete();
 
@@ -160,11 +173,13 @@ class LoanGroupController extends Controller
     public function addMember(Request $request, string $groupId): RedirectResponse
     {
         $subshopId = session('subshop_id');
-        $group = LoanGroups::where('subshop_id', $subshopId)->findOrFail($groupId);
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
+        $group = LoanGroups::whereIn('subshop_id', $shopSubshopIds)->findOrFail($groupId);
 
         $validated = $request->validate([
             'members' => ['required', 'array', 'min:1'],
-            'members.*.customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where(fn ($q) => $q->where('subshop_id', $subshopId))],
+            'members.*.customer_id' => ['required', 'integer', Rule::exists('customers', 'id')->where(fn ($q) => $q->whereIn('subshop_id', $shopSubshopIds))],
             'members.*.role' => ['required', Rule::in(['member', 'leader', 'secretary', 'treasurer'])],
             'members.*.joined_at' => ['nullable', 'date'],
         ]);
@@ -213,9 +228,11 @@ class LoanGroupController extends Controller
     public function removeMember(string $memberId): RedirectResponse
     {
         $subshopId = session('subshop_id');
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = $this->getShopSubshopIds($subshop);
 
         $member = LoanGroupMembers::query()
-            ->whereHas('group', fn ($q) => $q->where('subshop_id', $subshopId))
+            ->whereHas('group', fn ($q) => $q->whereIn('subshop_id', $shopSubshopIds))
             ->findOrFail($memberId);
 
         $member->update([

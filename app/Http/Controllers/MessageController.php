@@ -16,12 +16,11 @@ use Illuminate\View\View;
 
 class MessageController extends Controller
 {
-    /**
-     * Display a listing of messages for the authenticated user.
-     */
-    public function index(Request $request): View
+    private function resolveCurrentShop(User $user, ?int $shopId = null): ?Shop
     {
-        $user = Auth::user();
+        if ($shopId) {
+            return Shop::find($shopId);
+        }
 
         // Get shop for the user (either owned or through subshop assignment)
         $shop = $user->shop;
@@ -34,6 +33,32 @@ class MessageController extends Controller
             }
         }
 
+        return $shop;
+    }
+
+    private function canMonitorShopMessages(User $user, ?Shop $shop): bool
+    {
+        if ($user->hasRole('Super Admin')) {
+            return true;
+        }
+
+        if (!$shop) {
+            return false;
+        }
+
+        return (int) $shop->user_id === (int) $user->id;
+    }
+
+    /**
+     * Display a listing of messages for the authenticated user.
+     */
+    public function index(Request $request): View
+    {
+        $user = Auth::user();
+
+        $shop = $this->resolveCurrentShop($user);
+        $canMonitor = $this->canMonitorShopMessages($user, $shop);
+
         // Super Admins can access messages even without a shop
         if (!$shop && !$user->hasRole('Super Admin')) {
             abort(403, 'No shop associated with your account.');
@@ -43,33 +68,46 @@ class MessageController extends Controller
         $folder = $request->get('folder');
 
         if ($folder === 'sent') {
-            // Get messages sent by the current user
-            $query = Message::where('sender_id', $user->id);
-            // Super Admins can see all sent messages, others only their shop's messages
-            if (!$user->hasRole('Super Admin')) {
+            // Regular users: only messages they sent.
+            // Monitoring users (owner/super-admin): all messages in the current shop.
+            $query = Message::query();
+
+            if ($canMonitor && $shop) {
                 $query->where('shop_id', $shop->id);
+            } else {
+                $query->where('sender_id', $user->id);
+                if (!$user->hasRole('Super Admin') && $shop) {
+                    $query->where('shop_id', $shop->id);
+                }
             }
+
             $query->with(['recipients.user', 'sender']);
         } else {
-            // Get messages where user is a recipient (exclude soft-deleted for regular users)
-            $query = Message::whereHas('recipients', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-                // Only exclude soft-deleted for non-super-admin users
-                if (!$user->hasRole('Super Admin')) {
-                    $q->whereNull('deleted_at');
-                }
-            })
-            ->with(['sender', 'recipients' => function ($q) use ($user) {
-                $q->where('user_id', $user->id);
-            }]);
+            // Inbox:
+            // - Regular users: only messages explicitly addressed to them.
+            // - Monitoring users: all messages in the current shop.
 
-            // Super Admins can see all messages (including system messages with shop_id = null)
-            // Regular users only see messages from their shop
-            if (!$user->hasRole('Super Admin')) {
-                $query->where(function ($q) use ($shop) {
-                    $q->where('shop_id', $shop->id)
-                      ->orWhereNull('shop_id'); // Allow system messages
-                });
+            if ($canMonitor && $shop) {
+                $query = Message::query()
+                    ->where('shop_id', $shop->id)
+                    ->with(['sender', 'recipients.user']);
+            } else {
+                $query = Message::whereHas('recipients', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                    if (!$user->hasRole('Super Admin')) {
+                        $q->whereNull('deleted_at');
+                    }
+                })
+                    ->with([
+                        'sender',
+                        'recipients' => function ($q) use ($user) {
+                            $q->where('user_id', $user->id);
+                        }
+                    ]);
+
+                if (!$user->hasRole('Super Admin') && $shop) {
+                    $query->where('shop_id', $shop->id);
+                }
             }
         }
 
@@ -113,7 +151,7 @@ class MessageController extends Controller
             return $message;
         });
 
-        return view('messages.index', compact('messages', 'folder'));
+        return view('messages.index', compact('messages', 'folder', 'canMonitor'));
     }
 
     /**
@@ -123,16 +161,7 @@ class MessageController extends Controller
     {
         $user = Auth::user();
 
-        // Get shop for the user (either owned or through subshop assignment)
-        $shop = $user->shop;
-
-        // If user doesn't own a shop, check if they're assigned to subshops
-        if (!$shop) {
-            $subshop = $user->subshops()->first();
-            if ($subshop) {
-                $shop = $subshop->shop;
-            }
-        }
+        $shop = $this->resolveCurrentShop($user);
 
         if (!$shop) {
             abort(403, 'No shop associated with your account.');
@@ -162,20 +191,8 @@ class MessageController extends Controller
         $user = Auth::user();
 
         // Get shop - either from request parameter (for configure shop context) or from user
-        $shopId = $request->input('shop_id');
-        if ($shopId) {
-            $shop = Shop::find($shopId);
-        } else {
-            // Get shop for the user (either owned or through subshop assignment)
-            $shop = $user->shop;
-
-            if (!$shop) {
-                $subshop = $user->subshops()->first();
-                if ($subshop) {
-                    $shop = $subshop->shop;
-                }
-            }
-        }
+        $shopId = $request->input('shop_id') ? (int) $request->input('shop_id') : null;
+        $shop = $this->resolveCurrentShop($user, $shopId);
 
         if (!$shop) {
             return response()->json(['error' => 'No shop associated with your account.'], 403);
@@ -189,8 +206,8 @@ class MessageController extends Controller
             'delivery_methods' => 'array',
             'delivery_methods.*' => 'in:email,in_app,sms',
             'scheduled_at' => 'nullable|date|after:now',
-            'recipients' => 'required_if:type,bulk|array',
-            'recipients.*' => 'exists:users,id',
+            'recipients' => 'required|array|min:1',
+            'recipients.*' => 'integer|exists:users,id',
             'shop_id' => 'nullable|exists:shops,id', // Add shop_id validation
         ]);
 
@@ -204,6 +221,30 @@ class MessageController extends Controller
         DB::beginTransaction();
 
         try {
+            // Validate recipients are within the current shop (owner + shopkeepers)
+            $allowedRecipients = collect();
+            if ($shop->owner) {
+                $allowedRecipients->push($shop->owner);
+            }
+            if ($shop->shopkeepers()->count() > 0) {
+                $allowedRecipients = $allowedRecipients->merge($shop->shopkeepers()->get());
+            }
+            $allowedRecipientIds = $allowedRecipients->pluck('id')->map(fn ($id) => (int) $id)->unique()->values()->toArray();
+
+            $requestedRecipientIds = collect($request->input('recipients', []))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->toArray();
+
+            foreach ($requestedRecipientIds as $recipientId) {
+                if (!in_array($recipientId, $allowedRecipientIds, true)) {
+                    return response()->json([
+                        'error' => 'One or more recipients are not part of your shop.',
+                    ], 422);
+                }
+            }
+
             $message = Message::create([
                 'sender_id' => $user->id,
                 'shop_id' => $shop->id,
@@ -219,40 +260,14 @@ class MessageController extends Controller
 
             // Handle recipients
             $recipients = [];
-            if ($request->input('type') === 'bulk') {
-                // For bulk messages, add specified recipients
-                foreach ($request->input('recipients', []) as $recipientId) {
-                    $recipients[] = [
-                        'message_id' => $message->id,
-                        'user_id' => $recipientId,
-                        'is_read' => false,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            } else {
-                // For single messages, add all shop users (owner + shopkeepers) as recipients
-                $shopUsers = collect();
-
-                // Add shop owner if exists
-                if ($shop->owner) {
-                    $shopUsers->push($shop->owner);
-                }
-
-                // Add all shopkeepers
-                if ($shop->shopkeepers()->count() > 0) {
-                    $shopUsers = $shopUsers->merge($shop->shopkeepers()->get());
-                }
-
-                foreach ($shopUsers as $shopUser) {
-                    $recipients[] = [
-                        'message_id' => $message->id,
-                        'user_id' => $shopUser->id,
-                        'is_read' => false,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
+            foreach ($requestedRecipientIds as $recipientId) {
+                $recipients[] = [
+                    'message_id' => $message->id,
+                    'user_id' => $recipientId,
+                    'is_read' => false,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
 
             if (!empty($recipients)) {
@@ -332,11 +347,15 @@ class MessageController extends Controller
     {
         $user = Auth::user();
 
+        $shop = $this->resolveCurrentShop($user);
+        $canMonitor = $this->canMonitorShopMessages($user, $shop);
+        $isSameShop = $shop ? (int) $message->shop_id === (int) $shop->id : false;
+
         // Check if user is the sender OR a recipient of this message
         $isSender = $message->sender_id === $user->id;
         $recipient = $message->recipients()->where('user_id', $user->id)->first();
 
-        if (!$isSender && !$recipient) {
+        if (!$isSender && !$recipient && !($canMonitor && $isSameShop)) {
             abort(403, 'You are not authorized to view this message.');
         }
 
@@ -345,7 +364,7 @@ class MessageController extends Controller
             $recipient->markAsRead();
         }
 
-        return view('messages.show', compact('message', 'recipient', 'isSender'));
+        return view('messages.show', compact('message', 'recipient', 'isSender', 'canMonitor'));
     }
 
     /**
@@ -477,6 +496,13 @@ class MessageController extends Controller
     public function destroy(Request $request, Message $message): JsonResponse
     {
         $user = Auth::user();
+
+        // Allow sender to delete their own sent message (hard delete)
+        if ((int) $message->sender_id === (int) $user->id) {
+            $message->delete();
+
+            return response()->json(['success' => true, 'message' => 'Message deleted successfully.']);
+        }
 
         // Check if user is a recipient
         $recipient = $message->recipients()->where('user_id', $user->id)->first();

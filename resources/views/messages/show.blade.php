@@ -97,7 +97,7 @@
                         <h5>From: {{ $message->sender->name }}
                             <span class="mailbox-read-time float-right">{{ $message->created_at->format('d M Y H:i') }}</span>
                         </h5>
-                        @if($isSender ?? false)
+                        @if(($isSender ?? false) || ($canMonitor ?? false))
                             <h6>To:
                                 @php
                                     $recipientNames = $message->recipients->map(function($r) {

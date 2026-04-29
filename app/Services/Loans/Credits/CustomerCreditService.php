@@ -61,8 +61,11 @@ class CustomerCreditService
 
     public function getBorrowerAvailableCredits(int $subshopId, int $customerId): Builder
     {
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         return CustomerCreditBalances::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', $customerId)
             ->where('status', 'available');
     }
@@ -76,12 +79,15 @@ class CustomerCreditService
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $credit = CustomerCreditBalances::query()
             ->whereKey($creditId)
             ->lockForUpdate()
             ->firstOrFail();
 
-        if ((int) $credit->subshop_id !== $subshopId) {
+        if (!in_array((int) $credit->subshop_id, $shopSubshopIds->toArray())) {
             throw new InvalidArgumentException('Invalid subshop for this credit.');
         }
 
@@ -90,7 +96,7 @@ class CustomerCreditService
         }
 
         $loan = Loans::query()->whereKey($loanId)->firstOrFail();
-        if ((int) $loan->subshop_id !== $subshopId) {
+        if (!in_array((int) $loan->subshop_id, $shopSubshopIds->toArray())) {
             throw new InvalidArgumentException('Invalid subshop for target loan.');
         }
 
@@ -212,7 +218,10 @@ class CustomerCreditService
                 'credit_subshop_id' => $credit->subshop_id,
             ]);
 
-            if ((int) $credit->subshop_id !== $subshopId) {
+            $subshop = SubShop::findOrFail($subshopId);
+            $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
+            if (!in_array((int) $credit->subshop_id, $shopSubshopIds->toArray())) {
                 Log::error('Subshop mismatch', [
                     'credit_subshop_id' => $credit->subshop_id,
                     'session_subshop_id' => $subshopId,
@@ -347,23 +356,26 @@ class CustomerCreditService
 
     private function resolveRefundCashAccountId(string $refundMethod, ?int $bankAccountId, int $subshopId): int
     {
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         if ($bankAccountId) {
             $bank = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
-            if ((int) $bank->subshop_id !== $subshopId) {
-                throw new InvalidArgumentException('Bank account does not belong to this branch.');
+            if (!in_array((int) $bank->subshop_id, $shopSubshopIds->toArray())) {
+                throw new InvalidArgumentException('Bank account does not belong to this shop.');
             }
-            
+
             $accountId = (int) $bank->chart_of_account_id;
             if ($accountId <= 0) {
                 throw new InvalidArgumentException('Bank account is not linked to a chart of account.');
             }
-            
+
             return $accountId;
         }
 
         // For cash refunds, use payment method mapping to get the correct cash account
         $mapping = PaymentMethodAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('payment_method', $refundMethod)
             ->first();
 

@@ -193,10 +193,13 @@ class SecurityDepositService
                 throw new InvalidArgumentException('Refund amount must not exceed held deposit amount.');
             }
 
+            $shopId = SubShop::whereKey($subshopId)->value('shop_id');
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
             if ($bankAccountId) {
                 $bankAccount = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
-                if ((int) $bankAccount->subshop_id !== $subshopId) {
-                    throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+                if (!in_array((int) $bankAccount->subshop_id, $shopSubshopIds->toArray())) {
+                    throw new InvalidArgumentException('Selected bank account does not belong to this shop.');
                 }
             }
 
@@ -326,7 +329,10 @@ class SecurityDepositService
             $sourceLoan = Loans::query()->whereKey((int) $deposit->loan_id)->lockForUpdate()->firstOrFail();
             $targetLoan = Loans::query()->whereKey($loanId)->lockForUpdate()->firstOrFail();
 
-            if ((int) $deposit->subshop_id !== $subshopId || (int) $targetLoan->subshop_id !== $subshopId) {
+            $shopId = SubShop::whereKey($subshopId)->value('shop_id');
+            $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
+            if (!in_array((int) $deposit->subshop_id, $shopSubshopIds->toArray()) || !in_array((int) $targetLoan->subshop_id, $shopSubshopIds->toArray())) {
                 abort(403);
             }
 
@@ -493,9 +499,12 @@ class SecurityDepositService
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         return LoanSecurityDeposit::query()
             ->with(['customer', 'loan', 'appliedToLoan', 'refundedBy'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('loan_id', $loanId)
             ->orderByDesc('id');
     }
@@ -504,9 +513,12 @@ class SecurityDepositService
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         return LoanSecurityDeposit::query()
             ->with(['customer', 'loan', 'appliedToLoan', 'refundedBy'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', $customerId)
             ->orderByDesc('id');
     }

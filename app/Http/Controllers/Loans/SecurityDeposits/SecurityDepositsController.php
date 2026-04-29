@@ -31,8 +31,11 @@ class SecurityDepositsController extends Controller
             abort(403);
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get();
@@ -44,9 +47,12 @@ class SecurityDepositsController extends Controller
     {
         $subshopId = (int) session('subshop_id');
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $query = LoanSecurityDeposit::query()
             ->with(['customer', 'loan', 'appliedToLoan', 'refundedBy'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->orderByDesc('id');
 
         if ($request->filled('status')) {
@@ -75,8 +81,14 @@ class SecurityDepositsController extends Controller
     public function borrower(Customers $customer): View
     {
         $subshopId = (int) session('subshop_id');
-        if ((int) $customer->subshop_id !== $subshopId) {
-            abort(403);
+
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+        if (!in_array($customer->subshop_id,$shopSubshopIds->toArray())) {
+            abort(403, 'Not allowed to this branch');
         }
 
         $deposits = $this->service->getBorrowerDeposits((int) $customer->id)
@@ -92,6 +104,9 @@ class SecurityDepositsController extends Controller
         if ((int) $loan->subshop_id !== $subshopId) {
             abort(403);
         }
+
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
         $deposits = $this->service->getLoanDeposits((int) $loan->id)
             ->paginate(20)
@@ -117,20 +132,19 @@ class SecurityDepositsController extends Controller
         $activeLoans = Loans::query()
             ->where('subshop_id', $subshopId)
             ->where('customer_id', (int) $loan->customer_id)
-            ->where('status', 'disbursed')
+            ->whereIn('status', ['disbursed', 'partially_paid'])
             ->where('outstanding_balance', '>', 0)
             ->where('id', '!=', (int) $loan->id)
             ->orderBy('loan_code')
             ->get(['id', 'loan_code', 'outstanding_balance']);
 
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get();
 
         // Get shop-level configuration (shared across all subshops under the same shop)
-        $subshop = SubShop::findOrFail($subshopId);
         $shopId = $subshop->shop_id;
 
         $liabilityConfig = SecurityDepositLiabilityAccount::forShop($shopId);

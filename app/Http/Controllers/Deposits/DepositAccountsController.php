@@ -35,14 +35,17 @@ class DepositAccountsController extends Controller
             return back()->with('error', 'Active branch context is required.');
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         try {
-            DB::transaction(function () use ($deposit_account, $subshopId) {
+            DB::transaction(function () use ($deposit_account, $shopSubshopIds) {
                 $account = DepositAccount::query()
                     ->whereKey($deposit_account)
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                if ((int) $account->subshop_id !== $subshopId) {
+                if (!in_array((int) $account->subshop_id, $shopSubshopIds->toArray())) {
                     abort(403);
                 }
 
@@ -123,7 +126,7 @@ class DepositAccountsController extends Controller
         $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
         if (!$shopSubshopIds->contains($customer->subshop_id)) {
-            abort(403);
+            abort(403, 'This deposit account dont belong in this branch');
         }
 
         $accounts = $this->service->getCustomerAccounts((int) $customer->id)
@@ -145,7 +148,7 @@ class DepositAccountsController extends Controller
             ->get(['id', 'loan_code', 'outstanding_balance']);
 
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get();
@@ -305,6 +308,11 @@ class DepositAccountsController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        // Additional validation: prevent transfer to the same account
+        if ((int) $validated['from_account_id'] === (int) $validated['to_account_id']) {
+            return back()->withInput()->with('error', 'Cannot transfer to the same account. Please select a different destination account.');
+        }
+
         try {
             DB::transaction(function () use ($validated) {
                 $from = DepositAccount::query()->findOrFail((int) $validated['from_account_id']);
@@ -366,9 +374,12 @@ class DepositAccountsController extends Controller
             abort(403);
         }
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+
         $account = DepositAccount::query()
             ->whereKey($deposit_account)
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->firstOrFail();
 
         $transactions = $account->depositTransactions()

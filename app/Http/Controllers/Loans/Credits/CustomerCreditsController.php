@@ -61,56 +61,57 @@ class CustomerCreditsController extends Controller
     public function show(Customers $customer, Request $request): View
     {
         $subshopId = (int) session('subshop_id');
-        if ((int) $customer->subshop_id !== $subshopId) {
-            abort(403);
-        }
 
-        // Get shop-level subshop IDs for accounting configuration
         $subshop = SubShop::findOrFail($subshopId);
         $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
 
+        // Verify customer belongs to the current shop
+        if (!in_array((int) $customer->subshop_id, $shopSubshopIds->toArray())) {
+            abort(403, 'This customer does not belong to this shop');
+        }
+
         $query = CustomerCreditBalances::query()
             ->with(['loan', 'payment', 'appliedToLoan', 'refundedBy'])
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->orderByDesc('id');
 
         $credits = $query->paginate(20)->withQueryString();
 
         $activeLoans = Loans::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->whereIn('status', ['disbursed', 'partially_paid'])
             ->where('outstanding_balance', '>', 0)
             ->get();
 
         $availableCredits = CustomerCreditBalances::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->where('status', 'available')
             ->orderByDesc('id')
             ->get();
 
         $availableTotal = (float) CustomerCreditBalances::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->where('status', 'available')
             ->sum('amount');
 
         $appliedTotal = (float) CustomerCreditBalances::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->where('status', 'applied')
             ->sum('amount');
 
         $refundedTotal = (float) CustomerCreditBalances::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('customer_id', (int) $customer->id)
             ->where('status', 'refunded')
             ->sum('amount');
 
         $bankAccounts = BankAccounts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('is_active', 1)
             ->orderBy('account_name')
             ->get();

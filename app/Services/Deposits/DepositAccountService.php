@@ -552,6 +552,7 @@ class DepositAccountService
         // Get shop_id from subshop for shop-level account validation
         $subshop = SubShop::findOrFail($subshopId);
         $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
         // If bank account provided, use its chart of account
         if ($bankAccountId) {
@@ -562,12 +563,12 @@ class DepositAccountService
                 throw new InvalidArgumentException('Selected bank account not found.');
             }
 
-            if ((int) $bank->subshop_id !== $subshopId) {
+            if (!in_array((int) $bank->subshop_id, $shopSubshopIds->toArray())) {
                 Log::error('Bank account wrong subshop', [
                     'bank_subshop_id' => $bank->subshop_id,
                     'session_subshop_id' => $subshopId,
                 ]);
-                throw new InvalidArgumentException('Selected bank account does not belong to this branch.');
+                throw new InvalidArgumentException('Selected bank account does not belong to this shop.');
             }
 
             if (!$bank->is_active) {
@@ -612,7 +613,7 @@ class DepositAccountService
         }
 
         $mapping = PaymentMethodAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->where('payment_method', $method)
             ->first();
 

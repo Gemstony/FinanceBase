@@ -200,11 +200,11 @@
                             </form>
 
                             <!-- Transfer Form -->
-                            <form method="POST" action="{{ route('deposits.transfer') }}" class="mb-3">
+                            <form method="POST" action="{{ route('deposits.transfer') }}" class="mb-3" id="transferForm">
                                 @csrf
                                 <div class="form-group">
                                     <label>From Account</label>
-                                    <select name="from_account_id" class="form-control" required>
+                                    <select name="from_account_id" id="fromAccountId" class="form-control" required>
                                         <option value="">Select account</option>
                                         @foreach($accounts->where('status', 'active') as $a)
                                             <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
@@ -213,10 +213,10 @@
                                 </div>
                                 <div class="form-group">
                                     <label>To Account</label>
-                                    <select name="to_account_id" class="form-control" required>
+                                    <select name="to_account_id" id="toAccountId" class="form-control" required>
                                         <option value="">Select account</option>
                                         @foreach($accounts->where('status', 'active') as $a)
-                                            <option value="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
+                                            <option value="{{ $a->id }}" data-from-id="{{ $a->id }}">{{ $a->account_number }} – {{ number_format((float) $a->balance, 2) }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -552,6 +552,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+    // Transfer form - filter To Account based on From Account selection
+    const fromSelect = document.getElementById('fromAccountId');
+    const toSelect = document.getElementById('toAccountId');
+    const toOptions = Array.from(toSelect.querySelectorAll('option[data-from-id]'));
+
+    if (fromSelect && toSelect) {
+        fromSelect.addEventListener('change', function() {
+            const selectedFromId = this.value;
+
+            // Clear and rebuild To Account options
+            toSelect.innerHTML = '<option value="">Select account</option>';
+
+            toOptions.forEach(function(option) {
+                if (option.getAttribute('data-from-id') !== selectedFromId) {
+                    toSelect.appendChild(option.cloneNode(true));
+                }
+            });
+        });
+    }
 
     $(document).ready(function() {
     if ($('#depositAccountsTable').length) {

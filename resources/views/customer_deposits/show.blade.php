@@ -111,10 +111,15 @@
                                     <label>Payment Method</label>
                                     <select name="payment_method" id="deposit_payment_method" class="form-control" required>
                                         <option value="">Select Method</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="bank_transfer">Bank Transfer</option>
-                                        <option value="mobile_money">Mobile Money</option>
+                                        @foreach($globalPaymentMethods->where('is_deposit_method', true) as $method)
+                                            <option value="{{ $method->code }}" data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}" data-account-type="{{ $method->account_type ?? 'cash' }}">
+                                                {{ $method->name }}
+                                            </option>
+                                        @endforeach
                                     </select>
+                                    @if($globalPaymentMethods->where('is_deposit_method', true)->isEmpty())
+                                        <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active payment methods configured.</small>
+                                    @endif
                                 </div>
                                 <div class="form-group" id="deposit_bank_account_group" style="display:none;">
                                     <label>Bank Account</label>
@@ -165,10 +170,15 @@
                                     <label>Payment Method</label>
                                     <select name="payment_method" id="withdraw_payment_method" class="form-control" required>
                                         <option value="">Select Method</option>
-                                        <option value="cash">Cash</option>
-                                        <option value="bank_transfer">Bank Transfer</option>
-                                        <option value="mobile_money">Mobile Money</option>
+                                        @foreach($globalPaymentMethods->where('is_withdrawal_method', true) as $method)
+                                            <option value="{{ $method->code }}" data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}" data-account-type="{{ $method->account_type ?? 'cash' }}">
+                                                {{ $method->name }}
+                                            </option>
+                                        @endforeach
                                     </select>
+                                    @if($globalPaymentMethods->where('is_withdrawal_method', true)->isEmpty())
+                                        <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active payment methods configured.</small>
+                                    @endif
                                 </div>
                                 <div class="form-group" id="withdraw_bank_account_group" style="display:none;">
                                     <label>Bank Account</label>
@@ -412,36 +422,45 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const method = methodEl.value;
-        const shouldShow = method === 'cash' || method === 'bank_transfer' || method === 'mobile_money';
+        const selectedOption = methodEl.options[methodEl.selectedIndex];
+        const requiresBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
+        const accountType = (selectedOption?.getAttribute('data-account-type') || '').toLowerCase();
+
+        // Show bank account group for all methods that might need bank selection
+        const shouldShow = accountType === 'bank' || accountType === 'mobile_money' || accountType === 'bank_transfer' || accountType === 'mobile' || requiresBank;
         bankGroupEl.style.display = shouldShow ? '' : 'none';
 
-        const required = method === 'bank_transfer' || method === 'mobile_money';
-        bankEl.required = required;
+        bankEl.required = requiresBank;
 
-        const options = Array.from(bankEl.querySelectorAll('option'));
-        options.forEach((opt) => {
-            if (!opt.value) {
-                setOptionVisibility(opt, true);
-                return;
+        // Only filter options if we show the bank account section
+        if (shouldShow) {
+            const options = Array.from(bankEl.querySelectorAll('option'));
+            options.forEach((opt) => {
+                if (!opt.value) {
+                    setOptionVisibility(opt, true);
+                    return;
+                }
+
+                const bankAccountType = (opt.dataset.accountType || '').toLowerCase();
+                let match = true;
+
+                if (accountType === 'cash') {
+                    match = bankAccountType === 'cash';
+                } else if (accountType === 'bank' || accountType === 'bank_transfer') {
+                    match = bankAccountType === 'bank';
+                } else if (accountType === 'mobile_money' || accountType === 'mobile') {
+                    match = bankAccountType === 'mobile_money' || bankAccountType === 'mobile' || bankAccountType === 'wallet';
+                }
+
+                setOptionVisibility(opt, match);
+            });
+
+            const selected = bankEl.options[bankEl.selectedIndex];
+            if (selected && (selected.hidden || selected.disabled)) {
+                bankEl.value = '';
             }
-
-            const accountType = (opt.dataset.accountType || '').toLowerCase();
-            let match = true;
-
-            if (method === 'cash') {
-                match = accountType === 'cash';
-            } else if (method === 'bank_transfer') {
-                match = accountType === 'bank';
-            } else if (method === 'mobile_money') {
-                match = accountType === 'mobile_money' || accountType === 'mobile' || accountType === 'wallet';
-            }
-
-            setOptionVisibility(opt, match);
-        });
-
-        const selected = bankEl.options[bankEl.selectedIndex];
-        if (selected && (selected.hidden || selected.disabled)) {
+        } else {
+            // Clear bank account when not showing the group
             bankEl.value = '';
         }
     }

@@ -52,7 +52,7 @@ class SecurityDepositsController extends Controller
 
         $query = LoanSecurityDeposit::query()
             ->with(['customer', 'loan', 'appliedToLoan', 'refundedBy'])
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('subshop_id', $subshopId)
             ->orderByDesc('id');
 
         if ($request->filled('status')) {

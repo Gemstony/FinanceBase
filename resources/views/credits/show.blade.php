@@ -102,10 +102,15 @@
                                 <label>Refund Method</label>
                                 <select name="refund_method" id="refund_method" class="form-control" required>
                                     <option value="">Select Method</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="mobile_money">Mobile Money</option>
+                                    @foreach($globalPaymentMethods->where('is_refund_method', true) as $method)
+                                        <option value="{{ $method->code }}" data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}">
+                                            {{ $method->name }}
+                                        </option>
+                                    @endforeach
                                 </select>
+                                @if($globalPaymentMethods->where('is_refund_method', true)->isEmpty())
+                                    <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active refund methods configured.</small>
+                                @endif
                             </div>
                             <div class="form-group" id="bank_account_group" style="display:none;">
                                 <label>Bank Account</label>
@@ -194,48 +199,48 @@
         const bankAccountGroupEl = document.getElementById('bank_account_group');
         const bankAccountEl = document.getElementById('bank_account_id');
 
-        if (!refundMethodEl || !bankAccountGroupEl || !bankAccountEl) {
-            return;
-        }
-
-        function setOptionVisibility(option, visible) {
-            option.hidden = !visible;
-            option.disabled = !visible;
-        }
-
         function updateBankAccountOptions() {
+            const selectedOption = refundMethodEl.options[refundMethodEl.selectedIndex];
+            const requiresBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
             const method = refundMethodEl.value;
-            const shouldShow = method === 'cash' || method === 'bank_transfer' || method === 'mobile_money';
 
-            bankAccountGroupEl.style.display = shouldShow ? '' : 'none';
-
-            const required = method === 'bank_transfer' || method === 'mobile_money';
-            bankAccountEl.required = required;
-
-            const options = Array.from(bankAccountEl.querySelectorAll('option'));
-            options.forEach((opt) => {
-                if (!opt.value) {
-                    setOptionVisibility(opt, true);
-                    return;
-                }
-
-                const accountType = (opt.dataset.accountType || '').toLowerCase();
-                let match = true;
-
-                if (method === 'cash') {
-                    match = accountType === 'cash';
-                } else if (method === 'bank_transfer') {
-                    match = accountType === 'bank';
-                } else if (method === 'mobile_money') {
-                    match = accountType === 'mobile_money' || accountType === 'mobile' || accountType === 'wallet';
-                }
-
-                setOptionVisibility(opt, match);
-            });
-
-            const selected = bankAccountEl.options[bankAccountEl.selectedIndex];
-            if (selected && (selected.hidden || selected.disabled)) {
+            // Show/hide bank account based on method requirements
+            if (!requiresBank) {
+                bankAccountGroupEl.style.display = 'none';
+                bankAccountEl.required = false;
                 bankAccountEl.value = '';
+            } else {
+                bankAccountGroupEl.style.display = '';
+                bankAccountEl.required = true;
+
+                // Filter bank account options based on method type
+                const methodToAccountType = {
+                    'bank_transfer': 'bank',
+                    'bank': 'bank',
+                    'mobile_money': 'mobile_money',
+                    'mobile': 'mobile_money'
+                };
+                const expectedType = methodToAccountType[method];
+
+                if (expectedType) {
+                    const options = bankAccountEl.querySelectorAll('option');
+                    options.forEach(option => {
+                        const accountType = option.getAttribute('data-account-type');
+                        if (!expectedType || accountType === expectedType || accountType === 'wallet') {
+                            option.style.display = '';
+                        } else if (expectedType === 'mobile_money' && (accountType === 'mobile' || accountType === 'wallet')) {
+                            option.style.display = '';
+                        } else {
+                            option.style.display = 'none';
+                        }
+                    });
+
+                    // Reset selection if hidden
+                    const selectedBankOption = bankAccountEl.selectedOptions[0];
+                    if (selectedBankOption && selectedBankOption.style.display === 'none') {
+                        bankAccountEl.value = '';
+                    }
+                }
             }
         }
 

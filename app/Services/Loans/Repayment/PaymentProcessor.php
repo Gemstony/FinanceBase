@@ -487,22 +487,31 @@ class PaymentProcessor
             return $accountId;
         }
 
-        // Look up payment method to GL account mapping
+        // Look up payment method to GL account mapping (shop-level scope)
         $method = trim(strtolower($paymentMethod));
         if ($method === '') {
             throw new InvalidArgumentException('payment_method is required to resolve payment GL account.');
         }
 
+        // First try shop-level mapping (new schema)
         $mapping = PaymentMethodAccount::query()
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('shop_id', $shopId)
             ->where('payment_method', $method)
             ->first();
 
+        // Fall back to legacy subshop-level lookup for backward compatibility
+        if (! $mapping) {
+            $mapping = PaymentMethodAccount::query()
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->where('payment_method', $method)
+                ->first();
+        }
+
         if (! $mapping) {
             Log::error('Payment method account mapping not found', [
-                'subshop_id' => $shopSubshopIds,
+                'shop_id' => $shopId,
                 'payment_method' => $method,
-                'available_methods' => PaymentMethodAccount::whereIn('subshop_id', $shopSubshopIds)->pluck('payment_method')->toArray(),
+                'available_methods' => PaymentMethodAccount::where('shop_id', $shopId)->pluck('payment_method')->toArray(),
             ]);
             throw new InvalidArgumentException("Payment method not mapped to GL account: {$method}.");
         }

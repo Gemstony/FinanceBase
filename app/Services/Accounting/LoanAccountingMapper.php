@@ -532,13 +532,23 @@ class LoanAccountingMapper
         // Get all subshop IDs under this shop for validation
         $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
+        // First try shop-level mapping (new schema)
         $mapping = PaymentMethodAccount::query()
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('shop_id', $shopId)
             ->where('payment_method', $paymentMethod)
             ->first();
 
+        // Fall back to legacy subshop-level lookup for backward compatibility
+        if (! $mapping) {
+            $mapping = PaymentMethodAccount::query()
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->where('payment_method', $paymentMethod)
+                ->first();
+        }
+
         if (! $mapping) {
             Log::warning('Missing payment method GL mapping', [
+                'shop_id' => $shopId,
                 'subshop_id' => $subshopId,
                 'payment_method' => $paymentMethod,
             ]);

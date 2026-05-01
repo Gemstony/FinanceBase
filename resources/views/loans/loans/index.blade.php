@@ -193,7 +193,7 @@
                                 
                                 $today = now()->toDateString();
                                 $hasOverdue = $loanInstallments->contains(function($inst) use ($today) {
-                                    return $inst->status !== 'paid' && $inst->status !== 'pending' && $inst->due_date < $today;
+                                    return $inst->status !== 'paid_off' && $inst->status !== 'pending' && $inst->status !== 'written_off' && $inst->due_date < $today;
                                 });
                             }
                             
@@ -210,7 +210,7 @@
                             };
                             
                             $paymentStatusBadge = $hasOverdue ? 'badge-danger' : 'badge-success';
-                            $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'Paid Off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
+                            $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'written_off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
                         @endphp
                         <tr>
                             <td class="text-nowrap">

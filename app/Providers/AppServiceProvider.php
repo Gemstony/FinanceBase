@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -44,6 +46,42 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Share active payment methods globally with all views
+        View::composer('*', function ($view) {
+            try {
+                // Get current shop from session
+                $subshopId = session('subshop_id');
+                $shopId = null;
+
+                if ($subshopId) {
+                    $subshop = \App\Models\SubShop::find($subshopId);
+                    $shopId = $subshop?->shop_id;
+                }
+
+                // Cache key includes shop_id for proper scoping
+                $cacheKey = 'active_payment_methods_shop_' . ($shopId ?? 'global');
+
+                // Cache payment methods for 5 minutes to reduce queries
+                $paymentMethods = cache()->remember($cacheKey, 300, function () use ($shopId) {
+                    $query = PaymentMethod::where('status', true)
+                        ->orderBy('sort_order')
+                        ->orderBy('name');
+
+                    // Filter by shop_id if available
+                    if ($shopId) {
+                        $query->where('shop_id', $shopId);
+                    }
+
+                    return $query->get();
+                });
+
+                $view->with('globalPaymentMethods', $paymentMethods);
+            } catch (\Throwable $e) {
+                // Fail silently if database not available
+                $view->with('globalPaymentMethods', collect());
+            }
+        });
+
         // Register gates for AdminLTE menu permissions
         Gate::define('Super Admin', function ($user) {
             return $user && $user->hasRole('Super Admin');

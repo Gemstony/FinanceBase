@@ -222,7 +222,7 @@ class DepositAccountService
 
             $newBalance = round($currentBalance - $amount, 2);
             if ($newBalance < $minimumBalance) {
-                throw new InvalidArgumentException('Withdrawal would reduce balance below minimum balance.');
+                throw new InvalidArgumentException('Withdrawal would reduce balance below minimum balance '. $minimumBalance . '.');
             }
 
             $account->balance = $newBalance;
@@ -612,13 +612,23 @@ class DepositAccountService
             throw new InvalidArgumentException('Payment method is required to resolve payment account.');
         }
 
+        // First try shop-level mapping (new schema)
         $mapping = PaymentMethodAccount::query()
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('shop_id', $shopId)
             ->where('payment_method', $method)
             ->first();
 
+        // Fall back to legacy subshop-level lookup for backward compatibility
+        if (!$mapping) {
+            $mapping = PaymentMethodAccount::query()
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->where('payment_method', $method)
+                ->first();
+        }
+
         if (!$mapping) {
             Log::error('Payment method account mapping not found', [
+                'shop_id' => $shopId,
                 'subshop_id' => $subshopId,
                 'payment_method' => $method,
             ]);

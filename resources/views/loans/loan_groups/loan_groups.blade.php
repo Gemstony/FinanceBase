@@ -298,7 +298,7 @@
 
 <!-- Manage Members Modal -->
 <div class="modal fade" id="manageMembersModal" tabindex="-1" role="dialog" aria-labelledby="manageMembersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <form action="{{ route('loans.loan_groups.members.store', ['group' => ':group_id']) }}" method="POST" id="addMembersForm">
                 @csrf
@@ -395,7 +395,7 @@
 
 <!-- View Loan Group Modal -->
 <div class="modal fade" id="viewLoanGroupModal" tabindex="-1" role="dialog" aria-labelledby="viewLoanGroupModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-dialog modal-xl" role="document">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="viewLoanGroupModalLabel">Loan Group Details</h5>

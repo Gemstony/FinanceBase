@@ -357,7 +357,8 @@ class CustomerCreditService
     private function resolveRefundCashAccountId(string $refundMethod, ?int $bankAccountId, int $subshopId): int
     {
         $subshop = SubShop::findOrFail($subshopId);
-        $shopSubshopIds = SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+        $shopId = $subshop->shop_id;
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
 
         if ($bankAccountId) {
             $bank = BankAccounts::query()->whereKey($bankAccountId)->firstOrFail();
@@ -374,10 +375,19 @@ class CustomerCreditService
         }
 
         // For cash refunds, use payment method mapping to get the correct cash account
+        // First try shop-level mapping (new schema)
         $mapping = PaymentMethodAccount::query()
-            ->whereIn('subshop_id', $shopSubshopIds)
+            ->where('shop_id', $shopId)
             ->where('payment_method', $refundMethod)
             ->first();
+
+        // Fall back to legacy subshop-level lookup for backward compatibility
+        if (!$mapping) {
+            $mapping = PaymentMethodAccount::query()
+                ->whereIn('subshop_id', $shopSubshopIds)
+                ->where('payment_method', $refundMethod)
+                ->first();
+        }
 
         if (!$mapping) {
             throw new InvalidArgumentException("Payment method '{$refundMethod}' is not mapped to a GL account.");
@@ -388,7 +398,7 @@ class CustomerCreditService
             throw new InvalidArgumentException("Invalid chart_of_account_id for payment method '{$refundMethod}'.");
         }
 
-        Log::debug('Using payment method mapping', ['account_id' => $accountId]);
+        Log::debug('Using payment method mapping', ['account_id' => $accountId, 'shop_id' => $shopId]);
         return $accountId;
     }
 

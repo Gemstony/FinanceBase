@@ -173,6 +173,10 @@ class LoansController extends Controller
         $subshopId = session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
         $q = (string) $request->query('q', '');
         $status = (string) $request->query('status', '');
         $borrowerType = (string) $request->query('borrower_type', '');
@@ -260,7 +264,7 @@ class LoansController extends Controller
         });
 
         $loanProducts = LoanProducts::query()
-            ->where('subshop_id', $subshopId)
+            ->whereIn('subshop_id', $shopSubshopIds)
             ->orderBy('name')
             ->get(['id', 'name']);
 

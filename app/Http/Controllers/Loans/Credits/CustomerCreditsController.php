@@ -9,6 +9,7 @@ use App\Models\CustomerCreditBalances;
 use App\Models\CustomerCreditLiabilityAccount;
 use App\Models\Customers;
 use App\Models\Loans;
+use App\Models\PaymentMethod;
 use App\Models\PaymentMethodAccount;
 use App\Models\SubShop;
 use App\Services\Loans\Credits\CustomerCreditService;
@@ -162,16 +163,24 @@ class CustomerCreditsController extends Controller
                 'request_data' => $request->except(['_token']),
             ]);
 
+            // Get valid refund method codes from configured payment methods
+            $validRefundMethods = PaymentMethod::where('status', true)
+                ->where('is_refund_method', true)
+                ->pluck('code')
+                ->toArray();
+
             $validated = $request->validate([
                 'credit_id' => ['required', 'integer', 'exists:customer_credit_balances,id'],
                 'refund_amount' => ['required', 'numeric', 'min:0.01'],
-                'refund_method' => ['required', 'string', Rule::in(['bank_transfer', 'mobile_money', 'cash'])],
+                'refund_method' => ['required', 'string', Rule::in($validRefundMethods)],
                 'bank_account_id' => [
-                    'nullable', 
-                    'integer', 
+                    'nullable',
+                    'integer',
                     'exists:bank_accounts,id',
                     Rule::requiredIf(function () use ($request) {
-                        return in_array($request->refund_method, ['bank_transfer', 'mobile_money']);
+                        // Check if selected payment method requires bank account
+                        $paymentMethod = PaymentMethod::where('code', $request->refund_method)->first();
+                        return $paymentMethod && $paymentMethod->requires_bank_account;
                     })
                 ],
                 'notes' => ['nullable', 'string', 'max:2000'],

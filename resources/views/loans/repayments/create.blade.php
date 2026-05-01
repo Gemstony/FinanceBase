@@ -59,8 +59,8 @@
 
             function updateBankAccountVisibility() {
                 if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
-                const pm = String(paymentMethodEl.value || '');
-                const requiresBank = pm === 'bank';
+                const selectedOption = paymentMethodEl.options[paymentMethodEl.selectedIndex];
+                const requiresBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
 
                 if (requiresBank) {
                     bankAccountWrap.style.display = '';
@@ -74,9 +74,10 @@
 
             function updateAzamPayFields() {
                 if (!paymentMethodEl || !azampayFields) return;
-                const pm = String(paymentMethodEl.value || '');
-                
-                if (pm === 'azampay') {
+                const selectedOption = paymentMethodEl.options[paymentMethodEl.selectedIndex];
+                const requiresPhone = selectedOption && selectedOption.getAttribute('data-requires-phone') === 'true';
+
+                if (requiresPhone) {
                     azampayFields.style.display = '';
                     if (phoneInput) phoneInput.required = true;
                     if (providerSelect) providerSelect.required = true;
@@ -302,12 +303,15 @@
                                 <label>Payment Method</label>
                                 <select name="payment_method" class="form-control" id="payment_method" required>
                                     @php $pm = old('payment_method', 'cash'); @endphp
-                                    <option value="cash" @selected($pm === 'cash')>Cash</option>
-                                    <option value="bank" @selected($pm === 'bank')>Bank</option>
-                                    <option value="azampay" @selected($pm === 'azampay')>AzamPay (Mobile Payment)</option>
-                                    <option value="savings" @selected($pm === 'savings')>Savings</option>
-                                    <option value="customer_credit" @selected($pm === 'customer_credit')>Customer Credit</option>
+                                    @foreach($globalPaymentMethods->where('is_repayment_method', true) as $method)
+                                        <option value="{{ $method->code }}" @selected($pm === $method->code) data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}" data-requires-phone="{{ $method->requires_phone ? 'true' : 'false' }}">
+                                            {{ $method->name }}
+                                        </option>
+                                    @endforeach
                                 </select>
+                                @if($globalPaymentMethods->where('is_repayment_method', true)->isEmpty())
+                                    <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active payment methods configured. Please contact administrator.</small>
+                                @endif
                             </div>
 
                             <!-- AzamPay Dynamic Fields -->

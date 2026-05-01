@@ -232,12 +232,16 @@
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label class="small mb-1">Payment Method</label>
-                                    <select name="payment_method" class="form-control" required>
-                                        <option value="cash">Cash</option>
-                                        <option value="bank_transfer">Bank Transfer</option>
-                                        <option value="mobile_money">Mobile Money</option>
-                                        <option value="other">Other</option>
+                                    <select name="payment_method" class="form-control" id="security_deposit_payment_method" required>
+                                        @foreach($globalPaymentMethods->where('is_deposit_method', true) as $method)
+                                            <option value="{{ $method->code }}" data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}">
+                                                {{ $method->name }}
+                                            </option>
+                                        @endforeach
                                     </select>
+                                    @if($globalPaymentMethods->where('is_deposit_method', true)->isEmpty())
+                                        <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active payment methods configured.</small>
+                                    @endif
                                 </div>
                                 <div class="form-group col-md-4">
                                     <label class="small mb-1">Payment Bank Account</label>
@@ -483,38 +487,65 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const methodSelect = document.querySelector('select[name="payment_method"]');
+    const methodSelect = document.getElementById('security_deposit_payment_method');
     const bankSelect = document.querySelector('[data-security-deposit-bank-select]');
     if (!methodSelect || !bankSelect) return;
 
     function syncBankRequired() {
-        const method = (methodSelect.value || '').toLowerCase();
-        const requiresBank = method === 'bank_transfer' || method === 'mobile_money' || method === 'cash';
-        bankSelect.required = requiresBank;
-        if (!requiresBank) {
-            bankSelect.value = '';
+        const selectedOption = methodSelect.options[methodSelect.selectedIndex];
+        const needsBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
+        bankSelect.required = needsBank;
+        // When method doesn't need bank and nothing selected, keep it optional but don't clear silently
+        if (needsBank && !bankSelect.value) {
+            bankSelect.classList.add('is-invalid');
+        } else {
+            bankSelect.classList.remove('is-invalid');
         }
     }
 
     methodSelect.addEventListener('change', syncBankRequired);
     syncBankRequired();
 
-    // SweetAlert confirmation for Collect Deposit form
-    const collectDepositButtons = document.querySelectorAll('button[type="submit"]');
-    collectDepositButtons.forEach(function(button) {
-        if (button.textContent.includes('Collect Deposit')) {
-            const collectDepositForm = button.closest('form');
-            if (collectDepositForm) {
-                collectDepositForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const amount = collectDepositForm.querySelector('input[name="amount"]').value;
-                    const paymentMethod = collectDepositForm.querySelector('select[name="payment_method"]').value;
-                    
+    const collectDepositForm = document.querySelector('#collectDepositForm');
+    if (collectDepositForm) {
+        collectDepositForm.addEventListener('submit', function (e) {
+            const selectedOption = methodSelect.options[methodSelect.selectedIndex];
+            const needsBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
+            if (needsBank && !bankSelect.value) {
+                e.preventDefault();
+                bankSelect.classList.add('is-invalid');
+                bankSelect.focus();
+                return;
+            }
+
+            const amount = collectDepositForm.querySelector('input[name="amount"]').value;
+            const paymentMethod = collectDepositForm.querySelector('select[name="payment_method"]').value;
+            
+            Swal.fire({
+                title: 'Confirm Deposit Collection',
+                html: `
+                    <div class="text-left">
+                        <p><strong>Amount:</strong> ${parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                        <p><strong>Payment Method:</strong> ${paymentMethod.replace('_', ' ').toUpperCase()}</p>
+                    </div>
+                    <p class="mt-3">Are you sure you want to collect this security deposit?</p>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#007bff',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Collect Deposit',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading state
                     Swal.fire({
-                        title: 'Confirm Deposit Collection',
-                        html: `
-                            <div class="text-left">
+                        title: 'Processing Deposit...',
+                        text: 'Please wait while we process the deposit.',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            Swal.showLoading();
                                 <p><strong>Amount:</strong> ${parseFloat(amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                                 <p><strong>Payment Method:</strong> ${paymentMethod.replace('_', ' ').toUpperCase()}</p>
                             </div>

@@ -670,13 +670,23 @@ class SecurityDepositService
             throw new InvalidArgumentException('Payment method is required to resolve payment account.');
         }
 
+        // First try shop-level mapping (new schema)
         $mapping = PaymentMethodAccount::query()
-            ->where('subshop_id', $subshopId)
+            ->where('shop_id', $shopId)
             ->where('payment_method', $method)
             ->first();
 
+        // Fall back to legacy subshop-level lookup for backward compatibility
+        if (!$mapping) {
+            $mapping = PaymentMethodAccount::query()
+                ->where('subshop_id', $subshopId)
+                ->where('payment_method', $method)
+                ->first();
+        }
+
         if (!$mapping) {
             Log::error('Payment method account mapping not found', [
+                'shop_id' => $shopId,
                 'subshop_id' => $subshopId,
                 'payment_method' => $method,
             ]);

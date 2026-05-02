@@ -89,31 +89,20 @@ class FeeEngine
                     );
                 }
 
-                // Set installment fees_due to the sum of fees applied on this applied_on date
-                // for the configured rules. This keeps amounts traceable and repeat-safe.
-                $installment->fees_due = (float) LoanFeeApplications::query()
+                // Note: Fees are now tracked independently in loan_fee_applications table
+                // and are NOT included in installment amounts (like security deposits).
+                // This allows fees to be paid separately from regular installments.
+
+                // Optional accounting hook - record total fees for this application date
+                $totalFees = (float) LoanFeeApplications::query()
                     ->where('loan_id', $loan->id)
                     ->whereIn('loan_product_fee_id', $rules->pluck('id')->all())
                     ->whereDate('applied_on', $appliedOn->toDateString())
                     ->sum('amount');
 
-                $installment->total_due = round(
-                    (float) $installment->principal_due +
-                    (float) $installment->interest_due +
-                    (float) $installment->fees_due +
-                    (float) $installment->penalty_due,
-                    2
-                );
-
-                $installment->outstanding_amount = round(
-                    max(0, (float) $installment->total_due - (float) $installment->amount_paid),
-                    2
-                );
-
-                $installment->save();
-
-                // Optional accounting hook
-                $this->recordToAccounting($loan, $installment->id, $installment->fees_due, $asOf);
+                if ($totalFees > 0) {
+                    $this->recordToAccounting($loan, $installment->id, $totalFees, $asOf);
+                }
             }
         });
     }
@@ -123,6 +112,9 @@ class FeeEngine
      *
      * This is intended for loan creation flows where we want fees captured immediately
      * after installments are generated, without requiring lifecycle-specific triggers.
+     *
+     * Note: Fees are tracked independently in loan_fee_applications table and are NOT
+     * included in installment amounts (like security deposits).
      */
     public function applyAllFees(Loans $loan, ?Carbon $asOfDate = null): void
     {
@@ -149,6 +141,8 @@ class FeeEngine
             if (!$firstInstallment) {
                 return;
             }
+
+            $totalFees = 0.0;
 
             foreach ($rules as $rule) {
                 /** @var LoanProductFees $rule */
@@ -177,29 +171,17 @@ class FeeEngine
                         'is_paid' => false,
                     ]
                 );
+
+                $totalFees += $amount;
             }
 
-            $firstInstallment->fees_due = (float) LoanFeeApplications::query()
-                ->where('loan_id', $loan->id)
-                ->whereDate('applied_on', $asOf->toDateString())
-                ->sum('amount');
+            // Note: Fees are tracked independently and are NOT included in installment totals.
+            // Installment amounts remain as principal + interest only.
+            // Fees must be paid separately through a fee payment flow (like security deposits).
 
-            $firstInstallment->total_due = round(
-                (float) $firstInstallment->principal_due +
-                (float) $firstInstallment->interest_due +
-                (float) $firstInstallment->fees_due +
-                (float) $firstInstallment->penalty_due,
-                2
-            );
-
-            $firstInstallment->outstanding_amount = round(
-                max(0, (float) $firstInstallment->total_due - (float) $firstInstallment->amount_paid),
-                2
-            );
-
-            $firstInstallment->save();
-
-            $this->recordToAccounting($loan, (int) $firstInstallment->id, (float) $firstInstallment->fees_due, $asOf);
+            if ($totalFees > 0) {
+                $this->recordToAccounting($loan, (int) $firstInstallment->id, $totalFees, $asOf);
+            }
         });
     }
 

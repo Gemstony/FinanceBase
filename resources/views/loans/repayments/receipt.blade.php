@@ -57,7 +57,6 @@
                                         <th>Principal Paid</th>
                                         <th>Interest Paid</th>
                                         <th>Penalty Paid</th>
-                                        <th>Fee Paid</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -65,7 +64,6 @@
                                         <td>{{ number_format((float) $principal, 2) }}</td>
                                         <td>{{ number_format((float) $interest, 2) }}</td>
                                         <td>{{ number_format((float) $penalty, 2) }}</td>
-                                        <td>{{ number_format((float) $fee, 2) }}</td>
                                     </tr>
                                 </tbody>
                             </table>

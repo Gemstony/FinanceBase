@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\DisbursementMethods;
 use App\Models\LoanApprovals;
 use App\Models\LoanDisbursements;
+use App\Models\LoanFeeApplications;
 use App\Models\Loans;
 use App\Models\LoanSecurityDeposit;
+use App\Models\PaymentMethod;
 use App\Models\Shop;
 use App\Models\SubShop;
 use App\Models\LoanProducts;
@@ -142,8 +144,55 @@ class LoansDisbursementController extends Controller
 
         $bankAccounts = BankAccounts::whereIn('subshop_id', $shopSubshopIds)->latest()->get();
 
+        // Get payment methods for deposit/collection
+        $globalPaymentMethods = PaymentMethod::query()
+            ->where('shop_id', $shopId)
+            ->orderBy('name')
+            ->get();
 
-        return view('loans.disbursements.show', compact('loan', 'collateralStatus', 'guarantorStatus', 'feesStatus', 'securityDepositStatus', 'approvalDate', 'installments', 'disbursementMethods', 'bankAccounts'));
+        // Get loan fee applications
+        $loanFees = LoanFeeApplications::query()
+            ->where('loan_id', $loan->id)
+            ->with('loanProductFee.loanFee')
+            ->get();
+
+        // Security deposit calculations
+        $securityDepositRequired = round((float) ($loan->security_deposit_amount ?? 0.0), 2);
+        $securityDepositPaid = (float) LoanSecurityDeposit::query()
+            ->where('subshop_id', (int) $loan->subshop_id)
+            ->where('loan_id', (int) $loan->id)
+            ->where('status', 'held')
+            ->sum('amount');
+
+        $isHeld = false;
+        if ((bool) $loan->requires_security_deposit) {
+            if ($securityDepositRequired > 0 && round($securityDepositPaid, 2) >= $securityDepositRequired) {
+                $isHeld = true;
+            }
+        }
+
+        // Fee calculations
+        $allFeesPaid = $loanFees->isEmpty() || $loanFees->every(fn ($lf) => (bool) $lf->is_paid);
+        $pendingFees = $loanFees->where('is_paid', false)->sum('amount');
+
+        return view('loans.disbursements.show', compact(
+            'loan',
+            'collateralStatus',
+            'guarantorStatus',
+            'feesStatus',
+            'securityDepositStatus',
+            'approvalDate',
+            'installments',
+            'disbursementMethods',
+            'bankAccounts',
+            'globalPaymentMethods',
+            'loanFees',
+            'securityDepositRequired',
+            'securityDepositPaid',
+            'isHeld',
+            'allFeesPaid',
+            'pendingFees'
+        ));
     }
 
     /**
@@ -353,10 +402,19 @@ class LoansDisbursementController extends Controller
             throw ValidationException::withMessages(['guarantor' => 'Guarantors are required for this loan product.']);
         }
 
-        // Placeholder: ensure fees are cleared/deducted
-        // In a real system, you would check a loan_fees table or similar.
-        // For now, we assume fees are handled elsewhere or not blocking.
+        // Check that all loan fees are fully paid
+        $pendingFees = (float) LoanFeeApplications::query()
+            ->where('loan_id', (int) $loan->id)
+            ->where('is_paid', false)
+            ->sum('amount');
 
+        if ($pendingFees > 0) {
+            throw ValidationException::withMessages([
+                'fees' => 'All loan fees must be fully paid before disbursement. Pending fees: ' . number_format($pendingFees, 2),
+            ]);
+        }
+
+        // Check security deposit is fully collected
         if ((bool) $loan->requires_security_deposit) {
             $required = round((float) ($loan->security_deposit_amount ?? 0.0), 2);
             $paid = (float) LoanSecurityDeposit::query()
@@ -480,18 +538,25 @@ class LoansDisbursementController extends Controller
      */
     private function getFeesStatus(Loans $loan): array
     {
-        // Fees in this system are applied to installments via FeeEngine/LoanFeeApplications.
-        // For disbursement readiness, we flag if the first installment has fees_due > 0.
-        $first = $loan->installments()->orderBy('installment_number')->first();
-        if (!$first) {
+        // Check LoanFeeApplications for independent fee payments
+        $totalFees = (float) LoanFeeApplications::query()
+            ->where('loan_id', $loan->id)
+            ->sum('amount');
+
+        if ($totalFees <= 0) {
             return ['status' => '—', 'class' => 'bg-secondary'];
         }
 
-        if ((float) $first->fees_due > 0 && (float) $first->fees_paid < (float) $first->fees_due) {
-            return ['status' => 'Pending', 'class' => 'bg-warning'];
+        $pendingFees = (float) LoanFeeApplications::query()
+            ->where('loan_id', $loan->id)
+            ->where('is_paid', false)
+            ->sum('amount');
+
+        if ($pendingFees > 0) {
+            return ['status' => 'Pending (' . number_format($pendingFees, 2) . ')', 'class' => 'bg-warning'];
         }
 
-        return ['status' => 'Cleared', 'class' => 'bg-success'];
+        return ['status' => 'Paid', 'class' => 'bg-success'];
     }
 
     private function resolveLoanApprovalDate(Loans $loan): ?Carbon

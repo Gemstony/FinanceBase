@@ -64,7 +64,6 @@
                             <th>Date</th>
                             <th>Principal</th>
                             <th>Interest</th>
-                            <th>Fees</th>
                             <th>Penalties</th>
                             <th>Total</th>
                         </tr>
@@ -83,13 +82,12 @@
                                 <td>{{ optional($r->recovery_date)->format('Y-m-d') }}</td>
                                 <td>{{ number_format((float) $r->recovered_principal, 2) }}</td>
                                 <td>{{ number_format((float) $r->recovered_interest, 2) }}</td>
-                                <td>{{ number_format((float) $r->recovered_fees, 2) }}</td>
                                 <td>{{ number_format((float) $r->recovered_penalties, 2) }}</td>
                                 <td><strong>{{ number_format((float) $r->total_recovered, 2) }}</strong></td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center text-muted">No recoveries found.</td>
+                                <td colspan="8" class="text-center text-muted">No recoveries found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -98,7 +96,6 @@
                             <th colspan="4" class="text-right">Totals</th>
                             <th>{{ number_format((float) ($totals['principal'] ?? 0), 2) }}</th>
                             <th>{{ number_format((float) ($totals['interest'] ?? 0), 2) }}</th>
-                            <th>{{ number_format((float) ($totals['fees'] ?? 0), 2) }}</th>
                             <th>{{ number_format((float) ($totals['penalties'] ?? 0), 2) }}</th>
                             <th><strong>{{ number_format((float) ($totals['total'] ?? 0), 2) }}</strong></th>
                         </tr>

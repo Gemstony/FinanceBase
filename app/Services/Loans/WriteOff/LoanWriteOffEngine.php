@@ -208,9 +208,6 @@ class LoanWriteOffEngine
             if ($balances['interest_written_off'] > 0 && ! $loan->interest_receivable_account_id) {
                 throw new InvalidArgumentException('Loan missing interest_receivable_account_id for write-off');
             }
-            if ($balances['fees_written_off'] > 0 && ! $loan->fee_income_account_id) {
-                throw new InvalidArgumentException('Loan missing fee_income_account_id for write-off');
-            }
             if ($balances['penalties_written_off'] > 0 && ! $loan->penalty_receivable_account_id) {
                 throw new InvalidArgumentException('Loan missing penalty_receivable_account_id for write-off');
             }
@@ -222,7 +219,7 @@ class LoanWriteOffEngine
                 'writeoff_date' => $date,
                 'principal_written_off' => $balances['principal_written_off'],
                 'interest_written_off' => $balances['interest_written_off'],
-                'fees_written_off' => $balances['fees_written_off'],
+                'fees_written_off' => 0,
                 'penalties_written_off' => $balances['penalties_written_off'],
                 'total_written_off' => $balances['total_written_off'],
                 'reason' => $reason,

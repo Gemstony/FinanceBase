@@ -198,13 +198,25 @@
                             {{ $loan->loanGroup?->name ?? $loan->customer?->name ?? '—' }} Loan
                         </h4>
 
+                    @if($loan->borrower_type === 'group')
+                        <div class="text-muted mb-2">
+                            <strong>Group Members:</strong><br>
+                            @forelse($loan->loanGroup?->members()->with('customer')->where('is_active', true)->get() ?? [] as $member)
+                                {{ $member->customer?->name ?? '-' }} ({{ ucfirst($member->role) }})<br>
+                                <small class="ml-3">Phone: {{ $member->customer?->phone ?? '-' }}</small><br>
+                            @empty
+                                <span class="text-warning">No active members</span>
+                            @endforelse
+                        </div>
+                    @else
+                        <div class="text-muted">
+                            Phone: {{ $loan->customer?->phone ?? '-' }} <br>
+                            Email: {{ $loan->customer?->email ?? '-' }} <br>
+                            Code: {{ $loan->customer?->customer_code ?? '-' }}
+                        </div>
+                    @endif
                     <div class="text-muted">
-                        Phone: {{ $loan->customer?->phone ?? '-' }} <br>
-                        Email: {{ $loan->customer?->email ?? '-' }} <br>
-                        Code: {{ $loan->customer?->customer_code ?? '-' }}
-                    </div>
-                    <div class="text-muted">
-                        Peoduct: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        Product: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
                         @if($loan->borrower_type)
                             &middot; {{ ucfirst($loan->borrower_type) }}
                         @endif
@@ -406,12 +418,10 @@
                                             <th>Due Date</th>
                                             <th>Principal Due</th>
                                             <th>Interest Due</th>
-                                            <th>Fees Due</th>
                                             <th>Penalty Due</th>
                                             <th>Total Due</th>
                                             <th>Principal Paid</th>
                                             <th>Interest Paid</th>
-                                            <th>Fees Paid</th>
                                             <th>Penalty Paid</th>
                                             <th>Outstanding</th>
                                             <th>Status</th>
@@ -424,12 +434,10 @@
                                                 <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
                                                 <td>{{ number_format((float)$i->principal_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->interest_due, 2) }}</td>
-                                                <td>{{ number_format((float)$i->fees_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->total_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
                                                 <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
-                                                <td>{{ number_format((float)$i->fees_paid, 2) }}</td>
                                                 <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
                                                 <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
                                                 @php
@@ -446,7 +454,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="13" class="text-center text-muted">No installments found.</td>
+                                                <td colspan="11" class="text-center text-muted">No installments found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

@@ -59,13 +59,25 @@
                         @endif
                     </h4>
                                         
+                    @if($loan->borrower_type === 'group')
+                        <div class="text-muted mb-2">
+                            <strong>Group Members:</strong><br>
+                            @forelse($loan->loanGroup?->members()->with('customer')->where('is_active', true)->get() ?? [] as $member)
+                                {{ $member->customer?->name ?? '-' }} ({{ ucfirst($member->role) }})<br>
+                                <small class="ml-3">Phone: {{ $member->customer?->phone ?? '-' }}</small><br>
+                            @empty
+                                <span class="text-warning">No active members</span>
+                            @endforelse
+                        </div>
+                    @else
+                        <div class="text-muted">
+                            Phone: {{ $loan->customer?->phone ?? '-' }} <br>
+                            Email: {{ $loan->customer?->email ?? '-' }} <br>
+                            Code: {{ $loan->customer?->customer_code ?? '-' }}
+                        </div>
+                    @endif
                     <div class="text-muted">
-                        Phone: {{ $loan->customer?->phone ?? '-' }} <br>
-                        Email: {{ $loan->customer?->email ?? '-' }} <br>
-                        Code: {{ $loan->customer?->customer_code ?? '-' }}
-                    </div>
-                    <div class="text-muted">
-                        Peoduct: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
+                        Product: {{ $loan->loanProduct?->name ?? 'Loan Product' }}
                         @if($loan->borrower_type)
                             &middot; {{ ucfirst($loan->borrower_type) }}
                         @endif

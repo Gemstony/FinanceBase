@@ -369,9 +369,9 @@ class DepositAccountService
             }
 
             $newBalance = round($currentBalance - $amount, 2);
-            if ($newBalance < $minimumBalance) {
-                throw new InvalidArgumentException('Payment would reduce balance below minimum balance.');
-            }
+            // if ($newBalance < $minimumBalance) {
+            //     throw new InvalidArgumentException('Payment would reduce balance below minimum balance.');
+            // }
 
             $account->balance = $newBalance;
             $account->save();
@@ -468,7 +468,6 @@ class DepositAccountService
      */
     public function getCustomerDepositsLiabilityAccount(int $subshopId): int
     {
-        Log::debug('Getting customer deposits liability account', ['subshop_id' => $subshopId]);
 
         // Get the shop ID from the subshop for shop-level configuration
         $subshop = SubShop::find($subshopId);
@@ -478,7 +477,6 @@ class DepositAccountService
         }
 
         $shopId = $subshop->shop_id;
-        Log::debug('Resolved shop ID for liability account', ['shop_id' => $shopId]);
 
         $liabilityAccount = CustomerDepositLiabilityAccount::forShop($shopId);
 
@@ -489,11 +487,6 @@ class DepositAccountService
                 'Please configure it first before processing deposits or withdrawals.'
             );
         }
-
-        Log::debug('Liability account found', [
-            'liability_account_id' => $liabilityAccount->id,
-            'chart_of_account_id' => $liabilityAccount->chart_of_account_id,
-        ]);
 
         // Validate that account is still a liability account and active
         $chartAccount = ChartsOfAccount::query()->whereKey($liabilityAccount->chart_of_account_id)->first();
@@ -529,10 +522,6 @@ class DepositAccountService
             throw new InvalidArgumentException('Configured liability account does not belong to this shop.');
         }
 
-        Log::debug('Liability account validated', [
-            'liability_account_id' => $liabilityAccount->chart_of_account_id,
-            'account_name' => $chartAccount->account_name,
-        ]);
 
         return (int) $liabilityAccount->chart_of_account_id;
     }
@@ -543,11 +532,6 @@ class DepositAccountService
      */
     private function resolvePaymentSourceAccountId(string $paymentMethod, ?int $bankAccountId, int $subshopId): int
     {
-        Log::debug('Resolving payment source account', [
-            'payment_method' => $paymentMethod,
-            'bank_account_id' => $bankAccountId,
-            'subshop_id' => $subshopId,
-        ]);
 
         // Get shop_id from subshop for shop-level account validation
         $subshop = SubShop::findOrFail($subshopId);
@@ -597,10 +581,6 @@ class DepositAccountService
                 throw new InvalidArgumentException('Bank account must be linked to an Asset account (Class 1).');
             }
 
-            Log::debug('Using bank account mapping', [
-                'bank_account_id' => $bankAccountId,
-                'chart_account_id' => $accountId,
-            ]);
 
             return $accountId;
         }
@@ -681,10 +661,6 @@ class DepositAccountService
             throw new InvalidArgumentException('Payment method linked chart of account does not belong to this shop.');
         }
 
-        Log::debug('Using payment method mapping', [
-            'payment_method' => $method,
-            'chart_account_id' => $accountId,
-        ]);
 
         return $accountId;
     }

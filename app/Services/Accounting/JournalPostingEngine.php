@@ -179,7 +179,7 @@ class JournalPostingEngine
      * Convenience method: post a loan write-off journal entry.
      *
      * @param  Loans  $loan  The loan being written off
-     * @param  array  $balances  Array with keys: principal_written_off, interest_written_off, fees_written_off, penalties_written_off
+     * @param  array  $balances  Array with keys: principal_written_off, interest_written_off, penalties_written_off
      * @param  int    $writeOffExpenseAccountId  The configured expense account for write-offs
      */
     public function postLoanWriteOff(Loans $loan, array $balances, int $writeOffExpenseAccountId): JournalEntries
@@ -199,7 +199,7 @@ class JournalPostingEngine
     /**
      * Convenience method: post a loan recovery journal entry.
      *
-     * @param  array  $recoveryData  Array with keys: principal, interest, fees, penalties, total, bank_account_id, payment_method, subshop_id
+     * @param  array  $recoveryData  Array with keys: principal, interest, penalties, total, bank_account_id, payment_method, subshop_id
      * @param  int    $recoveryIncomeAccountId  The configured recovery income account ID
      * @param  int    $referenceId  Reference ID for the recovery record
      */

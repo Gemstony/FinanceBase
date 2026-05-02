@@ -150,6 +150,24 @@ class Loans extends Model
         return $this->belongsTo(Customers::class, 'customer_id');
     }
 
+    /**
+     * Get the borrower ID for this loan.
+     * For individual loans: returns customer_id
+     * For group loans: returns the group leader/treasurer's customer_id
+     */
+    public function getBorrowerId(): ?int
+    {
+        if ($this->borrower_type === 'group') {
+            // Return group leader or treasurer customer_id as representative
+            $representative = $this->loanGroup?->members()
+                ->where('is_active', true)
+                ->whereIn('role', ['leader', 'treasurer', 'secretary'])
+                ->first();
+            return $representative?->customer_id;
+        }
+        return $this->customer_id;
+    }
+
     public function loanGroup()
     {
         return $this->belongsTo(LoanGroups::class, 'loan_group_id');

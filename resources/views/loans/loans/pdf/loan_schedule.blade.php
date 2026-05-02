@@ -209,12 +209,10 @@
     @php
         $grandPrincipalDue = 0;
         $grandInterestDue = 0;
-        $grandFeesDue = 0;
         $grandPenaltyDue = 0;
         $grandTotalDue = 0;
         $grandPrincipalPaid = 0;
         $grandInterestPaid = 0;
-        $grandFeesPaid = 0;
         $grandPenaltyPaid = 0;
         $grandOutstanding = 0;
     @endphp
@@ -226,12 +224,10 @@
 
             $versionPrincipalDue = 0;
             $versionInterestDue = 0;
-            $versionFeesDue = 0;
             $versionPenaltyDue = 0;
             $versionTotalDue = 0;
             $versionPrincipalPaid = 0;
             $versionInterestPaid = 0;
-            $versionFeesPaid = 0;
             $versionPenaltyPaid = 0;
             $versionOutstanding = 0;
         @endphp
@@ -247,20 +243,18 @@
                     <tr>
                         <th class="center" rowspan="2" style="width: 3%;">#</th>
                         <th rowspan="2" style="width: 8%;">Due Date</th>
-                        <th class="center" colspan="5" style="background:#e8e8e8;">DUE AMOUNTS</th>
-                        <th class="center" colspan="4" style="background:#d4edda;">PAID AMOUNTS</th>
+                        <th class="center" colspan="4" style="background:#e8e8e8;">DUE AMOUNTS</th>
+                        <th class="center" colspan="3" style="background:#d4edda;">PAID AMOUNTS</th>
                         <th class="center" rowspan="2" style="width: 8%; background:#fff3cd;">Balance</th>
                         <th class="center" rowspan="2" style="width: 6%;">Status</th>
                     </tr>
                     <tr>
                         <th class="num" style="width: 8%; background:#f0f0f0;">Principal</th>
                         <th class="num" style="width: 7%; background:#f0f0f0;">Interest</th>
-                        <th class="num" style="width: 6%; background:#f0f0f0;">Fees</th>
                         <th class="num" style="width: 7%; background:#f0f0f0;">Penalty</th>
                         <th class="num" style="width: 8%; background:#e0e0e0; font-weight:800;">Total Due</th>
                         <th class="num" style="width: 8%; background:#e8f5e9;">Principal</th>
                         <th class="num" style="width: 7%; background:#e8f5e9;">Interest</th>
-                        <th class="num" style="width: 6%; background:#e8f5e9;">Fees</th>
                         <th class="num" style="width: 7%; background:#e8f5e9;">Penalty</th>
                     </tr>
                 </thead>
@@ -269,23 +263,19 @@
                         @php
                             $versionPrincipalDue += (float)$i->principal_due;
                             $versionInterestDue += (float)$i->interest_due;
-                            $versionFeesDue += (float)$i->fees_due;
                             $versionPenaltyDue += (float)$i->penalty_due;
                             $versionTotalDue += (float)$i->total_due;
                             $versionPrincipalPaid += (float)$i->principal_paid;
                             $versionInterestPaid += (float)$i->interest_paid;
-                            $versionFeesPaid += (float)$i->fees_paid;
                             $versionPenaltyPaid += (float)$i->penalty_paid;
                             $versionOutstanding += (float)$i->total_outstanding;
 
                             $grandPrincipalDue += (float)$i->principal_due;
                             $grandInterestDue += (float)$i->interest_due;
-                            $grandFeesDue += (float)$i->fees_due;
                             $grandPenaltyDue += (float)$i->penalty_due;
                             $grandTotalDue += (float)$i->total_due;
                             $grandPrincipalPaid += (float)$i->principal_paid;
                             $grandInterestPaid += (float)$i->interest_paid;
-                            $grandFeesPaid += (float)$i->fees_paid;
                             $grandPenaltyPaid += (float)$i->penalty_paid;
                             $grandOutstanding += (float)$i->total_outstanding;
 
@@ -302,18 +292,16 @@
                             <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
                             <td class="num">{{ number_format((float)$i->principal_due, 2) }}</td>
                             <td class="num">{{ number_format((float)$i->interest_due, 2) }}</td>
-                            <td class="num">{{ number_format((float)$i->fees_due, 2) }}</td>
                             <td class="num">{{ number_format((float)$i->penalty_due, 2) }}</td>
                             <td class="num" style="font-weight:600; background:#f9f9f9;">{{ number_format((float)$i->total_due, 2) }}</td>
                             <td class="num">{{ number_format((float)$i->principal_paid, 2) }}</td>
                             <td class="num">{{ number_format((float)$i->interest_paid, 2) }}</td>
-                            <td class="num">{{ number_format((float)$i->fees_paid, 2) }}</td>
                             <td class="num">{{ number_format((float)$i->penalty_paid, 2) }}</td>
                             <td class="num" style="font-weight:600;">{{ number_format((float)$i->total_outstanding, 2) }}</td>
                             <td class="center {{ $statusClass }}">{{ ucfirst($i->status) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="13" class="center" style="color:#777; padding:10px;">No installments found.</td></tr>
+                        <tr><td colspan="11" class="center" style="color:#777; padding:10px;">No installments found.</td></tr>
                     @endforelse
                 </tbody>
                 @if($rows->count() > 0)
@@ -322,12 +310,10 @@
                         <td colspan="2" class="center">TOTALS V{{ $version }}</td>
                         <td class="num">{{ number_format($versionPrincipalDue, 2) }}</td>
                         <td class="num">{{ number_format($versionInterestDue, 2) }}</td>
-                        <td class="num">{{ number_format($versionFeesDue, 2) }}</td>
                         <td class="num">{{ number_format($versionPenaltyDue, 2) }}</td>
                         <td class="num" style="background:#d0d0d0;">{{ number_format($versionTotalDue, 2) }}</td>
                         <td class="num">{{ number_format($versionPrincipalPaid, 2) }}</td>
                         <td class="num">{{ number_format($versionInterestPaid, 2) }}</td>
-                        <td class="num">{{ number_format($versionFeesPaid, 2) }}</td>
                         <td class="num">{{ number_format($versionPenaltyPaid, 2) }}</td>
                         <td class="num" style="background:#ffeaa7;">{{ number_format($versionOutstanding, 2) }}</td>
                         <td></td>

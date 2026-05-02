@@ -63,6 +63,23 @@
                         <h4 class="mb-1">
                             {{ $loan->loanGroup?->name ?? $loan->customer?->name ?? '—' }} Loan
                         </h4>
+                        @if($loan->borrower_type === 'group')
+                            <div class="text-muted mb-2">
+                                <strong>Group Members:</strong><br>
+                                @forelse($loan->loanGroup?->members()->with('customer')->where('is_active', true)->get() ?? [] as $member)
+                                    {{ $member->customer?->name ?? '-' }} ({{ ucfirst($member->role) }})<br>
+                                    <small class="ml-3">Phone: {{ $member->customer?->phone ?? '-' }}</small><br>
+                                @empty
+                                    <span class="text-warning">No active members</span>
+                                @endforelse
+                            </div>
+                        @else
+                            <div class="text-muted">
+                                Phone: {{ $loan->customer?->phone ?? '-' }} <br>
+                                Email: {{ $loan->customer?->email ?? '-' }} <br>
+                                Code: {{ $loan->customer?->customer_code ?? '-' }}
+                            </div>
+                        @endif
                         <div class="text-muted">
                             {{ $loan->loanProduct?->name ?? 'Loan Product' }}
                             &middot; Loan Code: <strong>{{ $loan->loan_code }}</strong>
@@ -116,7 +133,6 @@
                             <th>Principal</th>
                             <th>Interest</th>
                             <th>Penalty</th>
-                            <th>Fee</th>
                             <th>Method</th>
                             <th>Officer</th>
                             <th>Status</th>
@@ -128,7 +144,6 @@
                             @php
                                 $principal = (float) $p->allocations->sum('principal_amount');
                                 $interest = (float) $p->allocations->sum('interest_amount');
-                                $fee = (float) $p->allocations->sum('fee_amount');
                                 $penalty = (float) $p->allocations->sum('penalty_amount');
 
                                 $badge = match ((string) $p->status) {
@@ -145,7 +160,6 @@
                                 <td>{{ number_format($principal, 2) }}</td>
                                 <td>{{ number_format($interest, 2) }}</td>
                                 <td>{{ number_format($penalty, 2) }}</td>
-                                <td>{{ number_format($fee, 2) }}</td>
                                 <td>
                                     @if(in_array($p->payment_method, ['azampay', 'mobile_money']))
                                         <i class="fas fa-mobile-alt text-info"></i> 
@@ -190,7 +204,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="10" class="text-center text-muted">No payments found.</td>
+                                <td colspan="9" class="text-center text-muted">No payments found.</td>
                             </tr>
                         @endforelse
                     </tbody>

@@ -169,9 +169,14 @@ class SecurityDepositsController extends Controller
             return redirect()->back()->with('error', 'Please select a bank account for this payment method.');
         }
 
-        DB::transaction(function () use ($validated, $loan) {
+        $borrowerId = $loan->getBorrowerId();
+        if (!$borrowerId) {
+            return redirect()->back()->with('error', 'Cannot collect security deposit: No valid borrower found. For group loans, ensure a leader/treasurer is assigned.');
+        }
+
+        DB::transaction(function () use ($validated, $loan, $borrowerId) {
             $this->service->collectDeposit(
-                (int) $loan->customer_id,
+                $borrowerId,
                 (int) $loan->id,
                 (float) $validated['amount'],
                 (string) $validated['payment_method'],

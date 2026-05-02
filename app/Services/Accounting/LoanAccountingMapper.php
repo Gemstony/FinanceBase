@@ -184,13 +184,16 @@ class LoanAccountingMapper
      * Build journal entry lines for a loan write-off (component-based).
      *
      * Financial meaning:
-     * - Debit: Recognize Loan Loss Expense by component (principal, interest, fees, penalties)
+     * - Debit: Recognize Loan Loss Expense by component (principal, interest, penalties)
      * - Credit: Decrease respective receivable accounts (Loan Portfolio, Interest Receivable, etc.)
      *
      * This provides detailed tracking of what was written off, not just a lump sum.
      *
+     * Note: Fees are tracked independently in loan_fee_applications table
+     * and are NOT included in write-off amounts.
+     *
      * @param Loans  $loan     The loan being written off
-     * @param array  $balances Array with keys: principal_written_off, interest_written_off, fees_written_off, penalties_written_off
+     * @param array  $balances Array with keys: principal_written_off, interest_written_off, penalties_written_off
      * @param int    $writeOffExpenseAccountId  The expense account for write-offs
      *
      * @return array Journal lines ready for validation/posting
@@ -202,10 +205,9 @@ class LoanAccountingMapper
 
         $principal = (float) ($balances['principal_written_off'] ?? 0);
         $interest = (float) ($balances['interest_written_off'] ?? 0);
-        $fees = (float) ($balances['fees_written_off'] ?? 0);
         $penalties = (float) ($balances['penalties_written_off'] ?? 0);
 
-        $totalWrittenOff = round($principal + $interest + $fees + $penalties, 2);
+        $totalWrittenOff = round($principal + $interest + $penalties, 2);
 
         if ($totalWrittenOff <= 0) {
             throw new \InvalidArgumentException('Write-off amount must be greater than 0.');
@@ -239,18 +241,6 @@ class LoanAccountingMapper
                 (int) $loan->interest_receivable_account_id,
                 $interest,
                 "Write-off interest – {$loan->loan_code}"
-            );
-        }
-
-        // Credit: Fee Income/Receivable account
-        if ($fees > 0) {
-            if (! $loan->fee_income_account_id) {
-                throw new \InvalidArgumentException('Loan missing fee_income_account_id for write-off posting.');
-            }
-            $builder->addCredit(
-                (int) $loan->fee_income_account_id,
-                $fees,
-                "Write-off fees – {$loan->loan_code}"
             );
         }
 

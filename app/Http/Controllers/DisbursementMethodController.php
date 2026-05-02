@@ -123,12 +123,8 @@ class DisbursementMethodController extends Controller
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => [
-                    'required',
-                    'string',
-                    'max:50',
-                    Rule::unique('disbursement_methods', 'code')->ignore($method->id),
-                ],
+                'code' => 'required|string|max:50|unique:account_classes,code,NULL,id,subshop_id,' . session('subshop_id'),
+
                 'description' => 'nullable|string',
                 'requires_reference' => 'boolean',
                 'requires_account_details' => 'boolean',

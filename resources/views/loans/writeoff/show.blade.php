@@ -78,7 +78,6 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between"><span>Principal</span><strong>{{ number_format((float) $writeoff->principal_written_off, 2) }}</strong></div>
                     <div class="d-flex justify-content-between"><span>Interest</span><strong>{{ number_format((float) $writeoff->interest_written_off, 2) }}</strong></div>
-                    <div class="d-flex justify-content-between"><span>Fees</span><strong>{{ number_format((float) $writeoff->fees_written_off, 2) }}</strong></div>
                     <div class="d-flex justify-content-between"><span>Penalties</span><strong>{{ number_format((float) $writeoff->penalties_written_off, 2) }}</strong></div>
                     <hr>
                     <div class="d-flex justify-content-between"><span>Total</span><strong>{{ number_format((float) $writeoff->total_written_off, 2) }}</strong></div>
@@ -115,7 +114,6 @@
                             <th>Date</th>
                             <th>Principal</th>
                             <th>Interest</th>
-                            <th>Fees</th>
                             <th>Penalties</th>
                             <th>Total</th>
                         </tr>
@@ -126,7 +124,6 @@
                                 <td>{{ optional($r->recovery_date)->format('Y-m-d') }}</td>
                                 <td>{{ number_format((float) $r->recovered_principal, 2) }}</td>
                                 <td>{{ number_format((float) $r->recovered_interest, 2) }}</td>
-                                <td>{{ number_format((float) $r->recovered_fees, 2) }}</td>
                                 <td>{{ number_format((float) $r->recovered_penalties, 2) }}</td>
                                 <td><strong>{{ number_format((float) $r->total_recovered, 2) }}</strong></td>
                             </tr>

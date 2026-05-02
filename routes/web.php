@@ -34,6 +34,7 @@ use App\Http\Controllers\LoanRepaymentController;
 use App\Http\Controllers\Loans\Credits\CustomerCreditsController;
 use App\Http\Controllers\Loans\Risk\CollectionsController;
 use App\Http\Controllers\Loans\Risk\PortfolioRiskController;
+use App\Http\Controllers\Loans\Fees\LoanFeePaymentController;
 use App\Http\Controllers\Loans\SecurityDeposits\SecurityDepositsController;
 use App\Http\Controllers\LoansController;
 use App\Http\Controllers\LoansSettingsController;
@@ -470,6 +471,14 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/', [LoanFeesController::class, 'store'])->name('store');
             Route::put('/{loanFee}', [LoanFeesController::class, 'update'])->name('update');
             Route::delete('/{loanFee}', [LoanFeesController::class, 'destroy'])->name('destroy');
+        });
+
+        // Loan Fee Payment Routes
+        Route::prefix('loans/{loan:loan_code}/fees')->name('loans.fees.')->group(function () {
+            Route::get('/payment-form', [LoanFeePaymentController::class, 'showPaymentForm'])->name('payment-form');
+            Route::post('/pay', [LoanFeePaymentController::class, 'payFee'])->name('pay');
+            Route::post('/pay-all', [LoanFeePaymentController::class, 'payAllFees'])->name('pay-all');
+            Route::get('/payment-history', [LoanFeePaymentController::class, 'paymentHistory'])->name('payment-history');
         });
 
         // Loan write-off & recovery

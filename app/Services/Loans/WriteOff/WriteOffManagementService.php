@@ -128,7 +128,6 @@ class WriteOffManagementService
         $totals = [
             'principal' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('recovered_principal'),
             'interest' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('recovered_interest'),
-            'fees' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('recovered_fees'),
             'penalties' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('recovered_penalties'),
             'total' => (float) LoanWriteoffRecoveries::query()->where('writeoff_id', (int) $writeoff->id)->sum('total_recovered'),
         ];

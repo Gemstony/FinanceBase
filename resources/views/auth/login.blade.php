@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
      <link rel="dukabase-logo" href="{{ asset('img/dukabase-logo.png') }}">
      <link rel="icon" type="image/svg+xml" href="{{ asset('img/db-logo.svg') }}">
-    <title>Login - FinanceBase</title>
+    <title>Login | FinanceBase</title>
 
     <!-- Google Font: Source Sans Pro -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">

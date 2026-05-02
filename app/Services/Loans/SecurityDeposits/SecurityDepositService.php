@@ -66,7 +66,11 @@ class SecurityDepositService
                 abort(403);
             }
 
-            if ((int) $loan->customer_id !== $borrowerId) {
+            // Validate borrower matches the loan's borrower
+            // For individual loans: borrowerId must match customer_id
+            // For group loans: borrowerId must be the group leader/treasurer (verified via getBorrowerId)
+            $expectedBorrowerId = $loan->getBorrowerId();
+            if ($expectedBorrowerId === null || $borrowerId !== $expectedBorrowerId) {
                 throw new InvalidArgumentException('Borrower does not match the loan borrower.');
             }
 

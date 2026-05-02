@@ -512,9 +512,6 @@ class LoansController extends Controller
             'security_deposit_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        // dd($validator);
-        // exit;
-
         $validator->after(function ($v) use ($request, $subshopId) {
             $loanType = $request->input('loan_type');
             if ($loanType === 'individual' && ! $request->filled('customer_id')) {

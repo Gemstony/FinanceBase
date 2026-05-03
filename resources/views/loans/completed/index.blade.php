@@ -90,7 +90,7 @@
                                         <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-sm btn-outline-primary" title="View Details">
                                             <i class="fas fa-eye"></i> View
                                         </a>
-                                        <a href="{{ route('loan.restructures.history', $loan) }}" class="btn btn-sm btn-outline-secondary" title="View History">
+                                        <a href="{{ route('loan.repayments.show', $loan->loan_code) }}" class="btn btn-sm btn-outline-secondary" title="View History">
                                             <i class="fas fa-history"></i> History
                                         </a>
                                     </div>

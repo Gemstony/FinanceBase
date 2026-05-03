@@ -90,9 +90,14 @@
                                         <a href="{{ route('loans.loans.show', $loan) }}" class="btn btn-sm btn-outline-primary" title="View Details">
                                             <i class="fas fa-eye"></i> View
                                         </a>
-                                        <a href="{{ route('loan.restructures.history', $loan) }}" class="btn btn-sm btn-outline-secondary" title="View History">
-                                            <i class="fas fa-history"></i> History
-                                        </a>
+                                        @if($loan->approvals->isNotEmpty())
+                                            @php
+                                                $rejection = $loan->approvals->first();
+                                            @endphp
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-toggle="modal" data-target="#rejectionModal{{ $loan->id }}">
+                                                <i class="fas fa-comment-alt"></i> Reason
+                                            </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -107,6 +112,66 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- Rejection Reason Modals --}}
+            @foreach($loans as $loan)
+                @if($loan->approvals->isNotEmpty())
+                    @php
+                        $rejection = $loan->approvals->first();
+                    @endphp
+                    <div class="modal fade" id="rejectionModal{{ $loan->id }}" tabindex="-1" role="dialog" aria-labelledby="rejectionModalLabel{{ $loan->id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="rejectionModalLabel{{ $loan->id }}">
+                                        <i class="fas fa-times-circle"></i> Rejection Reason
+                                    </h5>
+                                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <strong class="text-muted">Loan Code:</strong>
+                                        <span class="font-weight-bold">{{ $loan->loan_code }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong class="text-muted">Borrower:</strong>
+                                        @if($loan->borrower_type === 'group')
+                                            {{ $loan->loanGroup?->name }}
+                                        @else
+                                            {{ $loan->customer?->name }}
+                                        @endif
+                                    </div>
+                                    <hr>
+                                    <div class="mb-3">
+                                        <strong class="text-muted">Rejected By:</strong>
+                                        <span>{{ $rejection->approver?->name ?? 'Unknown' }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong class="text-muted">Approval Level:</strong>
+                                        <span>{{ $rejection->loanProductApprovalLevel?->level_name ?? 'N/A' }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong class="text-muted">Rejected At:</strong>
+                                        <span>{{ $rejection->approved_at?->format('Y-m-d H:i') ?? '-' }}</span>
+                                    </div>
+                                    <hr>
+                                    <div class="alert alert-light border">
+                                        <strong class="text-muted d-block mb-2">Reason for Rejection:</strong>
+                                        <p class="mb-0 text-dark">{{ $rejection->comments ?: 'No reason provided.' }}</p>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                                        <i class="fas fa-times"></i> Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            @endforeach
 
             @if(method_exists($loans, 'links'))
                 <div class="mt-4 d-flex justify-content-center">
@@ -128,7 +193,7 @@ $(document).ready(function() {
                 { orderable: false, targets: [6] },
                 { searchable: false, targets: [6] }
             ],
-            order: [[1, 'desc']]
+            order: [[0, 'asc']]
         });
     }
 });

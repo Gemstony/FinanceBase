@@ -21,7 +21,13 @@ class RejectedLoansController extends Controller
         $query = Loans::query()
             ->where('subshop_id', $subshopId)
             ->where('status', 'rejected')
-            ->with(['loanProduct', 'customer', 'loanGroup'])
+            ->with(['loanProduct', 'customer', 'loanGroup', 'approvals' => function ($q) {
+                $q->where('is_active', true)
+                  ->where('status', 'rejected')
+                  ->with(['approver', 'loanProductApprovalLevel'])
+                  ->orderByDesc('approved_at')
+                  ->limit(1);
+            }])
             ->orderByDesc('updated_at');
 
         // Simple search

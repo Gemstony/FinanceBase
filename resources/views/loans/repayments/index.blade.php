@@ -273,7 +273,7 @@
                                     <i class="fas fa-hand-holding-usd"></i> Pay
                                 </a>
                                 <a href="{{ route('loan.repayments.show', $loan->loan_code) }}" class="btn btn-sm btn-outline-primary" title="History">
-                                    <i class="fas fa-history"></i>
+                                    <i class="fas fa-history"></i> History
                                 </a>
                             </td>
                         </tr>

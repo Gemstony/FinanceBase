@@ -176,6 +176,7 @@
             <table class="table table-striped table-hover" id="loansTable">
                 <thead class="thead-light" >
                     <tr>
+                        <th>Date</th>
                         <th class="text-nowrap">Loan Code</th>
                         <th class="text-nowrap">Borrower</th>
                         <th class="text-nowrap">Product / Cycle</th>
@@ -219,13 +220,21 @@
                                 default => 'badge-secondary',
                             };
                             
-                            $paymentStatusBadge = $hasOverdue ? 'badge-danger' : 'badge-success';
-                            $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'written_off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
+                            $paymentStatusBadge = ($loan->status === 'disbursed' || $loan->status === 'partially_paid') && $hasOverdue ? 'badge-danger' : 'badge-success';
+                            $paymentStatusText = match($loan->status) {
+                                'pending' => 'Pending',
+                                'paid_off' => 'Paid Off',
+                                'disbursed', 'partially_paid' => $hasOverdue ? 'Overdue' : 'Current',
+                                default => '-'
+                            };
                             
                             // Get penalty summary
                             $loanPenaltySummary = app(\App\Services\Loans\Penalties\PenaltyPaymentService::class)->getPenaltySummary($loan->id);
                         @endphp
                         <tr>
+                            <td class="text-nowrap">
+                               <strong> <i>{{ $loan->created_at->format('Y-m-d') }}</i></strong>
+                            </td>
                             <td class="text-nowrap">
                                 <strong>{{ $loan->loan_code }}</strong>
                             </td>

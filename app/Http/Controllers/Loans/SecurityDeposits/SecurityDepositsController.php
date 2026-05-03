@@ -8,6 +8,7 @@ use App\Models\ChartsOfAccount;
 use App\Models\Customers;
 use App\Models\LoanSecurityDeposit;
 use App\Models\Loans;
+use App\Models\PaymentMethod;
 use App\Models\SecurityDepositForfeitureAccount;
 use App\Models\SecurityDepositLiabilityAccount;
 use App\Models\SubShop;
@@ -40,7 +41,30 @@ class SecurityDepositsController extends Controller
             ->orderBy('account_name')
             ->get();
 
-        return view('deposits.collect', compact('loan', 'bankAccounts'));
+        // Get payment methods for deposit/collection
+        $globalPaymentMethods = PaymentMethod::query()
+            ->where('shop_id', $subshop->shop_id)
+            ->orderBy('name')
+            ->get();
+
+        // Calculate security deposit summary
+        $securityDepositRequired = (float) ($loan->security_deposit_amount ?? 0);
+        $securityDepositPaid = (float) LoanSecurityDeposit::query()
+            ->where('loan_id', $loan->id)
+            ->where('status', 'held')
+            ->sum('amount');
+        $pendingDeposit = max(0, $securityDepositRequired - $securityDepositPaid);
+        $isFullyPaid = $pendingDeposit <= 0 && $securityDepositRequired > 0;
+
+        return view('deposits.collect', compact(
+            'loan',
+            'bankAccounts',
+            'globalPaymentMethods',
+            'securityDepositRequired',
+            'securityDepositPaid',
+            'pendingDeposit',
+            'isFullyPaid'
+        ));
     }
 
     public function index(Request $request): View

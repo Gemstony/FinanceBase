@@ -49,6 +49,12 @@ class LoansDisbursementController extends Controller
         $subshopId = (int) session('subshop_id');
         $subshop = SubShop::findOrFail($subshopId);
 
+        $subshop = SubShop::findOrFail($subshopId);
+        $shopId = $subshop->shop_id;
+
+        // Get all subshop IDs under this shop for validation
+        $shopSubshopIds = SubShop::where('shop_id', $shopId)->pluck('id');
+
 
         $query = Loans::query()
             ->where('subshop_id', $subshopId)
@@ -90,7 +96,7 @@ class LoansDisbursementController extends Controller
         });
 
         // Prepare filter options
-        $loanProducts = LoanProducts::where('subshop_id', $subshopId)->orderBy('name')->get(['id', 'name']);
+        $loanProducts = LoanProducts::whereIn('subshop_id', $shopSubshopIds)->orderBy('name')->get(['id', 'name']);
 
         return view('loans.disbursements.index', compact('loans', 'subshop', 'loanProducts'));
     }

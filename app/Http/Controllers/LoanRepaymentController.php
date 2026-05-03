@@ -13,9 +13,11 @@ use App\Services\Loans\Account\LoanAccountEngine;
 use App\Services\Loans\Repayment\PaymentProcessor;
 use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use App\Services\Sms\SmsManager;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -402,6 +404,44 @@ class LoanRepaymentController extends Controller
         $penalty = (float) $payment->allocations->sum('penalty_amount');
 
         return view('loans.repayments.receipt', compact('payment', 'principal', 'interest', 'fee', 'penalty'));
+    }
+
+    public function receiptPdf(LoanPayments $payment): Response
+    {
+        $payment->loadMissing(['loan.customer', 'loan.loanGroup', 'user', 'allocations.loanInstallment']);
+
+        $subshopId = (int) session('subshop_id');
+        if ((int) $payment->loan?->subshop_id !== $subshopId) {
+            abort(403);
+        }
+
+        $principal = (float) $payment->allocations->sum('principal_amount');
+        $interest = (float) $payment->allocations->sum('interest_amount');
+        $fee = (float) $payment->allocations->sum('fee_amount');
+        $penalty = (float) $payment->allocations->sum('penalty_amount');
+
+        // Get shop details for receipt header
+        $subshop = SubShop::find($subshopId);
+        $shop = $subshop?->shop;
+
+        // Prepare logo path for PDF
+        $shopLogoPath = $shop?->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
+
+        $data = [
+            'payment' => $payment,
+            'principal' => $principal,
+            'interest' => $interest,
+            'fee' => $fee,
+            'penalty' => $penalty,
+            'shop' => $shop,
+            'shopLogoPath' => $shopLogoPath,
+        ];
+
+        $pdf = Pdf::loadView('loans.repayments.pdf.receipt', $data);
+
+        $filename = 'receipt_' . $payment->id . '_' . $payment->payment_date->format('Y-m-d') . '.pdf';
+
+        return $pdf->download($filename);
     }
 
     public function reverse(LoanPayments $payment): RedirectResponse

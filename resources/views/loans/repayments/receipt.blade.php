@@ -79,6 +79,9 @@
                 @endif
             </div>
             <div class="card-footer text-right">
+                <a href="{{ route('loan.repayments.receipt.pdf', $payment) }}" class="btn btn-danger mr-2">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </a>
                 <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
             </div>
         </div>

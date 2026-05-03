@@ -656,6 +656,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/loans/repayments/history/{loan:loan_code}', [LoanRepaymentController::class, 'show'])->name('loan.repayments.show');
             Route::post('/loans/repayments/check/{payment}', [LoanRepaymentController::class, 'checkStatus'])->name('loan.repayments.check');
             Route::get('/loans/repayments/receipt/{payment}', [LoanRepaymentController::class, 'receipt'])->name('loan.repayments.receipt');
+            Route::get('/loans/repayments/receipt/{payment}/pdf', [LoanRepaymentController::class, 'receiptPdf'])->name('loan.repayments.receipt.pdf');
             Route::post('/loans/repayments/reverse/{payment}', [LoanRepaymentController::class, 'reverse'])->name('loan.repayments.reverse');
         });
 

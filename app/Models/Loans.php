@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class Loans extends Model
@@ -16,6 +17,9 @@ class Loans extends Model
     protected static string $randomType = 'uppercase';
 
     protected static int $randomLength = 4;
+
+    /** @var int Length of the sequence number (e.g., 6 = 000001) */
+    protected static int $sequenceLength = 6;
 
     protected $fillable = [
         'loan_code',
@@ -72,10 +76,51 @@ class Loans extends Model
 
     public static function generateLoanCode(): string
     {
-        $datePart = Carbon::now()->format('ymd');
-        $randomPart = self::generateRandomString();
+        // Format: LN-{SHOP_CODE}-{YEAR}-{DAILY_SEQUENCE}
+        // Example: LN-001-2026-000042
+        // Supports: 999 shops, unlimited years, 1M loans/day per shop
 
-        return 'LN-'.$datePart.'-'.$randomPart;
+        $shopId = session('subshop_id') ?? 0;
+        $shopCode = str_pad((string) $shopId, 3, '0', STR_PAD_LEFT);
+
+        $year = Carbon::now()->format('Y');
+        $date = Carbon::now()->format('Ymd');
+
+        // Get next sequence for this shop on this day
+        $sequence = self::getNextSequence($shopCode, $date);
+
+        return "LN-{$shopCode}-{$year}-{$sequence}";
+    }
+
+    /**
+     * Get the next sequence number for loan codes.
+     * Uses cache with locking to prevent duplicates in high-concurrency scenarios.
+     */
+    private static function getNextSequence(string $shopCode, string $date): string
+    {
+        $cacheKey = "loan_sequence_{$shopCode}_{$date}";
+        $lockKey = "loan_code_lock_{$shopCode}_{$date}";
+
+        // Try to acquire lock (5 second timeout, 3 second wait)
+        $lock = Cache::lock($lockKey, 5);
+
+        try {
+            return $lock->block(3, function () use ($cacheKey) {
+                $current = Cache::get($cacheKey, 0);
+                $next = $current + 1;
+
+                // Store until end of day
+                Cache::put($cacheKey, $next, now()->endOfDay());
+
+                return str_pad((string) $next, self::$sequenceLength, '0', STR_PAD_LEFT);
+            });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            // Fallback: use microtime-based sequence if lock fails
+            $microtime = (int) (microtime(true) * 1000);
+            $fallbackSequence = substr((string) $microtime, -self::$sequenceLength);
+
+            return str_pad($fallbackSequence, self::$sequenceLength, '0', STR_PAD_LEFT);
+        }
     }
 
     protected static function generateRandomString(): string

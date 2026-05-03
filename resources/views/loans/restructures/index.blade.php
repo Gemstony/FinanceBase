@@ -88,9 +88,9 @@
                                 <td>{{ $r->created_at ? $r->created_at->format('Y-m-d H:i') : '-' }}</td>
                                 <td><span class="badge badge-warning">{{ $r->status }}</span></td>
                                 <td class="text-right">
-                                    <form action="{{ route('loan.restructures.approve', $r) }}" method="POST" class="d-inline">
+                                    <form action="{{ route('loan.restructures.approve', $r) }}" method="POST" class="d-inline js-restructure-approve-form">
                                         @csrf
-                                        <button type="submit" class="btn btn-sm btn-success">
+                                        <button type="button" class="btn btn-sm btn-success js-restructure-approve-btn">
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                     </form>
@@ -140,6 +140,30 @@ $(document).ready(function() {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Approve confirmation
+    document.querySelectorAll('.js-restructure-approve-form').forEach(function (form) {
+        var btn = form.querySelector('.js-restructure-approve-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Approve restructure request?',
+                text: 'This will update the loan schedule with new terms. This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Approve',
+                confirmButtonColor: '#28a745',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+
+    // Reject confirmation
     document.querySelectorAll('.js-restructure-reject-form').forEach(function (form) {
         var btn = form.querySelector('.js-restructure-reject-btn');
         if (!btn) return;

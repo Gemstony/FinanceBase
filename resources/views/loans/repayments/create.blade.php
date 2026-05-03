@@ -467,11 +467,9 @@
                                             <th>Due Date</th>
                                             <th>Principal Due</th>
                                             <th>Interest Due</th>
-                                            <th>Penalty Due</th>
                                             <th>Total Due</th>
                                             <th>Principal Paid</th>
                                             <th>Interest Paid</th>
-                                            <th>Penalty Paid</th>
                                             <th>Outstanding</th>
                                             <th>Status</th>
                                         </tr>
@@ -483,11 +481,9 @@
                                                 <td>{{ $i->due_date ? \Carbon\Carbon::parse($i->due_date)->format('Y-m-d') : '-' }}</td>
                                                 <td>{{ number_format((float)$i->principal_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->interest_due, 2) }}</td>
-                                                <td>{{ number_format((float)$i->penalty_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->total_due, 2) }}</td>
                                                 <td>{{ number_format((float)$i->principal_paid, 2) }}</td>
                                                 <td>{{ number_format((float)$i->interest_paid, 2) }}</td>
-                                                <td>{{ number_format((float)$i->penalty_paid, 2) }}</td>
                                                 <td>{{ number_format((float)$i->total_outstanding, 2) }}</td>
                                                 @php
                                                     $installmentBadgeClass = match ((string) $i->status) {

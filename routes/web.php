@@ -327,6 +327,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/security-deposits/forfeiture-account/configure', [SecurityDepositsController::class, 'configureForfeitureAccount'])
             ->name('security-deposits.forfeiture-account.configure');
 
+        // Penalty Payment Routes
+        Route::prefix('loans/{loan:loan_code}/penalties')->name('loan.penalties.')->group(function () {
+            Route::get('/pay', [\App\Http\Controllers\Loans\Penalties\PenaltyPaymentController::class, 'showPaymentForm'])->name('pay.form');
+            Route::post('/pay', [\App\Http\Controllers\Loans\Penalties\PenaltyPaymentController::class, 'processPayment'])->name('pay');
+            Route::get('/{penalty}/forgive', [\App\Http\Controllers\Loans\Penalties\PenaltyPaymentController::class, 'showForgiveForm'])->name('forgive.form');
+            Route::post('/{penalty}/forgive', [\App\Http\Controllers\Loans\Penalties\PenaltyPaymentController::class, 'processForgiveness'])->name('forgive');
+            Route::get('/pending', [\App\Http\Controllers\Loans\Penalties\PenaltyPaymentController::class, 'getPendingPenalties'])->name('pending');
+        });
+
         // Accounting routes
         // charts of account
         Route::get('/accounting/charts_of_account/', [ChartsOfAccountController::class, 'index'])->name('accounting.charts_of_account.index');

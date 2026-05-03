@@ -272,4 +272,9 @@ class Loans extends Model
     {
         return $this->hasMany(LoanFeeApplications::class, 'loan_id');
     }
+
+    public function penaltyApplications()
+    {
+        return $this->hasMany(LoanPenaltyApplications::class, 'loan_id');
+    }
 }

@@ -275,6 +275,55 @@
                     </div>
                 </div>
 
+                {{-- Penalties Section --}}
+                @php
+                    $penaltySummary = app(\App\Services\Loans\Penalties\PenaltyPaymentService::class)->getPenaltySummary($loan->id);
+                @endphp
+                @if($penaltySummary['total_charged'] > 0)
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-white">
+                            <strong><i class="fas fa-exclamation-triangle"></i> Penalties</strong>
+                            @if($penaltySummary['has_pending'])
+                                <span class="badge badge-danger float-right">{{ number_format((float)$penaltySummary['total_outstanding'], 2) }}</span>
+                            @endif
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>Charged:</span>
+                                    <strong>{{ number_format((float)$penaltySummary['total_charged'], 2) }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Paid:</span>
+                                    <span class="text-success">{{ number_format((float)$penaltySummary['total_paid'], 2) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Forgiven:</span>
+                                    <span class="text-info">{{ number_format((float)$penaltySummary['total_forgiven'], 2) }}</span>
+                                </div>
+                                <hr class="my-2">
+                                <div class="d-flex justify-content-between">
+                                    <span class="font-weight-bold">Outstanding:</span>
+                                    <span class="text-danger font-weight-bold">{{ number_format((float)$penaltySummary['total_outstanding'], 2) }}</span>
+                                </div>
+                            </div>
+
+                            @if($penaltySummary['has_pending'])
+                                <a href="{{ route('loan.penalties.pay.form', $loan) }}" class="btn btn-warning btn-sm btn-block">
+                                    <i class="fas fa-money-bill-wave"></i> Pay Penalties Now
+                                </a>
+                                <small class="text-muted d-block mt-1">
+                                    <i class="fas fa-info-circle"></i> Penalties must be paid separately before regular payments
+                                </small>
+                            @else
+                                <div class="alert alert-success mb-0 py-2">
+                                    <small><i class="fas fa-check-circle"></i> All penalties settled</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+
                 <div class="card">
                     <div class="card-header"><strong>Payment Form</strong></div>
                     <div class="card-body">

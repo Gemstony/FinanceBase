@@ -145,9 +145,13 @@
                             @php
                                 $isHeld = (string) ($securityDepositStatus ?? '') === 'held';
                             @endphp
-                            <a class="btn btn-sm btn-outline-primary {{ $isHeld ? 'disabled' : '' }}" href="{{ route('security-deposits.collect.form', $loan) }}" {{ $isHeld ? 'aria-disabled="true"' : '' }}>
-                                <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
-                            </a>
+                            @if ($isHeld)
+                                <span class="badge badge-success">Security Deposit Held</span>
+                            @else
+                                <a class="btn btn-sm btn-outline-primary" href="{{ route('security-deposits.collect.form', $loan) }}">
+                                    <i class="fas fa-file-invoice-dollar"></i> Collect Security Deposit
+                                </a>
+                            @endif
                         @endif
                         @if(!(bool) ($loan->is_written_off ?? false) && (string) $loan->status !== 'written_off')
                             <a href="{{ route('loan.restructures.create', $loan) }}" class="btn btn-sm btn-warning">
@@ -470,6 +474,64 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Penalties Card --}}
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-gradient-warning">
+                    <strong><i class="fas fa-exclamation-triangle"></i> Penalties</strong>
+                    @php
+                        $penaltySummary = app(\App\Services\Loans\Penalties\PenaltyPaymentService::class)->getPenaltySummary($loan->id);
+                    @endphp
+                    @if($penaltySummary['total_charged'] > 0)
+                        <span class="badge badge-{{ $penaltySummary['has_pending'] ? 'warning' : 'success' }} float-right">
+                            {{ number_format((float)$penaltySummary['total_outstanding'], 2) }}
+                        </span>
+                    @endif
+                </div>
+                <div class="card-body">
+                    @if($penaltySummary['total_charged'] > 0)
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between">
+                                <span>Total Charged:</span>
+                                <strong>{{ number_format((float)$penaltySummary['total_charged'], 2) }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Paid:</span>
+                                <span class="text-success">{{ number_format((float)$penaltySummary['total_paid'], 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Forgiven:</span>
+                                <span class="text-info">{{ number_format((float)$penaltySummary['total_forgiven'], 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Outstanding:</span>
+                                <span class="text-danger font-weight-bold">{{ number_format((float)$penaltySummary['total_outstanding'], 2) }}</span>
+                            </div>
+                        </div>
+                        <hr>
+
+                        @if($penaltySummary['has_pending'])
+                            <a href="{{ route('loan.penalties.pay.form', $loan) }}" class="btn btn-sm btn-warning mb-3">
+                                <i class="fas fa-money-bill-wave"></i> Pay Penalties ({{ number_format((float)$penaltySummary['total_outstanding'], 2) }})
+                            </a>
+                        @else
+                            <div class="alert alert-success mb-3">
+                                <i class="fas fa-check-circle"></i> All penalties have been settled.
+                            </div>
+                        @endif
+
+                        <a href="{{ route('loan.penalties.pay.form', $loan) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-list"></i> View Details
+                        </a>
+                    @else
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> No penalties have been charged for this loan.
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

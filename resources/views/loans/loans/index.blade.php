@@ -133,6 +133,15 @@
                             </select>
                         </div>
 
+                        <div class="form-group col-md-2">
+                            <label class="small mb-1">Penalties</label>
+                            <select name="has_penalties" class="form-control">
+                                <option value="">All</option>
+                                <option value="1" {{ ($hasPenalties ?? '') === '1' ? 'selected' : '' }}>Has Penalties</option>
+                                <option value="0" {{ ($hasPenalties ?? '') === '0' ? 'selected' : '' }}>No Penalties</option>
+                            </select>
+                        </div>
+
                         <div class="form-group col-md-3">
                             <label class="small mb-1">Loan Product</label>
                             <select name="loan_product_id" class="form-control">
@@ -172,6 +181,7 @@
                         <th class="text-nowrap">Product / Cycle</th>
                         <th class="text-right text-nowrap">Amount / Balance</th>
                         <th class="text-nowrap">Payment Progress</th>
+                        <th class="text-nowrap">Penalties</th>
                         <th class="text-nowrap">Status</th>
                         <th class="text-nowrap">Timeline</th>
                         <th class="text-center" style="width: 100px;">Actions</th>
@@ -211,6 +221,9 @@
                             
                             $paymentStatusBadge = $hasOverdue ? 'badge-danger' : 'badge-success';
                             $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'written_off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
+                            
+                            // Get penalty summary
+                            $loanPenaltySummary = app(\App\Services\Loans\Penalties\PenaltyPaymentService::class)->getPenaltySummary($loan->id);
                         @endphp
                         <tr>
                             <td class="text-nowrap">
@@ -244,6 +257,16 @@
                                     <small class="text-muted d-block">Last: {{ \Carbon\Carbon::parse($lastPaymentDate)->format('Y-m-d') }}</small>
                                 @endif
                             </td>
+                            <td>
+                                @if($loanPenaltySummary['total_charged'] > 0)
+                                    <div class="d-flex flex-column">
+                                        <span class="text-danger font-weight-bold">{{ number_format((float)$loanPenaltySummary['total_outstanding'], 0) }}</span>
+                                        <small class="text-muted">{{ number_format((float)$loanPenaltySummary['total_charged'], 0) }} charged</small>
+                                    </div>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                             <td><span class="badge {{ $statusBadgeClass }}">{{ $loan->status }}</span></td>
                             <td>
                                 <small class="d-block">Disbursed: {{ $loan->disbursement_date ? \Carbon\Carbon::parse($loan->disbursement_date)->format('Y-m-d') : '-' }}</small>
@@ -261,7 +284,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No loans found.</td>
+                            <td colspan="9" class="text-center text-muted">No loans found.</td>
                         </tr>
                     @endforelse
                 </tbody>

@@ -183,6 +183,7 @@ class LoansController extends Controller
         $loanProductId = (string) $request->query('loan_product_id', '');
         $dateFrom = (string) $request->query('date_from', '');
         $dateTo = (string) $request->query('date_to', '');
+        $hasPenalties = (string) $request->query('has_penalties', '');
 
         $query = Loans::query()
             ->where('subshop_id', $subshopId)
@@ -227,6 +228,18 @@ class LoansController extends Controller
 
         if ($dateTo !== '') {
             $query->whereDate('disbursement_date', '<=', $dateTo);
+        }
+
+        if ($hasPenalties !== '') {
+            if ($hasPenalties === '1') {
+                $query->whereHas('penaltyApplications', function ($q) {
+                    $q->whereRaw('(amount - COALESCE(paid_amount, 0) - COALESCE(forgiven_amount, 0)) > 0');
+                });
+            } else {
+                $query->whereDoesntHave('penaltyApplications', function ($q) {
+                    $q->whereRaw('(amount - COALESCE(paid_amount, 0) - COALESCE(forgiven_amount, 0)) > 0');
+                });
+            }
         }
 
         $outstandingSum = $this->portfolioRisk->calculateTotalPortfolioOutstandingForSubshops([$subshopId]);
@@ -290,7 +303,8 @@ class LoansController extends Controller
             'borrowerType',
             'loanProductId',
             'dateFrom',
-            'dateTo'
+            'dateTo',
+            'hasPenalties'
         ));
     }
 

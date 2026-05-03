@@ -93,11 +93,12 @@
                     <thead class="thead-light">
                         <tr>
                             <th>Write-Off ID</th>
-                            <th>Loan ID</th>
+                            <th>Loan Code</th>
                             <th>Borrower</th>
                             <th>Write-Off Date</th>
                             <th>Total Written-Off</th>
                             <th>Approved By</th>
+                            <th>Status</th>
                             <th>Recovered</th>
                             <th>Outstanding</th>
                             <th>Actions</th>
@@ -107,11 +108,32 @@
                         @forelse($writeoffs as $w)
                             <tr>
                                 <td>{{ $w->id }}</td>
-                                <td>{{ $w->loan_id }}</td>
+                                <td>{{ $w->loan->loan_code }}</td>
                                 <td>{{ $w->borrower_name ?? '-' }}</td>
                                 <td>{{ optional($w->writeoff_date)->format('Y-m-d') }}</td>
                                 <td>{{ number_format((float) $w->total_written_off, 2) }}</td>
                                 <td>{{ $w->approvedBy?->name ?? '-' }}</td>
+                                <td>
+                                    @php
+                                        $totalWrittenOff = (float) $w->total_written_off;
+                                        $totalRecovered = (float) ($w->total_recovered_amount ?? 0);
+                                        $remaining = $totalWrittenOff - $totalRecovered;
+                                        $isFullyRecovered = $remaining <= 0 && $totalWrittenOff > 0;
+                                    @endphp
+                                    @if($isFullyRecovered)
+                                        <span class="badge badge-success">
+                                            <i class="fas fa-check-circle"></i> Fully Recovered
+                                        </span>
+                                    @elseif($totalRecovered > 0)
+                                        <span class="badge badge-warning">
+                                            <i class="fas fa-clock"></i> Partially Recovered
+                                        </span>
+                                    @else
+                                        <span class="badge badge-danger">
+                                            <i class="fas fa-exclamation-circle"></i> Not Recovered
+                                        </span>
+                                    @endif
+                                </td>
                                 <td>{{ number_format((float) ($w->total_recovered_amount ?? 0), 2) }}</td>
                                 <td>{{ number_format((float) ($w->remaining_written_off_balance ?? 0), 2) }}</td>
                                 <td>
@@ -124,7 +146,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="text-center text-muted">No write-offs found.</td>
+                                <td colspan="10" class="text-center text-muted">No write-offs found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -148,10 +170,10 @@ $(document).ready(function() {
         $('#writeoffsTable').DataTable({
             responsive: true,
             columnDefs: [
-                { orderable: false, targets: [8] },
-                { searchable: false, targets: [8] }
+                { orderable: false, targets: [9] },
+                { searchable: false, targets: [9] }
             ],
-            order: [[0, 'desc']]
+            order: [[0, 'asc']]
         });
     }
 });

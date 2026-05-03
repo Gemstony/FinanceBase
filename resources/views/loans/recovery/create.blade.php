@@ -5,14 +5,24 @@
 @section('js')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const paymentMethodEl = document.querySelector('select[name="payment_method"]');
+            const paymentMethodEl = document.querySelector('[data-recovery-payment-method]');
             const bankAccountWrap = document.getElementById('bank_account_wrap');
             const bankAccountSelect = document.querySelector('select[name="bank_account_id"]');
+            const amountInput = document.getElementById('amount');
+            
+            // Outstanding balances from server
+            const outstanding = {
+                penalties: {{ $outstandingBalances['penalties'] }},
+                fees: {{ $outstandingBalances['fees'] }},
+                interest: {{ $outstandingBalances['interest'] }},
+                principal: {{ $outstandingBalances['principal'] }},
+                total: {{ $outstandingBalances['total'] }}
+            };
 
             function updateBankAccountVisibility() {
                 if (!paymentMethodEl || !bankAccountWrap || !bankAccountSelect) return;
-                const pm = String(paymentMethodEl.value || '');
-                const requiresBank = pm !== 'cash' && pm !== 'customer_credit' && pm !== 'savings';
+                const selectedOption = paymentMethodEl.options[paymentMethodEl.selectedIndex];
+                const requiresBank = selectedOption && selectedOption.getAttribute('data-requires-bank') === 'true';
 
                 if (requiresBank) {
                     bankAccountWrap.style.display = '';
@@ -24,9 +34,61 @@
                 }
             }
 
+            function updateAllocationPreview() {
+                if (!amountInput) return;
+                
+                const amount = parseFloat(amountInput.value) || 0;
+                let remaining = amount;
+                
+                const allocPenalties = Math.min(outstanding.penalties, remaining);
+                remaining = Math.max(0, remaining - allocPenalties);
+                
+                const allocFees = Math.min(outstanding.fees, remaining);
+                remaining = Math.max(0, remaining - allocFees);
+                
+                const allocInterest = Math.min(outstanding.interest, remaining);
+                remaining = Math.max(0, remaining - allocInterest);
+                
+                const allocPrincipal = Math.min(outstanding.principal, remaining);
+                
+                // Update preview if element exists
+                const previewEl = document.getElementById('allocation-preview');
+                if (previewEl) {
+                    if (amount > 0 && amount <= outstanding.total) {
+                        previewEl.innerHTML = `
+                            <div class="row">
+                                <div class="col-6"><small>Penalties:</small></div>
+                                <div class="col-6 text-right"><small>${allocPenalties.toFixed(2)}</small></div>
+                                <div class="col-6"><small>Fees:</small></div>
+                                <div class="col-6 text-right"><small>${allocFees.toFixed(2)}</small></div>
+                                <div class="col-6"><small>Interest:</small></div>
+                                <div class="col-6 text-right"><small>${allocInterest.toFixed(2)}</small></div>
+                                <div class="col-6"><small>Principal:</small></div>
+                                <div class="col-6 text-right"><small>${allocPrincipal.toFixed(2)}</small></div>
+                            </div>
+                        `;
+                        previewEl.style.display = 'block';
+                    } else {
+                        previewEl.style.display = 'none';
+                    }
+                }
+                
+                // Validate amount
+                if (amount > outstanding.total) {
+                    amountInput.setCustomValidity(`Amount cannot exceed outstanding balance of ${outstanding.total.toFixed(2)}`);
+                } else {
+                    amountInput.setCustomValidity('');
+                }
+            }
+
             if (paymentMethodEl) {
                 paymentMethodEl.addEventListener('change', updateBankAccountVisibility);
                 updateBankAccountVisibility();
+            }
+            
+            if (amountInput) {
+                amountInput.addEventListener('input', updateAllocationPreview);
+                updateAllocationPreview();
             }
         });
     </script>
@@ -105,6 +167,46 @@
         </div>
     </div>
 
+    <div class="card mb-3">
+        <div class="card-header bg-light"><strong>Outstanding Balances</strong></div>
+        <div class="card-body">
+            @if($outstandingBalances['total'] > 0)
+                <div class="row">
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="text-muted small">Outstanding Penalties</div>
+                        <div><strong class="text-danger">{{ number_format($outstandingBalances['penalties'], 2) }}</strong></div>
+                    </div>
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="text-muted small">Outstanding Fees</div>
+                        <div><strong class="text-warning">{{ number_format($outstandingBalances['fees'], 2) }}</strong></div>
+                    </div>
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="text-muted small">Outstanding Interest</div>
+                        <div><strong class="text-info">{{ number_format($outstandingBalances['interest'], 2) }}</strong></div>
+                    </div>
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="text-muted small">Outstanding Principal</div>
+                        <div><strong class="text-primary">{{ number_format($outstandingBalances['principal'], 2) }}</strong></div>
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted">Total Outstanding</div>
+                    <div><strong class="text-success">{{ number_format($outstandingBalances['total'], 2) }}</strong></div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-info">
+                        <i class="fas fa-info-circle"></i> Recovery will be allocated in priority order: Penalties → Fees → Interest → Principal
+                    </small>
+                </div>
+            @else
+                <div class="alert alert-success mb-0">
+                    <i class="fas fa-check-circle"></i> No outstanding balances to recover.
+                </div>
+            @endif
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-header"><strong>Recovery Details</strong></div>
         <div class="card-body">
@@ -118,19 +220,25 @@
 
                 <div class="form-group">
                     <label for="amount">Total Recovery Amount</label>
-                    <input type="number" step="0.01" min="0.01" class="form-control" id="amount" name="amount" value="{{ old('amount') }}" required>
+                    <input type="number" step="0.01" min="0.01" max="{{ $outstandingBalances['total'] }}" class="form-control" id="amount" name="amount" value="{{ old('amount') }}" required>
                     <small class="text-muted">The system will automatically allocate this amount to penalties, fees, interest, then principal.</small>
+                    <div id="allocation-preview" class="mt-2 p-2 bg-light rounded" style="display: none;">
+                        <small class="text-muted d-block mb-1">Allocation Preview:</small>
+                    </div>
                 </div>
 
                 <div class="form-group">
                     <label for="payment_method">Payment Method</label>
-                    <select name="payment_method" class="form-control" required>
-                        @php $pm = old('payment_method', 'cash'); @endphp
-                        <option value="cash" @selected($pm === 'cash')>Cash</option>
-                        <option value="bank_transfer" @selected($pm === 'bank_transfer')>Bank Transfer</option>
-                        <option value="mobile_money" @selected($pm === 'mobile_money')>Mobile Money</option>
-                        <option value="other" @selected($pm === 'other')>Other</option>
+                    <select name="payment_method" class="form-control" data-recovery-payment-method required>
+                        @foreach($globalPaymentMethods as $method)
+                            <option value="{{ $method->code }}" data-requires-bank="{{ $method->requires_bank_account ? 'true' : 'false' }}">
+                                {{ $method->name }}
+                            </option>
+                        @endforeach
                     </select>
+                    @if($globalPaymentMethods->isEmpty())
+                        <small class="text-warning"><i class="fas fa-exclamation-triangle"></i> No active recovery payment methods configured.</small>
+                    @endif
                 </div>
 
                 <div class="form-group" id="bank_account_wrap" style="display:none;">

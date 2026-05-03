@@ -6,6 +6,7 @@ namespace App\Services\Loans\WriteOff;
 
 use App\Models\BankAccounts;
 use App\Models\LoanInstallments;
+use App\Models\LoanPaymentAllocations;
 use App\Models\LoanPayments;
 use App\Models\LoanWriteOffAccount;
 use App\Models\LoanWriteoffRecoveries;

@@ -114,7 +114,6 @@
                             <th>Date</th>
                             <th>Principal</th>
                             <th>Interest</th>
-                            <th>Penalties</th>
                             <th>Total</th>
                         </tr>
                     </thead>
@@ -124,12 +123,11 @@
                                 <td>{{ optional($r->recovery_date)->format('Y-m-d') }}</td>
                                 <td>{{ number_format((float) $r->recovered_principal, 2) }}</td>
                                 <td>{{ number_format((float) $r->recovered_interest, 2) }}</td>
-                                <td>{{ number_format((float) $r->recovered_penalties, 2) }}</td>
                                 <td><strong>{{ number_format((float) $r->total_recovered, 2) }}</strong></td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted">No recoveries recorded.</td>
+                                <td colspan="5" class="text-center text-muted">No recoveries recorded.</td>
                             </tr>
                         @endforelse
                     </tbody>

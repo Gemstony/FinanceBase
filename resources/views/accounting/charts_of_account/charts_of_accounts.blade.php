@@ -465,147 +465,56 @@
         </button>
       </div>
       <div class="modal-body">
-        <div class="row">
-          <div class="col-md-6">
-            <div class="card border-left-info shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Account Code</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="view_account_code">-</div>
-                  </div>
-                  <div class="col-auto">
-                    <i class="fas fa-hashtag fa-2x text-gray-300"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card border-left-primary shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                  <div class="col mr-2">
-                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Account Name</div>
-                    <div class="h5 mb-0 font-weight-bold text-gray-800" id="view_account_name">-</div>
-                  </div>
-                  <div class="col-auto">
-                    <i class="fas fa-file-alt fa-2x text-gray-300"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-3">
-          <div class="col-12">
-            <div class="card border-left-secondary shadow-sm py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Description</div>
-                <div class="text-gray-800" id="view_description">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-3">
-          <div class="col-md-6">
-            <div class="card border-left-success shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Account Class</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800" id="view_account_class">-</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card border-left-warning shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Account Group</div>
-                <div class="h5 mb-0 font-weight-bold text-gray-800" id="view_account_group">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-3">
-          <div class="col-md-6">
-            <div class="card border-left-info shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Cash Flow Impact</div>
-                <div class="mb-2">
-                  <span class="badge badge-lg" id="view_cash_flow_impact">-</span>
-                </div>
-                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Cash Flow Category</div>
-                <div class="text-gray-800" id="view_cash_flow_category">-</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card border-left-primary shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Equity Impact</div>
-                <div class="mb-2">
-                  <span class="badge badge-lg" id="view_equity_impact">-</span>
-                </div>
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Equity Category</div>
-                <div class="text-gray-800" id="view_equity_category">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-3">
-          <div class="col-md-4">
-            <div class="card border-left-success shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Customer Account</div>
-                <div class="mb-2">
-                  <span class="badge badge-lg" id="view_is_customer_account">-</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card border-left-warning shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">System Account</div>
-                <div class="mb-2">
-                  <span class="badge badge-lg" id="view_is_system_account">-</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="card border-left-primary shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Status</div>
-                <div class="mb-2">
-                  <span class="badge badge-lg" id="view_is_active">-</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row mt-3">
-          <div class="col-md-6">
-            <div class="card border-left-secondary shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Created At</div>
-                <div class="text-gray-800" id="view_created_at">-</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="card border-left-secondary shadow-sm h-100 py-2">
-              <div class="card-body">
-                <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">Last Updated</div>
-                <div class="text-gray-800" id="view_updated_at">-</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <table class="table table-borderless table-sm">
+          <tbody>
+            <tr>
+              <td width="30%" class="text-muted font-weight-bold">Account Code:</td>
+              <td id="view_account_code" class="font-weight-bold">-</td>
+              <td width="30%" class="text-muted font-weight-bold">Account Name:</td>
+              <td id="view_account_name" class="font-weight-bold">-</td>
+            </tr>
+            <tr>
+              <td colspan="4" class="text-muted font-weight-bold pt-3 pb-2 border-top">Description:</td>
+            </tr>
+            <tr>
+              <td colspan="4" id="view_description" class="pl-4">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold pt-3">Account Class:</td>
+              <td id="view_account_class" class="font-weight-bold">-</td>
+              <td class="text-muted font-weight-bold">Account Group:</td>
+              <td id="view_account_group" class="font-weight-bold">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold">Cash Flow Impact:</td>
+              <td id="view_cash_flow_impact">-</td>
+              <td class="text-muted font-weight-bold">Cash Flow Category:</td>
+              <td id="view_cash_flow_category">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold">Equity Impact:</td>
+              <td id="view_equity_impact">-</td>
+              <td class="text-muted font-weight-bold">Equity Category:</td>
+              <td id="view_equity_category">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold">Customer Account:</td>
+              <td id="view_is_customer_account">-</td>
+              <td class="text-muted font-weight-bold">System Account:</td>
+              <td id="view_is_system_account">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold">Status:</td>
+              <td id="view_is_active">-</td>
+              <td class="text-muted font-weight-bold">Created At:</td>
+              <td id="view_created_at">-</td>
+            </tr>
+            <tr>
+              <td class="text-muted font-weight-bold">Last Updated:</td>
+              <td id="view_updated_at" colspan="3">-</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>

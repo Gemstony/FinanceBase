@@ -94,12 +94,80 @@ class PortfolioRiskController extends Controller
         // Apply eager loading to avoid N+1
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
+        // Apply filters from request
+        $loans = $loans->filter(function ($loan) use ($request) {
+            // Risk category filter - use pre-computed risk_category from enriched data
+            if ($request->filled('risk_category')) {
+                $riskCategory = $request->input('risk_category');
+                $loanRiskCategory = $loan->risk_category ?? 'current';
+                
+                if ($loanRiskCategory !== $riskCategory) {
+                    return false;
+                }
+            }
+
+            // Borrower type filter
+            if ($request->filled('borrower_type')) {
+                if ($loan->borrower_type !== $request->input('borrower_type')) {
+                    return false;
+                }
+            }
+
+            // DPD range filter - use pre-computed max_days_overdue from enriched data
+            if ($request->filled('min_dpd')) {
+                if (($loan->max_days_overdue ?? 0) < (int) $request->input('min_dpd')) {
+                    return false;
+                }
+            }
+            if ($request->filled('max_dpd')) {
+                if (($loan->max_days_overdue ?? 0) > (int) $request->input('max_dpd')) {
+                    return false;
+                }
+            }
+
+            // Officer filter
+            if ($request->filled('officer')) {
+                $officerId = (int) $request->input('officer');
+                $loanOfficerId = (int) ($loan->latestDisbursement?->processor_id ?? 0);
+                if ($loanOfficerId !== $officerId) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
         // Pre-compute additional data for the view
         $loanData = $this->precomputeLoanData($loans);
+
+        // Get officers for filter dropdown - include shop owner and assigned staff
+        $officers = collect();
+        if ($subshopId) {
+            $subshop = \App\Models\SubShop::find($subshopId);
+            if ($subshop) {
+                $shop = $subshop->shop;
+                $officerSubshopIds = \App\Models\SubShop::where('shop_id', $shop->id)->pluck('id');
+                
+                $officers = \App\Models\User::query()
+                    ->where(function ($q) use ($shop, $officerSubshopIds) {
+                        $q->whereHas('shop', function ($sq) use ($shop) {
+                            $sq->where('id', $shop->id);
+                        })->orWhereHas('subshops', function ($sq) use ($shop, $officerSubshopIds) {
+                            $sq->where('sub_shops.shop_id', $shop->id)
+                                ->whereIn('sub_shops.id', $officerSubshopIds)
+                                ->where('subshop_user.is_active', true);
+                        });
+                    })
+                    ->orderBy('name')
+                    ->distinct()
+                    ->get(['id', 'name']);
+            }
+        }
 
         return view('risk.delinquent', [
             'loans' => $loans,
             'loanData' => $loanData,
+            'officers' => $officers,
             'title' => 'All Delinquent Loans',
             'days' => 1
         ]);
@@ -108,7 +176,7 @@ class PortfolioRiskController extends Controller
     /**
      * List delinquent loans by specific PAR category.
      */
-    public function delinquentByDays(int $days): View
+    public function delinquentByDays(int $days, Request $request): View
     {
         $subshopId = $this->getCurrentSubshopId();
 
@@ -116,15 +184,115 @@ class PortfolioRiskController extends Controller
         $loans = $this->delinquencyEngine->getDelinquentLoansEnriched($days, $subshopId);
         $loans->load(['customer', 'loanGroup', 'loanProduct', 'latestDisbursement.processor']);
 
+        // Apply filters from request
+        $loans = $loans->filter(function ($loan) use ($request) {
+            // Risk category filter - use pre-computed risk_category from enriched data
+            if ($request->filled('risk_category')) {
+                $riskCategory = $request->input('risk_category');
+                $loanRiskCategory = $loan->risk_category ?? 'current';
+                
+                if ($loanRiskCategory !== $riskCategory) {
+                    return false;
+                }
+            }
+
+            // Borrower type filter
+            if ($request->filled('borrower_type')) {
+                if ($loan->borrower_type !== $request->input('borrower_type')) {
+                    return false;
+                }
+            }
+
+            // DPD range filter - use pre-computed max_days_overdue from enriched data
+            if ($request->filled('min_dpd')) {
+                if (($loan->max_days_overdue ?? 0) < (int) $request->input('min_dpd')) {
+                    return false;
+                }
+            }
+            if ($request->filled('max_dpd')) {
+                if (($loan->max_days_overdue ?? 0) > (int) $request->input('max_dpd')) {
+                    return false;
+                }
+            }
+
+            // Officer filter
+            if ($request->filled('officer')) {
+                $officerId = (int) $request->input('officer');
+                $loanOfficerId = (int) ($loan->latestDisbursement?->processor_id ?? 0);
+                if ($loanOfficerId !== $officerId) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
         // Pre-compute additional data for the view
         $loanData = $this->precomputeLoanData($loans);
+
+        // Get officers for filter dropdown - include shop owner and assigned staff
+        $officers = collect();
+        if ($subshopId) {
+            $subshop = \App\Models\SubShop::find($subshopId);
+            if ($subshop) {
+                $shop = $subshop->shop;
+                $officerSubshopIds = \App\Models\SubShop::where('shop_id', $shop->id)->pluck('id');
+                
+                $officers = \App\Models\User::query()
+                    ->where(function ($q) use ($shop, $officerSubshopIds) {
+                        $q->whereHas('shop', function ($sq) use ($shop) {
+                            $sq->where('id', $shop->id);
+                        })->orWhereHas('subshops', function ($sq) use ($shop, $officerSubshopIds) {
+                            $sq->where('sub_shops.shop_id', $shop->id)
+                                ->whereIn('sub_shops.id', $officerSubshopIds)
+                                ->where('subshop_user.is_active', true);
+                        });
+                    })
+                    ->orderBy('name')
+                    ->distinct()
+                    ->get(['id', 'name']);
+            }
+        }
 
         return view('risk.delinquent', [
             'loans' => $loans,
             'loanData' => $loanData,
+            'officers' => $officers,
             'title' => "PAR{$days} Delinquent Loans",
             'days' => $days
         ]);
+    }
+
+    /**
+     * Get risk data for a single loan.
+     */
+    private function getLoanRiskData($loan): array
+    {
+        // Use the same logic as precomputeLoanData but for a single loan
+        $loanIds = [$loan->id];
+        $outstandingMap = $this->portfolioRisk->bulkCalculateOutstanding($loanIds);
+        $dpdMap = $this->dpdCalculator->bulkCalculateMaxDpd($loanIds);
+        
+        $outstanding = $outstandingMap[$loan->id] ?? 0;
+        $maxOverdue = $dpdMap[$loan->id] ?? 0;
+        
+        // Determine risk category based on DPD
+        $riskCategory = 'current';
+        if ($maxOverdue > 90) {
+            $riskCategory = 'default';
+        } elseif ($maxOverdue > 60) {
+            $riskCategory = 'par90';
+        } elseif ($maxOverdue > 30) {
+            $riskCategory = 'par60';
+        } elseif ($maxOverdue > 1) {
+            $riskCategory = 'par30';
+        }
+        
+        return [
+            'outstanding_balance' => $outstanding,
+            'max_days_overdue' => $maxOverdue,
+            'risk_category' => $riskCategory,
+        ];
     }
 
     /**

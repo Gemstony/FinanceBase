@@ -12,7 +12,6 @@
             </div>
             <div class="d-flex">
                 <a href="{{ route('risk.collections') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-hand-holding-usd"></i> Worklist</a>
-                <a href="{{ route('collections.actions') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-tasks"></i> Actions</a>
                 <a href="{{ route('collections.schedule') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-calendar"></i> Schedule</a>
             </div>
         </div>
@@ -163,6 +162,7 @@
                             </div>
                             <div class="col-md-2">
                                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search"></i> Filter</button>
+                                <a class="btn btn-light border" href="{{ route('collections.promises') }}"><i class="fas fa-undo"></i> Reset</a>
                             </div>
                         </form>
                     </div>

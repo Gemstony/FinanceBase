@@ -63,10 +63,11 @@
                                 <label class="small mb-1">To</label>
                                 <input type="date" name="date_to" class="form-control" value="{{ request('date_to') }}">
                             </div>
-                            <div class="form-group col-md-2">
+                            <div class="form-group col-md-2 gap-2">
                                 <button type="submit" class="btn btn-primary btn-block">
                                     <i class="fas fa-filter"></i> Apply
                                 </button>
+                                <a class="btn btn-light border" href="{{ route('credits.index') }}"><i class="fas fa-undo"></i> Reset</a>
                             </div>
                         </div>
                     </div>

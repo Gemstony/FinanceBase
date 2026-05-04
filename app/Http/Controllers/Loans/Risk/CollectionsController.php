@@ -58,10 +58,85 @@ class CollectionsController extends Controller
             $loan->priority_rank = $collectionScores[$loan->id] ?? 0;
         }
 
+        // Apply filters from request
+        $loans = $loans->filter(function ($loan) use ($request) {
+            // Risk category filter
+            if ($request->filled('risk_category')) {
+                $riskCategory = $request->input('risk_category');
+                $dpd = $loan->days_past_due ?? 0;
+                
+                switch ($riskCategory) {
+                    case 'par30':
+                        if ($dpd > 30) return false;
+                        break;
+                    case 'par60':
+                        if ($dpd > 60) return false;
+                        break;
+                    case 'par90':
+                        if ($dpd > 90) return false;
+                        break;
+                    case 'default':
+                        if ($dpd <= 90) return false;
+                        break;
+                }
+            }
+
+            // Borrower type filter
+            if ($request->filled('borrower_type')) {
+                if ($loan->borrower_type !== $request->input('borrower_type')) {
+                    return false;
+                }
+            }
+
+            // DPD range filter
+            if ($request->filled('min_dpd')) {
+                if (($loan->days_past_due ?? 0) < (int) $request->input('min_dpd')) {
+                    return false;
+                }
+            }
+            if ($request->filled('max_dpd')) {
+                if (($loan->days_past_due ?? 0) > (int) $request->input('max_dpd')) {
+                    return false;
+                }
+            }
+
+            // Officer filter
+            if ($request->filled('officer')) {
+                if (($loan->loan_officer_id ?? null) != (int) $request->input('officer')) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
         // Sort by collection score (higher = more urgent)
         $loans = $loans->sortByDesc('collection_score')->values();
 
-        return view('risk.collections', compact('loans'));
+        // Get officers for filter dropdown
+        $officers = collect();
+        if ($subshopId) {
+            $subshop = \App\Models\SubShop::find($subshopId);
+            if ($subshop) {
+                // Get all users assigned to this shop's subshops
+                $shopSubshopIds = \App\Models\SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+                $officers =User::query()
+            ->where(function ($q) use ($subshop, $shopSubshopIds) {
+                $q->whereHas('shop', function ($sq) use ($subshop) {
+                    $sq->where('id', $subshop->shop_id);
+                })->orWhereHas('subshops', function ($sq) use ($subshop, $shopSubshopIds) {
+                    $sq->where('sub_shops.shop_id', $subshop->shop_id)
+                        ->whereIn('sub_shops.id', $shopSubshopIds)
+                        ->where('subshop_user.is_active', true);
+                });
+            })
+            ->orderBy('name')
+            ->distinct()
+            ->get(['id', 'name']);
+            }
+        }
+
+        return view('risk.collections', compact('loans', 'officers'));
     }
 
     /**
@@ -104,8 +179,28 @@ class CollectionsController extends Controller
         // Get overdue actions for alerts
         $overdueActions = $actionService->getOverdueActions($subshopId);
 
-        // Get staff for filter dropdown
-        $staff = User::all();
+        // Get staff for filter dropdown - only users from current shop
+        $staff = collect();
+        if ($subshopId) {
+            $subshop = \App\Models\SubShop::find($subshopId);
+            if ($subshop) {
+                // Get all users assigned to this shop's subshops
+                $shopSubshopIds = \App\Models\SubShop::where('shop_id', $subshop->shop_id)->pluck('id');
+                $staff = User::query()
+            ->where(function ($q) use ($subshop, $shopSubshopIds) {
+                $q->whereHas('shop', function ($sq) use ($subshop) {
+                    $sq->where('id', $subshop->shop_id);
+                })->orWhereHas('subshops', function ($sq) use ($subshop, $shopSubshopIds) {
+                    $sq->where('sub_shops.shop_id', $subshop->shop_id)
+                        ->whereIn('sub_shops.id', $shopSubshopIds)
+                        ->where('subshop_user.is_active', true);
+                });
+            })
+            ->orderBy('name')
+            ->distinct()
+            ->get(['id', 'name']);
+            }
+        }
 
         return view('collections.actions', compact('actions', 'stats', 'overdueActions', 'staff'));
     }

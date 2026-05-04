@@ -12,10 +12,6 @@
             </div>
             <div class="d-flex">
                 <a href="{{ route('collections.actions') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-tasks"></i> Actions</a>
-                <a href="{{ route('collections.promises') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-handshake"></i> Promises</a>
-                <a href="{{ route('collections.schedule') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-calendar"></i> Schedule</a>
-                <a href="{{ route('risk.portfolio') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-chart-line"></i> Portfolio</a>
-                <a href="{{ route('risk.delinquent.index') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-exclamation-triangle"></i> Delinquent</a>
             </div>
         </div>
     </div>
@@ -94,6 +90,7 @@
                             </div>
                             <div class="col-md-2">
                                 <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-filter"></i> Apply</button>
+                                <a class="btn btn-light border" href="{{ route('risk.collections') }}"><i class="fas fa-undo"></i> Reset</a>
                             </div>
                         </form>
                     </div>

@@ -11,10 +11,7 @@
                 <div class="small text-light-50">Monitoring the health of the loan portfolio</div>
             </div>
             <div class="d-flex">
-                <a href="{{ route('risk.history') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-history"></i> History</a>
-                <a href="{{ route('risk.provision-report') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-calculator"></i> Provision</a>
-                <a href="{{ route('risk.delinquent.index') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-exclamation-triangle"></i> Delinquent</a>
-                <a href="{{ route('risk.collections') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-hand-holding-usd"></i> Collections</a>
+                <a href="{{ route('risk.history') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-chart-line"></i> Trends</a>
             </div>
         </div>
     </div>

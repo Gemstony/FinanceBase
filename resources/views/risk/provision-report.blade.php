@@ -12,7 +12,6 @@
             </div>
             <div class="d-flex">
                 <a href="{{ route('risk.portfolio') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-chart-line"></i> Dashboard</a>
-                <a href="{{ route('risk.history') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-history"></i> History</a>
                 <a href="{{ route('risk.stress-test') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-vial"></i> Stress Test</a>
             </div>
         </div>
@@ -207,6 +206,7 @@
                         <h3 class="card-title">Suggested Journal Entry</h3>
                     </div>
                     <div class="card-body">
+                        <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
@@ -231,6 +231,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             </div>

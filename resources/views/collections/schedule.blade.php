@@ -12,7 +12,6 @@
             </div>
             <div class="d-flex">
                 <a href="{{ route('risk.collections') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-hand-holding-usd"></i> Worklist</a>
-                <a href="{{ route('collections.actions') }}" class="btn btn-outline-light btn-sm mr-2"><i class="fas fa-tasks"></i> Actions</a>
                 <a href="{{ route('collections.promises') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-handshake"></i> Promises</a>
             </div>
         </div>

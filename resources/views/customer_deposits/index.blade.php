@@ -134,6 +134,8 @@
                                 <button type="submit" class="btn btn-primary btn-block">
                                     <i class="fas fa-filter"></i> Apply
                                 </button>
+                                <a class="btn btn-light border" href="{{ route('deposits.index') }}"><i class="fas fa-undo"></i> Reset</a>
+
                             </div>
                         </div>
                     </div>

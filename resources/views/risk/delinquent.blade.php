@@ -40,6 +40,56 @@
         @if(session('info'))
             <div class="alert alert-info">{{ session('info') }}</div>
         @endif
+        
+        <!-- Filter Panel -->
+        <div class="row mb-3">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-filter"></i> Filters</h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="GET" class="row">
+                            <div class="col-md-2">
+                                <select name="risk_category" class="form-control">
+                                    <option value="">All Risk Categories</option>
+                                    <option value="par30" {{ request('risk_category') == 'par30' ? 'selected' : '' }}>PAR30</option>
+                                    <option value="par60" {{ request('risk_category') == 'par60' ? 'selected' : '' }}>PAR60</option>
+                                    <option value="par90" {{ request('risk_category') == 'par90' ? 'selected' : '' }}>PAR90</option>
+                                    <option value="default" {{ request('risk_category') == 'default' ? 'selected' : '' }}>Default</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select name="borrower_type" class="form-control">
+                                    <option value="">All Borrowers</option>
+                                    <option value="individual" {{ request('borrower_type') == 'individual' ? 'selected' : '' }}>Individual</option>
+                                    <option value="group" {{ request('borrower_type') == 'group' ? 'selected' : '' }}>Group</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" name="min_dpd" class="form-control" value="{{ request('min_dpd') }}" placeholder="Min Days Overdue">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" name="max_dpd" class="form-control" value="{{ request('max_dpd') }}" placeholder="Max Days Overdue">
+                            </div>
+                            <div class="col-md-2">
+                                <select name="officer" class="form-control">
+                                    <option value="">All Officers</option>
+                                    @foreach($officers ?? [] as $officer)
+                                        <option value="{{ $officer->id }}" {{ request('officer') == $officer->id ? 'selected' : '' }}>{{ $officer->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-filter"></i> Apply</button>
+                                <a class="btn btn-light border" href="{{ route('risk.delinquent.index') }}"><i class="fas fa-undo"></i> Reset</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card card-outline card-warning">
             <div class="card-header">
                 <h3 class="card-title">Loans Overdue > {{ $days }} Days</h3>

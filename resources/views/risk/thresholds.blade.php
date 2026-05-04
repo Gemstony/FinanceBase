@@ -243,7 +243,7 @@
             @endif
 
             <!-- Submit -->
-            <div class="row mt-3">
+            <div class="row mb-4">
                 <div class="col-md-12">
                     <button type="submit" class="btn btn-primary btn-lg">
                         <i class="fas fa-save"></i> Save Thresholds

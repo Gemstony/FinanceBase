@@ -25,9 +25,17 @@
                 <li class="breadcrumb-item active" aria-current="page">Provision Report</li>
             </ol>
         </nav>
-        <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-print"></i> Print Report
-        </button>
+        <div class="btn-group">
+            <a href="{{ route('risk.provision-report.export', ['format' => 'pdf']) }}" class="btn btn-sm btn-outline-danger">
+                <i class="fas fa-file-pdf"></i> PDF
+            </a>
+            <a href="{{ route('risk.provision-report.export', ['format' => 'xlsx']) }}" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-file-excel"></i> Excel
+            </a>
+            <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-print"></i> Print
+            </button>
+        </div>
     </div>
 @stop
 

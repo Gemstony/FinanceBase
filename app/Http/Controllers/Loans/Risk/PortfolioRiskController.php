@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Loans\Risk;
 
+use App\Exports\Reports\Risk\ProvisionReportExport;
 use App\Http\Controllers\Controller;
 use App\Models\RiskSnapshot;
 use App\Models\RiskThreshold;
@@ -12,10 +13,13 @@ use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use App\Services\Loans\Risk\ProvisionCalculationService;
 use App\Services\Loans\Risk\RiskSnapshotService;
 use App\Services\Loans\Risk\StressTestingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PortfolioRiskController extends Controller
 {
@@ -356,7 +360,61 @@ class PortfolioRiskController extends Controller
         // Generate provision report
         $report = $provisionService->generateProvisionReport($subshopId);
 
-        return view('risk.provision-report', compact('report'));
+        // Get subshop name for export URLs
+        $subshopName = null;
+        if ($subshopId) {
+            $subshop = SubShop::find($subshopId);
+            $subshopName = $subshop?->name;
+        }
+
+        return view('risk.provision-report', compact('report', 'subshopName'));
+    }
+
+    /**
+     * Export provision report as PDF or Excel.
+     */
+    public function exportProvisionReport(Request $request, ProvisionCalculationService $provisionService, string $format = 'xlsx')
+    {
+        $user = Auth::user();
+        if (!$user) {
+            abort(403);
+        }
+
+        $shop = $user->shop ?: optional($user->subshops()->first())->shop;
+        if (!$shop) {
+            abort(403, 'No shop found for user');
+        }
+
+        $subshopId = $this->getCurrentSubshopId();
+
+        // Generate provision report
+        $report = $provisionService->generateProvisionReport($subshopId);
+
+        $filenameBase = 'provision-report-' . now()->format('Y-m-d-His');
+
+        if (strtolower($format) === 'pdf') {
+            $subshopName = $subshopId ? (optional(SubShop::find($subshopId))->name) : null;
+            $shopLogoPath = $shop->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
+
+            $pdf = Pdf::loadView('reports.pdf.risk.provision_report', [
+                'report' => $report,
+                'shop' => $shop,
+                'shopLogoPath' => $shopLogoPath,
+                'subshopName' => $subshopName,
+                'generatedAt' => now()->format('Y-m-d H:i:s'),
+            ]);
+
+            return $pdf->download($filenameBase . '.pdf');
+        }
+
+        $export = new ProvisionReportExport($report, $shop->name, $subshopId ? SubShop::find($subshopId)?->name : null);
+        $ext = strtolower($format) === 'csv' ? 'csv' : 'xlsx';
+
+        return Excel::download(
+            $export,
+            $filenameBase . '.' . $ext,
+            strtolower($format) === 'csv' ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX
+        );
     }
 
     /**

@@ -93,6 +93,7 @@ Route::prefix('risk')->group(function () {
     // Risk Analytics & Reports
     Route::get('/history', [PortfolioRiskController::class, 'history'])->name('risk.history');
     Route::get('/provision-report', [PortfolioRiskController::class, 'provisionReport'])->name('risk.provision-report');
+    Route::get('/provision-report/export/{format}', [PortfolioRiskController::class, 'exportProvisionReport'])->name('risk.provision-report.export');
     Route::match(['get', 'post'], '/stress-test', [PortfolioRiskController::class, 'stressTest'])->name('risk.stress-test');
     Route::match(['get', 'post'], '/thresholds', [PortfolioRiskController::class, 'thresholds'])->name('risk.thresholds');
 });

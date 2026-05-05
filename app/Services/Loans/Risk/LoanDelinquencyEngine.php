@@ -6,6 +6,8 @@ use App\Models\LoanInstallments;
 use App\Models\Loans;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
 class LoanDelinquencyEngine
@@ -27,6 +29,105 @@ class LoanDelinquencyEngine
     }
 
     /**
+     * Base query for loans considered part of the active portfolio for delinquency/PAR.
+     *
+     * Note: this mirrors PortfolioRiskCalculator::activeLoansQuery() but uses query builder
+     * so we can build installment-driven aggregates efficiently.
+     */
+    protected function activePortfolioLoansQuery(array $subshopIds, $loanIds = null): QueryBuilder
+    {
+        $q = DB::table('loans')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false);
+
+        if ($loanIds && method_exists($loanIds, 'isNotEmpty')) {
+            $q->when($loanIds->isNotEmpty(), fn ($qq) => $qq->whereIn('loans.id', $loanIds), fn ($qq) => $qq->whereRaw('1=0'));
+        }
+
+        return $q;
+    }
+
+    /**
+     * Build a delinquency base query (per-loan) from loan_installments.
+     *
+     * Returns: loan_id, max_dpd, overdue_amount, outstanding_balance
+     *
+     * - max_dpd is computed as-of $asOfDate
+     * - overdue_amount is sum of overdue installments (status=overdue) with outstanding_amount > 0
+     * - outstanding_balance is total outstanding across active installments (denominator basis)
+     */
+    public function delinquencyBaseQuery(array $subshopIds, $loanIds = null, ?Carbon $asOfDate = null): QueryBuilder
+    {
+        $asOf = ($asOfDate ?? Carbon::today())->toDateString();
+
+        $loanFilter = $this->activePortfolioLoansQuery($subshopIds, $loanIds)
+            ->select('loans.id');
+
+        $overdue = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->where('li.is_active', true)
+            ->where('li.status', 'overdue')
+            ->where('li.outstanding_amount', '>', 0)
+            ->whereDate('li.due_date', '<', $asOf)
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('MAX(DATEDIFF(?, li.due_date)) as max_dpd', [$asOf])
+            ->selectRaw('SUM(li.outstanding_amount) as overdue_amount')
+            ->groupBy('li.loan_id');
+
+        $allOutstanding = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('SUM(li.outstanding_amount) as outstanding_balance')
+            ->groupBy('li.loan_id');
+
+        return DB::query()
+            ->fromSub($overdue, 'o')
+            ->joinSub($allOutstanding, 'a', fn ($j) => $j->on('a.loan_id', '=', 'o.loan_id'))
+            ->select(['o.loan_id', 'o.max_dpd', 'o.overdue_amount', 'a.outstanding_balance']);
+    }
+
+    /**
+     * Calculate total outstanding (denominator) from loan_installments directly.
+     */
+    public function calculatePortfolioOutstandingFromInstallments(array $subshopIds, $loanIds = null): float
+    {
+        $loanFilter = $this->activePortfolioLoansQuery($subshopIds, $loanIds)->select('loans.id');
+
+        $perLoan = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('SUM(li.outstanding_amount) as outstanding_balance')
+            ->groupBy('li.loan_id');
+
+        $total = (float) DB::query()->fromSub($perLoan, 'x')->sum('x.outstanding_balance');
+
+        return round($total, 2);
+    }
+
+    /**
+     * Calculate outstanding balance of delinquent loans (numerator) from loan_installments.
+     *
+     * Delinquent is defined as max_dpd >= $days (best practice boundary inclusive).
+     */
+    public function calculateDelinquentOutstandingFromInstallments(int $days, array $subshopIds, $loanIds = null, ?Carbon $asOfDate = null): float
+    {
+        $days = max(0, (int) $days);
+
+        $base = $this->delinquencyBaseQuery($subshopIds, $loanIds, $asOfDate);
+        $sum = (float) DB::query()->fromSub($base, 'd')
+            ->where('d.max_dpd', '>=', $days)
+            ->sum('d.outstanding_balance');
+
+        return round($sum, 2);
+    }
+
+    /**
      * Calculate Portfolio at Risk (PAR) for a given threshold in days.
      *
      * Banking / microfinance formula:
@@ -38,21 +139,28 @@ class LoanDelinquencyEngine
     {
         $days = max(0, (int) $days);
 
+        $asOf = Carbon::today();
+
         // Handle array of subshop IDs
         if (is_array($subshopIds) && !empty($subshopIds)) {
-            $totalPortfolio = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
-            $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstandingForSubshops($days, $subshopIds);
+            $totalPortfolio = $this->calculatePortfolioOutstandingFromInstallments($subshopIds);
+            $delinquentOutstanding = $this->calculateDelinquentOutstandingFromInstallments($days, $subshopIds, null, $asOf);
         } else {
             $subshopId = is_array($subshopIds) ? null : $subshopIds;
+
+            $subshopId = $subshopId ? (int) $subshopId : null;
+            $ids = $subshopId ? [$subshopId] : [];
             $totalPortfolio = $subshopId
-                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached($subshopId)
-                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached();
+                ? $this->calculatePortfolioOutstandingFromInstallments($ids)
+                : $this->calculatePortfolioOutstandingFromInstallments($this->allSubshopIdsForShopContext());
 
             if ($totalPortfolio <= 0) {
                 return 0.0;
             }
 
-            $delinquentOutstanding = $this->portfolioRiskCalculator->calculateDelinquentOutstandingCached($days, $subshopId);
+            $delinquentOutstanding = $subshopId
+                ? $this->calculateDelinquentOutstandingFromInstallments($days, $ids, null, $asOf)
+                : $this->calculateDelinquentOutstandingFromInstallments($days, $this->allSubshopIdsForShopContext(), null, $asOf);
         }
 
         if ($totalPortfolio <= 0) {
@@ -69,14 +177,15 @@ class LoanDelinquencyEngine
      */
     public function calculatePARCached(int $days, array|int|null $subshopIds = null): float
     {
+        $asOfKey = Carbon::today()->toDateString();
         // Generate cache key based on subshop IDs
         if (is_array($subshopIds)) {
             sort($subshopIds); // Ensure consistent ordering
-            $cacheKey = "par:days:{$days}:subshops:" . implode(',', $subshopIds);
+            $cacheKey = "par:days:{$days}:asof:{$asOfKey}:subshops:" . implode(',', $subshopIds);
         } else {
             $cacheKey = $subshopIds
-                ? "par:days:{$days}:subshop:{$subshopIds}"
-                : "par:days:{$days}";
+                ? "par:days:{$days}:asof:{$asOfKey}:subshop:{$subshopIds}"
+                : "par:days:{$days}:asof:{$asOfKey}";
         }
 
         return Cache::remember($cacheKey, self::PAR_CACHE_TTL, function () use ($days, $subshopIds) {
@@ -235,14 +344,13 @@ class LoanDelinquencyEngine
      */
     public function getPortfolioRiskSummary(array|int|null $subshopIds = null): array
     {
-        // Handle array of subshop IDs
+        $portfolioOutstanding = 0.0;
         if (is_array($subshopIds) && !empty($subshopIds)) {
-            $portfolioOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
+            $portfolioOutstanding = $this->calculatePortfolioOutstandingFromInstallments($subshopIds);
+        } elseif ($subshopIds) {
+            $portfolioOutstanding = $this->calculatePortfolioOutstandingFromInstallments([(int) $subshopIds]);
         } else {
-            $subshopId = is_array($subshopIds) ? null : $subshopIds;
-            $portfolioOutstanding = $subshopId
-                ? $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached($subshopId)
-                : $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingCached();
+            $portfolioOutstanding = $this->calculatePortfolioOutstandingFromInstallments($this->allSubshopIdsForShopContext());
         }
 
         return [
@@ -259,14 +367,15 @@ class LoanDelinquencyEngine
      */
     public function getPortfolioRiskSummaryCached(array|int|null $subshopIds = null): array
     {
+        $asOfKey = Carbon::today()->toDateString();
         // Generate cache key based on subshop IDs
         if (is_array($subshopIds)) {
             sort($subshopIds); // Ensure consistent ordering
-            $cacheKey = "portfolio_risk_summary:subshops:" . implode(',', $subshopIds);
+            $cacheKey = "portfolio_risk_summary:asof:{$asOfKey}:subshops:" . implode(',', $subshopIds);
         } else {
             $cacheKey = $subshopIds
-                ? "portfolio_risk_summary:subshop:{$subshopIds}"
-                : 'portfolio_risk_summary:total';
+                ? "portfolio_risk_summary:asof:{$asOfKey}:subshop:{$subshopIds}"
+                : "portfolio_risk_summary:asof:{$asOfKey}:total";
         }
 
         return Cache::remember($cacheKey, self::PAR_CACHE_TTL, function () use ($subshopIds) {
@@ -303,5 +412,22 @@ class LoanDelinquencyEngine
         }
 
         return $results;
+    }
+
+    /**
+     * Resolve "all subshops" for contexts that previously used global portfolio calculations.
+     *
+     * In this application, most consumers use explicit subshop IDs, but some call sites
+     * pass null to mean "total". We keep this behavior by using all subshop IDs.
+     *
+     * If no subshops exist, returns [-1] to ensure queries return 0 totals.
+     *
+     * @return array<int>
+     */
+    protected function allSubshopIdsForShopContext(): array
+    {
+        $ids = DB::table('sub_shops')->pluck('id')->map(fn ($v) => (int) $v)->all();
+
+        return !empty($ids) ? $ids : [-1];
     }
 }

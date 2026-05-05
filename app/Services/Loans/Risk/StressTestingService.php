@@ -42,9 +42,44 @@ class StressTestingService
             'par_increase' => $this->runParIncreaseScenario($params, $subshopIds),
             'mass_default' => $this->runMassDefaultScenario($params, $subshopIds),
             'economic_downturn' => $this->runEconomicDownturnScenario($params, $subshopIds),
-            'sector_crisis' => $this->runSectorCrisisScenario($params, $subshopIds),
             default => throw new \InvalidArgumentException("Unknown scenario: {$scenario}"),
         };
+    }
+
+    /**
+     * Build a baseline snapshot used by all scenarios.
+     *
+     * @param array<int>|int|null $subshopIds
+     */
+    protected function baseline(array|int|null $subshopIds = null): array
+    {
+        $summary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($subshopIds);
+        $provision = $this->provisionService->calculatePortfolioProvision($subshopIds);
+
+        $portfolioOutstanding = (float) ($summary['portfolio_outstanding'] ?? 0);
+        $par30Rate = (float) ($summary['par30'] ?? 0);
+        $par90Rate = (float) ($summary['par90'] ?? 0);
+
+        $par30Amount = ($par30Rate / 100) * $portfolioOutstanding;
+        $par90Amount = ($par90Rate / 100) * $portfolioOutstanding;
+
+        $rates = [
+            'par30' => (float) ($provision['breakdown']['par30']['rate'] ?? 5),
+            'par60' => (float) ($provision['breakdown']['par60']['rate'] ?? 20),
+            'par90' => (float) ($provision['breakdown']['par90']['rate'] ?? 50),
+            'default' => (float) ($provision['breakdown']['default']['rate'] ?? 100),
+        ];
+
+        return [
+            'summary' => $summary,
+            'provision' => $provision,
+            'portfolio_outstanding' => $portfolioOutstanding,
+            'par30_rate' => $par30Rate,
+            'par90_rate' => $par90Rate,
+            'par30_amount' => round($par30Amount, 2),
+            'par90_amount' => round($par90Amount, 2),
+            'provision_rates' => $rates,
+        ];
     }
 
     /**
@@ -56,50 +91,69 @@ class StressTestingService
      */
     protected function runParIncreaseScenario(array $params, array|int|null $subshopIds): array
     {
-        $par30Increase = $params['par30_increase'] ?? 5;
-        $par90Increase = $params['par90_increase'] ?? 2;
+        $par30Increase = (float) ($params['par30_increase'] ?? 5);
+        $par90Increase = (float) ($params['par90_increase'] ?? 2);
 
-        $currentSummary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($subshopIds);
-        $currentProvision = $this->provisionService->calculatePortfolioProvision($subshopIds);
+        $base = $this->baseline($subshopIds);
+        $portfolioOutstanding = $base['portfolio_outstanding'];
+        $rates = $base['provision_rates'];
 
-        // Calculate projected PAR rates
-        $projectedPar30 = min(100, $currentSummary['par30'] + $par30Increase);
-        $projectedPar90 = min(100, $currentSummary['par90'] + $par90Increase);
+        $currentPar30 = (float) $base['par30_rate'];
+        $currentPar90 = (float) $base['par90_rate'];
 
-        // Estimate impact on portfolio
-        $portfolioOutstanding = $currentSummary['portfolio_outstanding'];
-        $currentPar30Amount = ($currentSummary['par30'] / 100) * $portfolioOutstanding;
+        $projectedPar30 = min(100.0, max(0.0, $currentPar30 + $par30Increase));
+        $projectedPar90 = min(100.0, max(0.0, $currentPar90 + $par90Increase));
+
+        // PAR30 includes PAR90, so avoid double-counting by splitting into:
+        // - "PAR30-only" band (30+ but <90)
+        // - PAR90+ band
+        $currentPar30Amount = ($currentPar30 / 100) * $portfolioOutstanding;
+        $currentPar90Amount = ($currentPar90 / 100) * $portfolioOutstanding;
+        $currentPar30OnlyAmount = max(0.0, $currentPar30Amount - $currentPar90Amount);
+
         $projectedPar30Amount = ($projectedPar30 / 100) * $portfolioOutstanding;
-
-        $currentPar90Amount = ($currentSummary['par90'] / 100) * $portfolioOutstanding;
         $projectedPar90Amount = ($projectedPar90 / 100) * $portfolioOutstanding;
+        $projectedPar30OnlyAmount = max(0.0, $projectedPar30Amount - $projectedPar90Amount);
 
-        $additionalPar30 = $projectedPar30Amount - $currentPar30Amount;
-        $additionalPar90 = $projectedPar90Amount - $currentPar90Amount;
+        $additionalPar30Only = max(0.0, $projectedPar30OnlyAmount - $currentPar30OnlyAmount);
+        $additionalPar90 = max(0.0, $projectedPar90Amount - $currentPar90Amount);
+        $additionalDelinquent = $additionalPar30Only + $additionalPar90;
 
-        // Estimate provision impact (PAR90+ typically requires higher provision)
-        $additionalProvision = $additionalPar90 * 0.5; // Assume 50% provision rate for new PAR90
+        $additionalProvision = ($additionalPar30Only * ($rates['par30'] / 100))
+            + ($additionalPar90 * ($rates['par90'] / 100));
+
+        $impactAssessment = $this->generateImpactAssessment((float) $additionalProvision, (float) $portfolioOutstanding);
+        $impactAssessment['risk_rating_change'] = $this->assessRiskRatingChange($currentPar90, $projectedPar90);
 
         return [
+            'scenario_key' => 'par_increase',
             'scenario_name' => 'PAR Rate Increase',
             'description' => "PAR30 increases by {$par30Increase}pp, PAR90 increases by {$par90Increase}pp",
+            'params' => [
+                'par30_increase' => $par30Increase,
+                'par90_increase' => $par90Increase,
+            ],
+            'assumptions' => [
+                'PAR30 includes PAR90; calculations split PAR30-only and PAR90+ to avoid double-counting.',
+                'Provision impact uses configured provision rates from Risk Thresholds (fallbacks apply if not configured).',
+                'This is an aggregate simulation (no loan-by-loan transition modelling).',
+            ],
             'current_state' => [
-                'par30_rate' => $currentSummary['par30'],
-                'par90_rate' => $currentSummary['par90'],
-                'total_provision' => $currentProvision['total_provision'],
+                'portfolio_outstanding' => round($portfolioOutstanding, 2),
+                'par30_rate' => round($currentPar30, 2),
+                'par90_rate' => round($currentPar90, 2),
+                'par30_amount' => round($currentPar30Amount, 2),
+                'par90_amount' => round($currentPar90Amount, 2),
+                'total_provision_required' => round((float) ($base['provision']['total_provision'] ?? 0), 2),
             ],
             'projected_state' => [
-                'par30_rate' => $projectedPar30,
-                'par90_rate' => $projectedPar90,
-                'additional_delinquent_amount' => round($additionalPar30 + $additionalPar90, 2),
+                'portfolio_outstanding' => round($portfolioOutstanding, 2),
+                'par30_rate' => round($projectedPar30, 2),
+                'par90_rate' => round($projectedPar90, 2),
+                'additional_delinquent_amount' => round($additionalDelinquent, 2),
                 'additional_provision_required' => round($additionalProvision, 2),
             ],
-            'impact' => [
-                'provision_increase_percentage' => $currentProvision['total_provision'] > 0
-                    ? round(($additionalProvision / $currentProvision['total_provision']) * 100, 2)
-                    : 0,
-                'risk_rating_change' => $this->assessRiskRatingChange($currentSummary['par90'], $projectedPar90),
-            ],
+            'impact_assessment' => $impactAssessment,
         ];
     }
 
@@ -112,36 +166,62 @@ class StressTestingService
      */
     protected function runMassDefaultScenario(array $params, array|int|null $subshopIds): array
     {
-        $defaultPercentage = $params['default_percentage'] ?? 10;
-        $recoveryRate = $params['recovery_rate'] ?? 30;
+        $defaultPercentage = (float) ($params['default_percentage'] ?? 10);
+        $recoveryRate = (float) ($params['recovery_rate'] ?? 30);
 
-        $currentSummary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($subshopIds);
-        $portfolioOutstanding = $currentSummary['portfolio_outstanding'];
+        $base = $this->baseline($subshopIds);
+        $portfolioOutstanding = $base['portfolio_outstanding'];
+        $rates = $base['provision_rates'];
 
-        // Assume performing loans = portfolio - PAR30 amount
-        $par30Amount = ($currentSummary['par30'] / 100) * $portfolioOutstanding;
-        $performingAmount = $portfolioOutstanding - $par30Amount;
+        // Performing exposure approximation: portfolio - PAR30 exposure
+        $performingAmount = max(0.0, $portfolioOutstanding - (float) $base['par30_amount']);
 
         $defaultedAmount = $performingAmount * ($defaultPercentage / 100);
         $recoverableAmount = $defaultedAmount * ($recoveryRate / 100);
         $lossAmount = $defaultedAmount - $recoverableAmount;
 
+        $additionalProvision = $defaultedAmount * ($rates['default'] / 100);
+        $newPar90Rate = $portfolioOutstanding > 0
+            ? min(100.0, (float) $base['par90_rate'] + (($defaultedAmount / $portfolioOutstanding) * 100))
+            : (float) $base['par90_rate'];
+
+        $impactAssessment = $this->generateImpactAssessment((float) $additionalProvision, (float) $portfolioOutstanding);
+        $impactAssessment['loss_percentage'] = $portfolioOutstanding > 0
+            ? round(($lossAmount / $portfolioOutstanding) * 100, 2)
+            : 0;
+
         return [
+            'scenario_key' => 'mass_default',
             'scenario_name' => 'Mass Default Event',
             'description' => "{$defaultPercentage}% of performing loans default with {$recoveryRate}% recovery",
-            'current_state' => [
-                'performing_amount' => round($performingAmount, 2),
-                'portfolio_outstanding' => $portfolioOutstanding,
+            'params' => [
+                'default_percentage' => $defaultPercentage,
+                'recovery_rate' => $recoveryRate,
             ],
-            'impact' => [
+            'assumptions' => [
+                'Performing exposure is approximated as portfolio outstanding minus PAR30 exposure.',
+                'All new defaults are treated as DEFAULT bucket for provisioning purposes.',
+                'This does not model staggered recoveries over time.',
+            ],
+            'current_state' => [
+                'portfolio_outstanding' => round($portfolioOutstanding, 2),
+                'performing_amount' => round($performingAmount, 2),
+                'par30_rate' => round((float) $base['par30_rate'], 2),
+                'par90_rate' => round((float) $base['par90_rate'], 2),
+                'par30_amount' => round((float) $base['par30_amount'], 2),
+                'par90_amount' => round((float) $base['par90_amount'], 2),
+                'total_provision_required' => round((float) ($base['provision']['total_provision'] ?? 0), 2),
+            ],
+            'projected_state' => [
+                'new_par90_rate' => round($newPar90Rate, 2),
                 'defaulted_amount' => round($defaultedAmount, 2),
                 'recoverable_amount' => round($recoverableAmount, 2),
                 'estimated_loss' => round($lossAmount, 2),
-                'loss_percentage' => $portfolioOutstanding > 0
-                    ? round(($lossAmount / $portfolioOutstanding) * 100, 2)
-                    : 0,
+                'projected_par90_amount' => round(($newPar90Rate / 100) * $portfolioOutstanding, 2),
+                'additional_delinquent_amount' => round($defaultedAmount, 2),
+                'additional_provision_required' => round($additionalProvision, 2),
             ],
-            'new_par90_rate' => min(100, $currentSummary['par90'] + (($defaultedAmount / $portfolioOutstanding) * 100)),
+            'impact_assessment' => $impactAssessment,
         ];
     }
 
@@ -162,62 +242,63 @@ class StressTestingService
 
         $factors = $severityFactors[$downturnSeverity] ?? $severityFactors['moderate'];
 
-        $currentSummary = $this->delinquencyEngine->getPortfolioRiskSummaryCached($subshopIds);
-        $portfolioOutstanding = $currentSummary['portfolio_outstanding'];
+        $base = $this->baseline($subshopIds);
+        $portfolioOutstanding = $base['portfolio_outstanding'];
+        $rates = $base['provision_rates'];
 
         // Calculate PAR impact
         $parIncrease = $factors['par_increase'];
-        $projectedPar90 = min(100, $currentSummary['par90'] + $parIncrease);
+        $projectedPar90 = min(100.0, (float) $base['par90_rate'] + (float) $parIncrease);
+        $projectedPar30 = min(100.0, (float) $base['par30_rate'] + (float) ($parIncrease * 0.6));
 
         // Calculate default impact
-        $performingAmount = $portfolioOutstanding * (1 - ($currentSummary['par30'] / 100));
+        $performingAmount = max(0.0, $portfolioOutstanding - (float) $base['par30_amount']);
         $additionalDefaultRate = $factors['default_increase'] / 100;
         $additionalDefaults = $performingAmount * $additionalDefaultRate;
 
         // Calculate provision impact
-        $newNplRate = $projectedPar90 / 100;
-        $additionalProvision = ($additionalDefaults * 0.5) + ($portfolioOutstanding * $newNplRate * 0.25);
+        $currentPar90Amount = (float) $base['par90_amount'];
+        $projectedPar90Amount = ($projectedPar90 / 100) * $portfolioOutstanding;
+        $additionalPar90 = max(0.0, $projectedPar90Amount - $currentPar90Amount);
+        $additionalProvision = ($additionalPar90 * ($rates['par90'] / 100))
+            + ($additionalDefaults * ($rates['default'] / 100));
+
+        $impactAssessment = $this->generateImpactAssessment((float) $additionalProvision, (float) $portfolioOutstanding);
+        $impactAssessment['severity_score'] = match ($downturnSeverity) {
+            'severe' => 90,
+            'moderate' => 60,
+            default => 30,
+        };
 
         return [
+            'scenario_key' => 'economic_downturn',
             'scenario_name' => 'Economic Downturn',
             'description' => "{$downturnSeverity} economic downturn scenario",
             'severity_factors' => $factors,
+            'params' => [
+                'severity' => $downturnSeverity,
+            ],
+            'assumptions' => [
+                'PAR90 increases due to worsening repayment and liquidity pressure.',
+                'Additional defaults are estimated from performing exposure and treated as DEFAULT for provisioning.',
+                'Projected PAR30 is approximated as 60% of the PAR90 shock (to keep UI simple).',
+            ],
             'current_state' => [
-                'par90_rate' => $currentSummary['par90'],
-                'portfolio_outstanding' => $portfolioOutstanding,
+                'portfolio_outstanding' => round($portfolioOutstanding, 2),
+                'par30_rate' => round((float) $base['par30_rate'], 2),
+                'par90_rate' => round((float) $base['par90_rate'], 2),
+                'par30_amount' => round((float) $base['par30_amount'], 2),
+                'par90_amount' => round((float) $base['par90_amount'], 2),
+                'total_provision_required' => round((float) ($base['provision']['total_provision'] ?? 0), 2),
             ],
             'projected_state' => [
-                'par90_rate' => $projectedPar90,
+                'par30_rate' => round($projectedPar30, 2),
+                'par90_rate' => round($projectedPar90, 2),
+                'projected_par90_amount' => round(($projectedPar90 / 100) * $portfolioOutstanding, 2),
                 'additional_defaults' => round($additionalDefaults, 2),
                 'additional_provision_required' => round($additionalProvision, 2),
             ],
-            'impact_assessment' => $this->generateImpactAssessment($additionalProvision, $portfolioOutstanding),
-        ];
-    }
-
-    /**
-     * Run sector crisis scenario.
-     *
-     * Tests concentration risk.
-     */
-    protected function runSectorCrisisScenario(array $params, array|int|null $subshopIds): array
-    {
-        $sector = $params['sector'] ?? 'agriculture';
-        $impactPercentage = $params['impact_percentage'] ?? 50;
-
-        // This would require sector data on loans
-        // For now, return a template structure
-
-        return [
-            'scenario_name' => 'Sector Crisis',
-            'description' => "{$impactPercentage}% of {$sector} loans become delinquent",
-            'sector' => $sector,
-            'impact_percentage' => $impactPercentage,
-            'note' => 'Requires sector classification data on loans to calculate precise impact',
-            'assumptions' => [
-                'concentration_limit' => 25, // %
-                'sector_correlation' => 'high',
-            ],
+            'impact_assessment' => $impactAssessment,
         ];
     }
 

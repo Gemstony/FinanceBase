@@ -147,10 +147,10 @@ class PortfolioRiskController extends Controller
         // Get officers for filter dropdown - include shop owner and assigned staff
         $officers = collect();
         if ($subshopId) {
-            $subshop = \App\Models\SubShop::find($subshopId);
+            $subshop = SubShop::find($subshopId);
             if ($subshop) {
                 $shop = $subshop->shop;
-                $officerSubshopIds = \App\Models\SubShop::where('shop_id', $shop->id)->pluck('id');
+                $officerSubshopIds = SubShop::where('shop_id', $shop->id)->pluck('id');
                 
                 $officers = \App\Models\User::query()
                     ->where(function ($q) use ($shop, $officerSubshopIds) {
@@ -237,10 +237,10 @@ class PortfolioRiskController extends Controller
         // Get officers for filter dropdown - include shop owner and assigned staff
         $officers = collect();
         if ($subshopId) {
-            $subshop = \App\Models\SubShop::find($subshopId);
+            $subshop = SubShop::find($subshopId);
             if ($subshop) {
                 $shop = $subshop->shop;
-                $officerSubshopIds = \App\Models\SubShop::where('shop_id', $shop->id)->pluck('id');
+                $officerSubshopIds = SubShop::where('shop_id', $shop->id)->pluck('id');
                 
                 $officers = \App\Models\User::query()
                     ->where(function ($q) use ($shop, $officerSubshopIds) {

@@ -57,7 +57,6 @@
                                         <option value="par_increase" {{ ($scenario ?? '') === 'par_increase' ? 'selected' : '' }}>PAR Rate Increase</option>
                                         <option value="mass_default" {{ ($scenario ?? '') === 'mass_default' ? 'selected' : '' }}>Mass Default Event</option>
                                         <option value="economic_downturn" {{ ($scenario ?? '') === 'economic_downturn' ? 'selected' : '' }}>Economic Downturn</option>
-                                        <option value="sector_crisis" {{ ($scenario ?? '') === 'sector_crisis' ? 'selected' : '' }}>Sector Crisis</option>
                                     </select>
                                 </div>
                             </div>
@@ -100,18 +99,6 @@
                                 </div>
                             </div>
 
-                            <!-- Sector Crisis Parameters -->
-                            <div class="col-md-4 scenario-params d-none" id="sector_crisis_params">
-                                <div class="form-group">
-                                    <label>Sector</label>
-                                    <input type="text" name="sector" class="form-control" value="{{ $params['sector'] ?? 'agriculture' }}" placeholder="e.g. agriculture, trade">
-                                </div>
-                                <div class="form-group">
-                                    <label>Impact Percentage (%)</label>
-                                    <input type="number" name="impact_percentage" class="form-control" value="{{ $params['impact_percentage'] ?? 50 }}" min="0" max="100">
-                                </div>
-                            </div>
-
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label>&nbsp;</label>
@@ -129,7 +116,7 @@
         @if($result)
         @php
             // Get risk level from either impact or impact_assessment
-            $riskLevel = $result['impact']['risk_level'] ?? $result['impact_assessment']['risk_level'] ?? 'low';
+            $riskLevel = $result['impact_assessment']['risk_level'] ?? $result['impact']['risk_level'] ?? 'low';
             $alertClass = match($riskLevel) {
                 'critical' => 'alert-danger',
                 'high' => 'alert-warning',
@@ -181,10 +168,10 @@
                             @endforeach
                         @endif
 
-                        @if(isset($result['new_par90_rate']))
+                        @if(isset($result['projected_state']['new_par90_rate']))
                             <div class="d-flex justify-content-between border-bottom py-2 text-danger font-weight-bold">
                                 <span>New PAR90 Rate</span>
-                                <strong>{{ number_format($result['new_par90_rate'], 2) }}%</strong>
+                                <strong>{{ number_format($result['projected_state']['new_par90_rate'], 2) }}%</strong>
                             </div>
                         @endif
                     </div>
@@ -324,6 +311,20 @@ $(document).ready(function() {
     $('#scenarioSelect').trigger('change');
 
     @if($result && isset($result['current_state']) && isset($result['projected_state']))
+    @php
+        $currentPortfolio = (float) ($result['current_state']['portfolio_outstanding'] ?? 0);
+        $currentPar90Rate = (float) ($result['current_state']['par90_rate'] ?? 0);
+
+        $currentDelinquent = (float) ($result['current_state']['par90_amount'] ?? (($currentPortfolio * $currentPar90Rate) / 100));
+        $currentProvision = (float) ($result['current_state']['total_provision_required'] ?? $result['current_state']['total_provision'] ?? 0);
+
+        $additionalDelinquent = (float) ($result['projected_state']['additional_delinquent_amount'] ?? 0);
+        $additionalProvision = (float) ($result['projected_state']['additional_provision_required'] ?? 0);
+
+        $projectedPortfolio = (float) ($result['projected_state']['portfolio_outstanding'] ?? $currentPortfolio);
+        $projectedDelinquent = $currentDelinquent + $additionalDelinquent;
+        $projectedProvision = $currentProvision + $additionalProvision;
+    @endphp
     // Impact Chart
     const ctx = document.getElementById('impactChart').getContext('2d');
     new Chart(ctx, {
@@ -334,18 +335,18 @@ $(document).ready(function() {
                 {
                     label: 'Current',
                     data: [
-                        {{ $result['current_state']['performing_amount'] ?? $result['current_state']['portfolio_outstanding'] ?? 0 }},
-                        {{ ($result['projected_state']['additional_delinquent_amount'] ?? 0) > 0 ? ($result['current_state']['portfolio_outstanding'] ?? 0) - ($result['projected_state']['additional_delinquent_amount'] ?? 0) * 2 : ($result['current_state']['portfolio_outstanding'] ?? 0) * ($result['current_state']['par90_rate'] ?? 0) / 100 }},
-                        {{ $result['current_state']['total_provision'] ?? 0 }}
+                        {{ $currentPortfolio }},
+                        {{ $currentDelinquent }},
+                        {{ $currentProvision }}
                     ],
                     backgroundColor: '#17a2b8'
                 },
                 {
                     label: 'Projected',
                     data: [
-                        {{ $result['projected_state']['performing_amount'] ?? $result['current_state']['portfolio_outstanding'] ?? 0 }},
-                        {{ ($result['projected_state']['additional_delinquent_amount'] ?? 0) + (($result['current_state']['portfolio_outstanding'] ?? 0) * ($result['current_state']['par90_rate'] ?? 0) / 100) }},
-                        {{ ($result['current_state']['total_provision'] ?? 0) + ($result['projected_state']['additional_provision_required'] ?? 0) }}
+                        {{ $projectedPortfolio }},
+                        {{ $projectedDelinquent }},
+                        {{ $projectedProvision }}
                     ],
                     backgroundColor: '#dc3545'
                 }

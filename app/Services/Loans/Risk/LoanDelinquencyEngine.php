@@ -91,6 +91,47 @@ class LoanDelinquencyEngine
     }
 
     /**
+     * Base query for PAR-style reporting including current loans.
+     *
+     * Returns: loan_id, max_dpd, overdue_amount, outstanding_balance
+     * - max_dpd/overdue_amount are 0 when a loan has no overdue installments as-of date.
+     */
+    public function parBaseQuery(array $subshopIds, $loanIds = null, ?Carbon $asOfDate = null): QueryBuilder
+    {
+        $asOf = ($asOfDate ?? Carbon::today())->toDateString();
+
+        $loanFilter = $this->activePortfolioLoansQuery($subshopIds, $loanIds)
+            ->select('loans.id');
+
+        $allOutstanding = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('SUM(li.outstanding_amount) as outstanding_balance')
+            ->groupBy('li.loan_id');
+
+        $overdue = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->where('li.is_active', true)
+            ->where('li.status', 'overdue')
+            ->where('li.outstanding_amount', '>', 0)
+            ->whereDate('li.due_date', '<', $asOf)
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('MAX(DATEDIFF(?, li.due_date)) as max_dpd', [$asOf])
+            ->selectRaw('SUM(li.outstanding_amount) as overdue_amount')
+            ->groupBy('li.loan_id');
+
+        return DB::query()
+            ->fromSub($allOutstanding, 'a')
+            ->leftJoinSub($overdue, 'o', fn ($j) => $j->on('o.loan_id', '=', 'a.loan_id'))
+            ->selectRaw('a.loan_id as loan_id')
+            ->selectRaw('COALESCE(o.max_dpd, 0) as max_dpd')
+            ->selectRaw('COALESCE(o.overdue_amount, 0) as overdue_amount')
+            ->selectRaw('a.outstanding_balance as outstanding_balance');
+    }
+
+    /**
      * Calculate total outstanding (denominator) from loan_installments directly.
      */
     public function calculatePortfolioOutstandingFromInstallments(array $subshopIds, $loanIds = null): float

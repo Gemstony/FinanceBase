@@ -7,6 +7,7 @@ namespace App\Services\Reports;
 use App\Models\LoanProducts;
 use App\Models\SubShop;
 use App\Models\User;
+use App\Services\Loans\Risk\LoanDelinquencyEngine;
 use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -15,12 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class LoanAgingReportService
 {
-    private readonly PortfolioRiskCalculator $portfolioRiskCalculator;
-
-    public function __construct(PortfolioRiskCalculator $portfolioRiskCalculator)
-    {
-        $this->portfolioRiskCalculator = $portfolioRiskCalculator;
-    }
+    public function __construct(
+        private readonly PortfolioRiskCalculator $portfolioRiskCalculator,
+        private readonly LoanDelinquencyEngine $delinquencyEngine,
+    ) {}
 
     /**
      * @param  array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,page?:int|null,per_page?:int|null}  $filters
@@ -33,9 +32,11 @@ class LoanAgingReportService
         $subshopIds = $this->resolveSubshopFilter($filters['subshop_id'] ?? null, $accessibleSubshopIds);
         $loanIds = $this->filteredLoanIds($filters, $subshopIds);
 
-        $loanAgg = $this->loanAgingBase($subshopIds, $loanIds, $asAt);
+        // Use delinquencyEngine for consistent installment-based calculations
+        $loanAgg = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $asAt);
 
-        $portfolioOutstanding = $this->portfolioRiskCalculator->calculateTotalPortfolioOutstandingForSubshops($subshopIds);
+        // Portfolio outstanding from installments (respects all filters)
+        $portfolioOutstanding = $this->delinquencyEngine->calculatePortfolioOutstandingFromInstallments($subshopIds, $loanIds, $asAt);
         $totalOverdueAmount = (float) DB::query()->fromSub($loanAgg, 'la')->sum('la.overdue_amount');
 
         $summary = $this->summaryKpis($loanAgg, $portfolioOutstanding, $totalOverdueAmount);
@@ -110,67 +111,24 @@ class LoanAgingReportService
         return $q->pluck('loans.id');
     }
 
-    private function loanAgingBase(array $subshopIds, $loanIds, Carbon $asAt): QueryBuilder
-    {
-        $outstandingMap = [];
-        $this->portfolioRiskCalculator->activeLoansQuery()
-            ->whereIn('subshop_id', $subshopIds)
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds))
-            ->select(['id'])
-            ->chunkById(200, function ($loans) use (&$outstandingMap) {
-                foreach ($loans as $loan) {
-                    $outstandingMap[$loan->id] = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
-                }
-            });
-
-        $overdue = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('li.outstanding_amount', '>', 0)
-            ->whereDate('li.due_date', '<', $asAt->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('li.loan_id as loan_id')
-            ->selectRaw('MAX(DATEDIFF(?, li.due_date)) as dpd', [$asAt->toDateString()])
-            ->selectRaw('SUM(li.outstanding_amount) as overdue_amount')
-            ->groupBy('li.loan_id');
-
-        $loanDpdMap = [];
-        $loanOverdueMap = [];
-        foreach (DB::query()->fromSub($overdue, 'o')->get() as $row) {
-            $loanDpdMap[$row->loan_id] = (int) ($row->dpd ?? 0);
-            $loanOverdueMap[$row->loan_id] = (float) ($row->overdue_amount ?? 0);
-        }
-
-        $allLoanIds = array_unique(array_merge(
-            array_keys($outstandingMap),
-            array_keys($loanDpdMap)
-        ));
-
-        $result = [];
-        foreach ($allLoanIds as $loanId) {
-            $result[] = [
-                'loan_id' => $loanId,
-                'dpd' => $loanDpdMap[$loanId] ?? 0,
-                'overdue_amount' => $loanOverdueMap[$loanId] ?? 0,
-                'outstanding_balance' => $outstandingMap[$loanId] ?? 0,
-            ];
-        }
-
-        return DB::query()->fromRaw('('.collect($result)->map(fn ($r, $i) => "SELECT {$r['loan_id']} as loan_id, {$r['dpd']} as dpd, {$r['overdue_amount']} as overdue_amount, {$r['outstanding_balance']} as outstanding_balance")->join(' UNION ALL ').') as la');
-    }
+    /**
+     * Note: loanAgingBase replaced with delinquencyEngine->parBaseQuery() for consistency.
+     * The delinquencyEngine provides: loan_id, outstanding_balance, overdue_amount, max_dpd
+     */
 
     private function summaryKpis(QueryBuilder $loanAgg, float $portfolioOutstanding, float $totalOverdueAmount): array
     {
-        $performingLoans = (int) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '<=', 0)->count('la.loan_id');
-        $nplLoans = (int) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 90)->count('la.loan_id');
+        // Use max_dpd from delinquencyEngine (column name is max_dpd, not dpd)
+        $performingLoans = (int) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '<=', 0)->count('la.loan_id');
+        $nplLoans = (int) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 90)->count('la.loan_id');
 
-        $avgDpd = (float) DB::query()->fromSub($loanAgg, 'la')->avg('la.dpd');
-        $maxDpd = (int) DB::query()->fromSub($loanAgg, 'la')->max('la.dpd');
+        $avgDpd = (float) DB::query()->fromSub($loanAgg, 'la')->avg('la.max_dpd');
+        $maxDpd = (int) DB::query()->fromSub($loanAgg, 'la')->max('la.max_dpd');
 
-        $par30Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 30)->sum('la.outstanding_balance');
-        $par60Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 60)->sum('la.outstanding_balance');
-        $par90Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 90)->sum('la.outstanding_balance');
+        // Use inclusive >= thresholds for PAR calculations (standard microfinance practice)
+        $par30Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 30)->sum('la.outstanding_balance');
+        $par60Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 60)->sum('la.outstanding_balance');
+        $par90Outstanding = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 90)->sum('la.outstanding_balance');
 
         $par30 = $portfolioOutstanding > 0 ? round(($par30Outstanding / $portfolioOutstanding) * 100, 2) : 0.0;
         $par60 = $portfolioOutstanding > 0 ? round(($par60Outstanding / $portfolioOutstanding) * 100, 2) : 0.0;
@@ -194,10 +152,10 @@ class LoanAgingReportService
         $rows = DB::query()
             ->fromSub($loanAgg, 'la')
             ->selectRaw("CASE
-                WHEN la.dpd <= 0 THEN 'Current'
-                WHEN la.dpd <= 30 THEN '1-30'
-                WHEN la.dpd <= 60 THEN '31-60'
-                WHEN la.dpd <= 90 THEN '61-90'
+                WHEN la.max_dpd <= 0 THEN 'Current'
+                WHEN la.max_dpd <= 30 THEN '1-30'
+                WHEN la.max_dpd <= 60 THEN '31-60'
+                WHEN la.max_dpd <= 90 THEN '61-90'
                 ELSE '90+'
             END as bucket")
             ->selectRaw('COUNT(*) as loans_count')
@@ -232,7 +190,7 @@ class LoanAgingReportService
         $perPage = ! empty($filters['per_page']) ? max(5, min(200, (int) $filters['per_page'])) : 25;
         $page = ! empty($filters['page']) ? max(1, (int) $filters['page']) : null;
 
-        $loanAgg = $this->loanAgingBase($subshopIds, $loanIds, $asAt);
+        $loanAgg = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $asAt);
 
         $latestDisb = DB::table('loan_disbursements as ld')
             ->selectRaw('MAX(ld.id) as id, ld.loan_id')
@@ -252,8 +210,8 @@ class LoanAgingReportService
             ->leftJoin('sub_shops as ss', 'ss.id', '=', 'loans.subshop_id')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->when($loanIds->isNotEmpty(), fn ($qq) => $qq->whereIn('loans.id', $loanIds), fn ($qq) => $qq->whereRaw('1=0'))
-            ->when($dpdMin !== null, fn ($qq) => $qq->where('la.dpd', '>=', $dpdMin))
-            ->when($dpdMax !== null, fn ($qq) => $qq->where('la.dpd', '<=', $dpdMax))
+            ->when($dpdMin !== null, fn ($qq) => $qq->where('la.max_dpd', '>=', $dpdMin))
+            ->when($dpdMax !== null, fn ($qq) => $qq->where('la.max_dpd', '<=', $dpdMax))
             ->select([
                 'loans.id as loan_id',
                 'loans.loan_code',
@@ -264,9 +222,9 @@ class LoanAgingReportService
                 'loans.status as loan_status',
                 DB::raw('COALESCE(la.outstanding_balance,0) as outstanding_balance'),
                 DB::raw('COALESCE(la.overdue_amount,0) as overdue_amount'),
-                DB::raw('COALESCE(la.dpd,0) as dpd'),
+                DB::raw('COALESCE(la.max_dpd,0) as dpd'),
             ])
-            ->orderByDesc('la.dpd')
+            ->orderByDesc('la.max_dpd')
             ->orderByDesc('la.outstanding_balance');
 
         return $q->paginate($perPage, ['*'], 'page', $page);
@@ -280,11 +238,11 @@ class LoanAgingReportService
             ->fromSub($loanAgg, 'la')
             ->join('loans', 'loans.id', '=', 'la.loan_id')
             ->selectRaw('loans.loan_product_id as product_id')
-            ->selectRaw('SUM(CASE WHEN la.dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
-            ->selectRaw('SUM(CASE WHEN la.dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
             ->groupBy('product_id')
             ->get();
 
@@ -311,11 +269,11 @@ class LoanAgingReportService
             ->fromSub($loanAgg, 'la')
             ->join('loans', 'loans.id', '=', 'la.loan_id')
             ->selectRaw('loans.subshop_id as subshop_id')
-            ->selectRaw('SUM(CASE WHEN la.dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
-            ->selectRaw('SUM(CASE WHEN la.dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
             ->groupBy('subshop_id')
             ->get();
 
@@ -351,11 +309,11 @@ class LoanAgingReportService
             ->fromSub($loanAgg, 'la')
             ->joinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'la.loan_id'))
             ->selectRaw('lo.officer_id as officer_id')
-            ->selectRaw('SUM(CASE WHEN la.dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
-            ->selectRaw('SUM(CASE WHEN la.dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
-            ->selectRaw('SUM(CASE WHEN la.dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd <= 0 THEN la.outstanding_balance ELSE 0 END) as current_amt')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 1 AND 30 THEN la.outstanding_balance ELSE 0 END) as d1_30')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 31 AND 60 THEN la.outstanding_balance ELSE 0 END) as d31_60')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd BETWEEN 61 AND 90 THEN la.outstanding_balance ELSE 0 END) as d61_90')
+            ->selectRaw('SUM(CASE WHEN la.max_dpd > 90 THEN la.outstanding_balance ELSE 0 END) as d90p')
             ->groupBy('lo.officer_id')
             ->get();
 
@@ -383,15 +341,15 @@ class LoanAgingReportService
             ->fromSub($loanAgg, 'la')
             ->join('loans', 'loans.id', '=', 'la.loan_id')
             ->leftJoin('customers as c', 'c.id', '=', 'loans.customer_id')
-            ->where('la.dpd', '>', 60)
+            ->where('la.max_dpd', '>', 60)
             ->select([
                 'loans.id as loan_id',
                 'loans.loan_code',
                 'c.name as customer',
-                DB::raw('la.dpd as dpd'),
+                DB::raw('la.max_dpd as dpd'),
                 DB::raw('la.outstanding_balance as outstanding'),
             ])
-            ->orderByDesc('la.dpd')
+            ->orderByDesc('la.max_dpd')
             ->orderByDesc('la.outstanding_balance')
             ->limit(10)
             ->get();
@@ -419,17 +377,17 @@ class LoanAgingReportService
 
     private function dpdDistribution(QueryBuilder $loanAgg): array
     {
-        $avg = (float) DB::query()->fromSub($loanAgg, 'la')->avg('la.dpd');
-        $max = (int) DB::query()->fromSub($loanAgg, 'la')->max('la.dpd');
+        $avg = (float) DB::query()->fromSub($loanAgg, 'la')->avg('la.max_dpd');
+        $max = (int) DB::query()->fromSub($loanAgg, 'la')->max('la.max_dpd');
 
         $distRows = DB::query()
             ->fromSub($loanAgg, 'la')
             ->selectRaw("CASE
-                WHEN la.dpd <= 0 THEN '0'
-                WHEN la.dpd <= 30 THEN '1-30'
-                WHEN la.dpd <= 60 THEN '31-60'
-                WHEN la.dpd <= 90 THEN '61-90'
-                WHEN la.dpd <= 120 THEN '91-120'
+                WHEN la.max_dpd <= 0 THEN '0'
+                WHEN la.max_dpd <= 30 THEN '1-30'
+                WHEN la.max_dpd <= 60 THEN '31-60'
+                WHEN la.max_dpd <= 90 THEN '61-90'
+                WHEN la.max_dpd <= 120 THEN '91-120'
                 ELSE '120+'
             END as bucket")
             ->selectRaw('COUNT(*) as loans')
@@ -470,7 +428,7 @@ class LoanAgingReportService
             ->join('loans', 'loans.id', '=', 'la.loan_id')
             ->leftJoinSub($lastPayment, 'lp', fn ($j) => $j->on('lp.loan_id', '=', 'loans.id'))
             ->leftJoin('customers as c', 'c.id', '=', 'loans.customer_id')
-            ->where('la.dpd', '>', 120)
+            ->where('la.max_dpd', '>', 120)
             ->where(function ($q) use ($cutoff) {
                 $q->whereNull('lp.last_payment_date')->orWhereDate('lp.last_payment_date', '<', $cutoff);
             })
@@ -478,11 +436,11 @@ class LoanAgingReportService
                 'loans.id as loan_id',
                 'loans.loan_code',
                 'c.name as customer',
-                DB::raw('la.dpd as dpd'),
+                DB::raw('la.max_dpd as dpd'),
                 DB::raw('la.outstanding_balance as outstanding'),
                 'lp.last_payment_date as last_payment_date',
             ])
-            ->orderByDesc('la.dpd')
+            ->orderByDesc('la.max_dpd')
             ->orderByDesc('la.outstanding_balance')
             ->limit(50)
             ->get();
@@ -519,12 +477,12 @@ class LoanAgingReportService
 
             $subshopIds = $this->resolveSubshopFilter($filters['subshop_id'] ?? null, $accessibleSubshopIds);
             $loanIds = $this->filteredLoanIds($filters, $subshopIds);
-            $loanAgg = $this->loanAgingBase($subshopIds, $loanIds, $monthEnd);
+            $loanAgg = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $monthEnd);
 
-            $portfolioOutstanding = (float) DB::query()->fromSub($loanAgg, 'la')->sum('la.outstanding_balance');
+            $portfolioOutstanding = $this->delinquencyEngine->calculatePortfolioOutstandingFromInstallments($subshopIds, $loanIds, $monthEnd);
             $overdueAmt = (float) DB::query()->fromSub($loanAgg, 'la')->sum('la.overdue_amount');
-            $par30Out = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 30)->sum('la.outstanding_balance');
-            $par90Out = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.dpd', '>', 90)->sum('la.outstanding_balance');
+            $par30Out = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 30)->sum('la.outstanding_balance');
+            $par90Out = (float) DB::query()->fromSub($loanAgg, 'la')->where('la.max_dpd', '>=', 90)->sum('la.outstanding_balance');
 
             $par30[] = $portfolioOutstanding > 0 ? round(($par30Out / $portfolioOutstanding) * 100, 2) : 0.0;
             $par90[] = $portfolioOutstanding > 0 ? round(($par90Out / $portfolioOutstanding) * 100, 2) : 0.0;

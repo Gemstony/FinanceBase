@@ -11,6 +11,7 @@ use App\Models\Loans;
 use App\Models\LoanWriteoffRecoveries;
 use App\Models\LoanWriteoffs;
 use App\Models\User;
+use App\Services\Loans\Risk\LoanDelinquencyEngine;
 use App\Services\Loans\Risk\PortfolioRiskCalculator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,12 +19,10 @@ use Illuminate\Support\Facades\DB;
 
 class LoanPerformanceReportService
 {
-    private readonly PortfolioRiskCalculator $portfolioRiskCalculator;
-
-    public function __construct(PortfolioRiskCalculator $portfolioRiskCalculator)
-    {
-        $this->portfolioRiskCalculator = $portfolioRiskCalculator;
-    }
+    public function __construct(
+        private readonly PortfolioRiskCalculator $portfolioRiskCalculator,
+        private readonly LoanDelinquencyEngine $delinquencyEngine,
+    ) {}
 
     /**
      * @param  array{date_from:Carbon,date_to:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null}  $filters
@@ -177,16 +176,14 @@ class LoanPerformanceReportService
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->count('id');
 
-        $defaultedLoans = (int) LoanInstallments::query()
-            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->where('loan_installments.is_active', true)
-            ->where('loan_installments.status', 'overdue')
-            ->whereDate('loan_installments.due_date', '<', Carbon::today()->subDays(90)->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->distinct()
-            ->count('loan_installments.loan_id');
+        // Use delinquencyEngine for correct default rate calculation (max_dpd >= 90)
+        $defaultedLoans = 0;
+        if ($loanIds->isNotEmpty()) {
+            $parBase = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, Carbon::today());
+            $defaultedLoans = (int) DB::query()->fromSub($parBase, 'p')
+                ->where('p.max_dpd', '>=', 90)
+                ->count('p.loan_id');
+        }
 
         $defaultRate = $totalLoans > 0 ? round(($defaultedLoans / $totalLoans) * 100, 2) : 0.0;
 
@@ -374,16 +371,14 @@ class LoanPerformanceReportService
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
             ->sum('loan_installments.outstanding_amount');
 
-        $loans90 = (int) LoanInstallments::query()
-            ->join('loans', 'loans.id', '=', 'loan_installments.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->where('loan_installments.is_active', true)
-            ->where('loan_installments.status', 'overdue')
-            ->whereDate('loan_installments.due_date', '<', Carbon::today()->subDays(90)->toDateString())
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loan_installments.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->distinct()
-            ->count('loan_installments.loan_id');
+        // Use delinquencyEngine for correct 90+ days calculation (max_dpd >= 90)
+        $loans90 = 0;
+        if ($loanIds->isNotEmpty()) {
+            $parBase = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, Carbon::today());
+            $loans90 = (int) DB::query()->fromSub($parBase, 'p')
+                ->where('p.max_dpd', '>=', 90)
+                ->count('p.loan_id');
+        }
 
         $totalLoans = (int) $this->portfolioRiskCalculator->activeLoansQuery()
             ->whereIn('subshop_id', $subshopIds)
@@ -412,70 +407,10 @@ class LoanPerformanceReportService
             ->get(['id', 'name'])
             ->keyBy('id');
 
-        $productLoanMap = DB::table('loans')
-            ->whereIn('subshop_id', $subshopIds)
-            ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->where('is_active', true)
-            ->where('is_written_off', false)
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loan_product_id, GROUP_CONCAT(id) as loan_ids')
-            ->groupBy('loan_product_id')
-            ->get()
-            ->keyBy('loan_product_id');
-
-        $productExpected = [];
-        $productCollected = [];
-        $productPar30 = [];
-        $productOutstanding = [];
-
         $dateFromStr = $dateFrom->toDateString();
         $dateToStr = $dateTo->toDateString();
-        $par30Cutoff = Carbon::today()->subDays(30)->toDateString();
 
-        foreach ($productLoanMap as $pid => $row) {
-            $loanIdsArr = array_filter(explode(',', $row->loan_ids ?? ''));
-            $totalOut = 0.0;
-            $expSum = 0.0;
-            $colSum = 0.0;
-            $par30Sum = 0.0;
-
-            foreach ($loanIdsArr as $loanId) {
-                $loan = \App\Models\Loans::find((int) $loanId);
-                if ($loan) {
-                    $out = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
-                    $totalOut += $out;
-                    $productOutstanding[$pid] = $totalOut;
-
-                    $exp = DB::table('loan_installments as li')
-                        ->where('li.loan_id', $loanId)
-                        ->where('li.is_active', true)
-                        ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
-                        ->sum('li.total_due');
-                    $expSum += (float) $exp;
-
-                    $col = DB::table('loan_payments as lp')
-                        ->join('loans', 'loans.id', '=', 'lp.loan_id')
-                        ->where('lp.loan_id', $loanId)
-                        ->where('lp.status', 'confirmed')
-                        ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
-                        ->sum('lp.amount');
-                    $colSum += (float) $col;
-
-                    $par30 = DB::table('loan_installments as li')
-                        ->where('li.loan_id', $loanId)
-                        ->where('li.is_active', true)
-                        ->where('li.status', 'overdue')
-                        ->whereDate('li.due_date', '<', $par30Cutoff)
-                        ->sum('li.outstanding_amount');
-                    $par30Sum += (float) $par30;
-                }
-            }
-
-            $productExpected[$pid] = $expSum;
-            $productCollected[$pid] = $colSum;
-            $productPar30[$pid] = $par30Sum;
-        }
-
+        // Get loan counts per product
         $loanCounts = DB::table('loans')
             ->whereIn('subshop_id', $subshopIds)
             ->whereIn('status', ['disbursed', 'partially_paid', 'defaulted'])
@@ -486,10 +421,54 @@ class LoanPerformanceReportService
             ->groupBy('loan_product_id')
             ->pluck('total_loans', 'loan_product_id');
 
+        // Expected repayments per product (period-based)
+        $expectedByProduct = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('li.is_active', true)
+            ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->selectRaw('loans.loan_product_id as product_id, SUM(li.total_due) as expected')
+            ->groupBy('loans.loan_product_id')
+            ->pluck('expected', 'product_id');
+
+        // Collected payments per product (period-based)
+        $collectedByProduct = DB::table('loan_payments as lp')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('lp.status', 'confirmed')
+            ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->selectRaw('loans.loan_product_id as product_id, SUM(lp.amount) as collected')
+            ->groupBy('loans.loan_product_id')
+            ->pluck('collected', 'product_id');
+
+        // PAR30 per product using delinquencyEngine (correct >= 30 threshold)
+        // Get PAR30 outstanding per loan, then aggregate by product
+        $par30ByProduct = [];
+        if ($loanIds->isNotEmpty()) {
+            $par30Base = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $dateTo);
+            $par30Loans = DB::query()->fromSub($par30Base, 'p')
+                ->where('p.max_dpd', '>=', 30)
+                ->select(['p.loan_id', 'p.outstanding_balance'])
+                ->get();
+
+            $loanProductMap = DB::table('loans')
+                ->whereIn('id', $par30Loans->pluck('loan_id'))
+                ->pluck('loan_product_id', 'id');
+
+            foreach ($par30Loans as $row) {
+                $pid = $loanProductMap[$row->loan_id] ?? null;
+                if ($pid) {
+                    $par30ByProduct[$pid] = ($par30ByProduct[$pid] ?? 0) + (float) $row->outstanding_balance;
+                }
+            }
+        }
+
         $result = [];
         foreach ($products as $pid => $p) {
-            $exp = (float) ($productExpected[$pid] ?? 0);
-            $col = (float) ($productCollected[$pid] ?? 0);
+            $exp = (float) ($expectedByProduct[$pid] ?? 0);
+            $col = (float) ($collectedByProduct[$pid] ?? 0);
 
             $result[] = [
                 'product_id' => (int) $pid,
@@ -498,7 +477,7 @@ class LoanPerformanceReportService
                 'expected' => round($exp, 2),
                 'collected' => round($col, 2),
                 'efficiency_pct' => $exp > 0 ? round(($col / $exp) * 100, 2) : 0.0,
-                'par30' => round((float) ($productPar30[$pid] ?? 0), 2),
+                'par30' => round((float) ($par30ByProduct[$pid] ?? 0), 2),
             ];
         }
 
@@ -519,7 +498,11 @@ class LoanPerformanceReportService
             ->selectRaw('MAX(ld.id) as id, ld.loan_id')
             ->groupBy('ld.loan_id');
 
-        $loanOfficer = DB::table('loans')
+        $dateFromStr = $dateFrom->toDateString();
+        $dateToStr = $dateTo->toDateString();
+
+        // Loans managed per officer (using latest disbursement processor)
+        $loansManaged = DB::table('loans')
             ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
             ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
             ->whereIn('loans.subshop_id', $subshopIds)
@@ -527,81 +510,83 @@ class LoanPerformanceReportService
             ->where('loans.is_active', true)
             ->where('loans.is_written_off', false)
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('loans.id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->selectRaw('loans.id as loan_id, ld.processed_by as officer_id')
-            ->get();
+            ->selectRaw('ld.processed_by as officer_id, COUNT(*) as loans_managed')
+            ->groupBy('ld.processed_by')
+            ->pluck('loans_managed', 'officer_id');
 
-        $officerLoanMap = [];
-        $officerExpected = [];
-        $officerCollected = [];
-        $officerPar30 = [];
-        $officerOutstanding = [];
-        $officerLoansManaged = [];
+        // Expected per officer (join through loan_officer mapping)
+        $expectedByOfficer = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
+            ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('li.is_active', true)
+            ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->selectRaw('ld.processed_by as officer_id, SUM(li.total_due) as expected')
+            ->groupBy('ld.processed_by')
+            ->pluck('expected', 'officer_id');
 
-        $dateFromStr = $dateFrom->toDateString();
-        $dateToStr = $dateTo->toDateString();
-        $par30Cutoff = Carbon::today()->subDays(30)->toDateString();
+        // Collected per officer (using payment user_id - who recorded the payment)
+        $collectedByOfficer = DB::table('loan_payments as lp')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('lp.status', 'confirmed')
+            ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->selectRaw('lp.user_id as officer_id, SUM(lp.amount) as collected')
+            ->groupBy('lp.user_id')
+            ->pluck('collected', 'officer_id');
 
-        foreach ($loanOfficer as $lo) {
-            $oid = (int) $lo->officer_id;
-            if (! isset($officerExpected[$oid])) {
-                $officerExpected[$oid] = 0.0;
-                $officerCollected[$oid] = 0.0;
-                $officerPar30[$oid] = 0.0;
-                $officerOutstanding[$oid] = 0.0;
-                $officerLoansManaged[$oid] = 0;
-                $officerLoanMap[$oid] = [];
-            }
-            $officerLoanMap[$oid][] = (int) $lo->loan_id;
-        }
+        // PAR30 per officer using delinquencyEngine (correct >= 30 threshold)
+        // First get loan-to-officer mapping, then aggregate PAR30 by officer
+        $par30ByOfficer = [];
+        if ($loanIds->isNotEmpty()) {
+            $par30Base = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $dateTo);
+            $par30Loans = DB::query()->fromSub($par30Base, 'p')
+                ->where('p.max_dpd', '>=', 30)
+                ->select(['p.loan_id', 'p.outstanding_balance'])
+                ->get();
 
-        foreach ($officerLoanMap as $oid => $loanIdList) {
-            foreach ($loanIdList as $loanId) {
-                $loan = \App\Models\Loans::find($loanId);
-                if ($loan) {
-                    $out = $this->portfolioRiskCalculator->calculateLoanOutstanding($loan);
-                    $officerOutstanding[$oid] += $out;
-                    $officerLoansManaged[$oid]++;
+            // Get officer mapping for PAR30 loans
+            $loanOfficerMap = DB::table('loans')
+                ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
+                ->join('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
+                ->whereIn('loans.id', $par30Loans->pluck('loan_id'))
+                ->selectRaw('loans.id as loan_id, ld.processed_by as officer_id')
+                ->pluck('officer_id', 'loan_id');
 
-                    $exp = DB::table('loan_installments as li')
-                        ->where('li.loan_id', $loanId)
-                        ->where('li.is_active', true)
-                        ->whereBetween('li.due_date', [$dateFromStr, $dateToStr])
-                        ->sum('li.total_due');
-                    $officerExpected[$oid] += (float) $exp;
-
-                    $col = DB::table('loan_payments as lp')
-                        ->where('lp.loan_id', $loanId)
-                        ->where('lp.status', 'confirmed')
-                        ->whereBetween('lp.payment_date', [$dateFromStr, $dateToStr])
-                        ->sum('lp.amount');
-                    $officerCollected[$oid] += (float) $col;
-
-                    $par30 = DB::table('loan_installments as li')
-                        ->where('li.loan_id', $loanId)
-                        ->where('li.is_active', true)
-                        ->where('li.status', 'overdue')
-                        ->whereDate('li.due_date', '<', $par30Cutoff)
-                        ->sum('li.outstanding_amount');
-                    $officerPar30[$oid] += (float) $par30;
+            foreach ($par30Loans as $row) {
+                $oid = $loanOfficerMap[$row->loan_id] ?? null;
+                if ($oid) {
+                    $par30ByOfficer[$oid] = ($par30ByOfficer[$oid] ?? 0) + (float) $row->outstanding_balance;
                 }
             }
         }
 
-        $users = User::query()->whereIn('id', array_keys($officerOutstanding))->get(['id', 'name'])->keyBy('id');
+        // Combine all officer IDs
+        $allOfficerIds = collect(array_merge(
+            $loansManaged->keys()->all(),
+            $expectedByOfficer->keys()->all(),
+            $collectedByOfficer->keys()->all(),
+            array_keys($par30ByOfficer)
+        ))->unique()->filter()->values();
+
+        $users = User::query()->whereIn('id', $allOfficerIds)->get(['id', 'name'])->keyBy('id');
 
         $rows = [];
-        foreach ($officerOutstanding as $oid => $total) {
-            $exp = $officerExpected[$oid] ?? 0;
-            $col = $officerCollected[$oid] ?? 0;
+        foreach ($allOfficerIds as $oid) {
+            $exp = (float) ($expectedByOfficer[$oid] ?? 0);
+            $col = (float) ($collectedByOfficer[$oid] ?? 0);
 
             $rows[] = [
-                'officer_id' => $oid,
-                'officer' => (string) ($users[$oid]->name ?? 'Unknown'),
-                'loans_managed' => (int) ($officerLoansManaged[$oid] ?? 0),
+                'officer_id' => (int) $oid,
+                'officer' => (string) ($users[(int) $oid]->name ?? 'Unknown'),
+                'loans_managed' => (int) ($loansManaged[$oid] ?? 0),
                 'expected' => round($exp, 2),
                 'collected' => round($col, 2),
                 'efficiency_pct' => $exp > 0 ? round(($col / $exp) * 100, 2) : 0.0,
-                'par30' => round((float) ($officerPar30[$oid] ?? 0), 2),
+                'par30' => round((float) ($par30ByOfficer[$oid] ?? 0), 2),
             ];
         }
 

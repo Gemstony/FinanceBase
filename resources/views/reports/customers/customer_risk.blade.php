@@ -260,7 +260,7 @@
                 <h5 class="card-title">Customer Risk Details</h5>
             </div>
             <div class="card-body table-responsive">
-                <table class="table table-bordered table-striped table-hover" id="riskTable">
+                <table class="table table-bordered table-striped table-hover table-sm" id="riskTable">
                     <thead class="thead-dark">
                         <tr>
                             <th>Customer</th>

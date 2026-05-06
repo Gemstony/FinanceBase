@@ -1,4 +1,4 @@
-c@extends('adminlte::page')
+@extends('adminlte::page')
 
 @section('title', 'Fees Report')
 

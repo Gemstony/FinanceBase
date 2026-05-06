@@ -132,6 +132,100 @@ class LoanDelinquencyEngine
     }
 
     /**
+     * Installment-level base query for installment aging reports.
+     *
+     * Returns individual installment records with:
+     * - loan_id, loan_code, customer info, product, branch, officer
+     * - installment_id, installment_number, due_date
+     * - total_due, paid_amount, outstanding_balance
+     * - dpd (Days Past Due per installment)
+     * - aging_bucket (Current, 1-30, 31-60, 61-90, 90+)
+     *
+     * Uses the same DPD calculation logic as parBaseQuery for consistency.
+     */
+    public function installmentLevelBaseQuery(
+        array $subshopIds,
+        ?Carbon $asOfDate = null,
+        ?int $loanProductId = null,
+        ?int $loanOfficerId = null,
+        ?string $loanStatus = null,
+        ?string $customerSearch = null,
+        ?int $dpdMin = null,
+        ?int $dpdMax = null
+    ): QueryBuilder {
+        $asOf = ($asOfDate ?? Carbon::today())->toDateString();
+
+        // Active loan filter (same logic as parBaseQuery)
+        $loanFilter = $this->activePortfolioLoansQuery($subshopIds)
+            ->when($loanProductId, fn ($q) => $q->where('loans.loan_product_id', $loanProductId))
+            ->when($loanStatus, fn ($q) => $q->where('loans.status', $loanStatus))
+            ->select('loans.id');
+
+        // Latest disbursement for officer lookup
+        $latestDisb = DB::table('loan_disbursements as ld')
+            ->selectRaw('MAX(ld.id) as id, ld.loan_id')
+            ->groupBy('ld.loan_id');
+
+        $q = DB::table('loan_installments as li')
+            ->joinSub($loanFilter, 'pl', fn ($j) => $j->on('pl.id', '=', 'li.loan_id'))
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->leftJoin('customers', 'customers.id', '=', 'loans.customer_id')
+            ->leftJoin('loan_products as lp', 'lp.id', '=', 'loans.loan_product_id')
+            ->leftJoin('sub_shops as ss', 'ss.id', '=', 'loans.subshop_id')
+            ->leftJoinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.loan_id', '=', 'loans.id'))
+            ->leftJoin('loan_disbursements as ld', 'ld.id', '=', 'ld_latest.id')
+            ->leftJoin('users as u', 'u.id', '=', 'ld.processed_by')
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            // Apply officer filter at join level
+            ->when($loanOfficerId, fn ($q) => $q->where('ld.processed_by', $loanOfficerId))
+            // Apply customer search
+            ->when($customerSearch, function ($q) use ($customerSearch) {
+                $search = trim($customerSearch);
+                if ($search !== '') {
+                    $q->where('customers.name', 'like', '%'.$search.'%');
+                }
+            })
+            // Select all installment-level fields
+            ->selectRaw('li.id as installment_id')
+            ->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('loans.loan_code as loan_code')
+            ->selectRaw('customers.id as customer_id')
+            ->selectRaw('customers.name as customer')
+            ->selectRaw('COALESCE(lp.name, "") as product')
+            ->selectRaw('COALESCE(ss.name, "") as branch')
+            ->selectRaw('COALESCE(u.name, "") as officer')
+            ->selectRaw('li.installment_number as installment_number')
+            ->selectRaw('li.due_date as due_date')
+            ->selectRaw('li.total_due as total_due')
+            ->selectRaw('li.amount_paid as paid_amount')
+            ->selectRaw('li.outstanding_amount as outstanding_balance')
+            ->selectRaw('li.status as installment_status')
+            // DPD calculation: same logic as parBaseQuery (DATEDIFF against due_date)
+            ->selectRaw('CASE WHEN li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END as dpd', [$asOf, $asOf])
+            // Aging bucket classification
+            ->selectRaw(
+                "CASE \n".
+                " WHEN li.due_date >= ? THEN 'Current'\n".
+                " WHEN DATEDIFF(?, li.due_date) <= 30 THEN '1-30'\n".
+                " WHEN DATEDIFF(?, li.due_date) <= 60 THEN '31-60'\n".
+                " WHEN DATEDIFF(?, li.due_date) <= 90 THEN '61-90'\n".
+                " ELSE '90+' END as aging_bucket",
+                [$asOf, $asOf, $asOf, $asOf]
+            );
+
+        // Apply DPD filters using HAVING (since dpd is computed)
+        if ($dpdMin !== null) {
+            $q->having('dpd', '>=', $dpdMin);
+        }
+        if ($dpdMax !== null) {
+            $q->having('dpd', '<=', $dpdMax);
+        }
+
+        return $q;
+    }
+
+    /**
      * Calculate total outstanding (denominator) from loan_installments directly.
      */
     public function calculatePortfolioOutstandingFromInstallments(array $subshopIds, $loanIds = null): float

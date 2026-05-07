@@ -541,6 +541,80 @@
         </div>
       </div>
 
+      {{-- Report Documentation / Calculation Methodology --}}
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card border-info">
+            <div class="card-header bg-info text-white" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-info-circle"></i> How are these calculations performed?</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+            </div>
+            <div id="calculationDocs" class="collapse">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Summary KPIs</h6>
+                    <ul class="small">
+                      <li><strong>Total Collected:</strong> Sum of all confirmed payment amounts received within the selected date range. Respects all filters (officer, method, product, status, customer).</li>
+                      <li><strong>Transactions:</strong> Count of confirmed payment transactions in the period.</li>
+                      <li><strong>Average Payment:</strong> Total Collected / Transactions count.</li>
+                      <li><strong>On-Time Rate:</strong> Percentage of payments made on or before the installment due date.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Scheduled vs Actual</h6>
+                    <ul class="small">
+                      <li><strong>Scheduled Amount:</strong> Sum of total_due for all active installments with due dates within the selected period, for loans matching the filter criteria.</li>
+                      <li><strong>Actual Collected:</strong> Sum of confirmed payment amounts in the period (same as Total Collected).</li>
+                      <li><strong>Collection Efficiency:</strong> (Actual / Scheduled) × 100. Shows what percentage of expected collections was achieved.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Partial vs Full Payments</h6>
+                    <ul class="small">
+                      <li><strong>Full Payment:</strong> A payment transaction where the allocated amount covers the full installment total_due.</li>
+                      <li><strong>Partial Payment:</strong> A payment transaction where the allocated amount covers only part of the installment total_due.</li>
+                      <li>Based on payment allocations, not installment status, to accurately reflect payment completeness.</li>
+                    </ul>
+                  </div>
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">On-Time vs Late</h6>
+                    <ul class="small">
+                      <li><strong>On-Time:</strong> Payments with payment_date <= installment due_date.</li>
+                      <li><strong>Late:</strong> Payments with payment_date > installment due_date.</li>
+                      <li>Amounts are based on payment allocations (principal + interest + fees + penalties).</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Repayment Aging</h6>
+                    <ul class="small">
+                      <li>Buckets (1-30, 31-60, 61-90, 90+) represent days late: DATEDIFF(payment_date, due_date).</li>
+                      <li>Only includes payments that were actually late (payment_date > due_date).</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Recovery Tracking</h6>
+                    <ul class="small">
+                      <li><strong>Total Overdue:</strong> Sum of outstanding_amount for active installments with due_date < report end date.</li>
+                      <li><strong>Recovered:</strong> Payments received in the period for overdue installments (installments that were already past due).</li>
+                      <li><strong>Recovery Rate:</strong> (Recovered / Total Overdue) × 100.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Officer Performance</h6>
+                    <ul class="small">
+                      <li><strong>On-Time Rate:</strong> For each officer, percentage of their payments that were on-time.</li>
+                      <li><strong>Recovery Rate:</strong> Overdue amount on loans they collected from / Total they recovered from those loans.</li>
+                      <li>Officer attribution based on user_id on payment (who processed the payment).</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0 small">
+                  <strong>Note:</strong> This report uses loan_installments as the source of truth for scheduled amounts and outstanding balances. All payment calculations use confirmed payment allocations. Officer and payment method filters are consistently applied across all metrics.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

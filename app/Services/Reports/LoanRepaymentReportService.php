@@ -34,7 +34,7 @@ class LoanRepaymentReportService
         $paymentsInPeriodQ = $this->filteredPaymentsQuery($filters, $subshopIds)
             ->whereBetween('loan_payments.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        $loanIdsScope = $this->filteredLoansScopeQuery($filters, $subshopIds)->pluck('loans.id');
+        $loanIdsScope = $this->filteredLoansScopeQuery($filters, $subshopIds, $dateFrom, $dateTo)->pluck('loans.id');
 
         $totalCollected = (float) (clone $paymentsInPeriodQ)->sum('loan_payments.amount');
         $txCount = (int) (clone $paymentsInPeriodQ)->count('loan_payments.id');
@@ -124,7 +124,7 @@ class LoanRepaymentReportService
         return $q;
     }
 
-    private function filteredLoansScopeQuery(array $filters, array $subshopIds): Builder
+    private function filteredLoansScopeQuery(array $filters, array $subshopIds, Carbon $dateFrom, Carbon $dateTo): Builder
     {
         $q = Loans::query()->from('loans')->whereIn('loans.subshop_id', $subshopIds);
 
@@ -136,6 +136,30 @@ class LoanRepaymentReportService
         }
         if (! empty($filters['customer_id'])) {
             $q->where('loans.customer_id', (int) $filters['customer_id']);
+        }
+
+        // Officer filter: include loans that had payments by this officer in the period
+        if (! empty($filters['loan_officer_id'])) {
+            $q->whereExists(function ($sq) use ($filters, $dateFrom, $dateTo) {
+                $sq->selectRaw('1')
+                    ->from('loan_payments as lp')
+                    ->whereColumn('lp.loan_id', 'loans.id')
+                    ->where('lp.user_id', (int) $filters['loan_officer_id'])
+                    ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
+                    ->where('lp.status', 'confirmed');
+            });
+        }
+
+        // Payment method filter: include loans that had payments via this method in the period
+        if (! empty($filters['payment_method'])) {
+            $q->whereExists(function ($sq) use ($filters, $dateFrom, $dateTo) {
+                $sq->selectRaw('1')
+                    ->from('loan_payments as lp')
+                    ->whereColumn('lp.loan_id', 'loans.id')
+                    ->where('lp.payment_method', (string) $filters['payment_method'])
+                    ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
+                    ->where('lp.status', 'confirmed');
+            });
         }
 
         return $q;
@@ -458,28 +482,57 @@ class LoanRepaymentReportService
 
     private function partialVsFull(array $filters, array $subshopIds, Carbon $dateFrom, Carbon $dateTo, $loanIdsScope): array
     {
-        $base = LoanInstallments::query()
-            ->withoutGlobalScopes()
-            ->from('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
+        // Get payment allocations and determine if each payment fully covered its allocated installments
+        // Full = payment allocation covered the full installment total_due
+        // Partial = payment allocation covered only part of the installment
+        $base = LoanPaymentAllocations::query()
+            ->from('loan_payment_allocations as lpa')
+            ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
+            ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereIn('loans.id', $loanIdsScope)
-            ->where('li.is_active', 1)
-            ->whereNotNull('li.paid_date')
-            ->whereBetween('li.paid_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
+            ->where('lp.status', 'confirmed')
+            ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
+
+        if (! empty($filters['loan_officer_id'])) {
+            $base->where('lp.user_id', (int) $filters['loan_officer_id']);
+        }
+        if (! empty($filters['payment_method'])) {
+            $base->where('lp.payment_method', (string) $filters['payment_method']);
+        }
 
         $rows = (clone $base)
-            ->selectRaw('SUM(CASE WHEN li.status = "paid" THEN 1 ELSE 0 END) as full_count')
-            ->selectRaw('SUM(CASE WHEN li.status = "partial" THEN 1 ELSE 0 END) as partial_count')
-            ->selectRaw('SUM(CASE WHEN li.status = "paid" THEN li.amount_paid ELSE 0 END) as full_amount')
-            ->selectRaw('SUM(CASE WHEN li.status = "partial" THEN li.amount_paid ELSE 0 END) as partial_amount')
-            ->first();
+            ->selectRaw('lp.id as payment_id')
+            ->selectRaw('SUM(lpa.principal_amount + lpa.interest_amount + lpa.fee_amount + lpa.penalty_amount) as allocated_amount')
+            ->selectRaw('SUM(li.total_due) as installment_due')
+            ->groupBy('payment_id')
+            ->get();
+
+        $fullCount = 0;
+        $partialCount = 0;
+        $fullAmount = 0.0;
+        $partialAmount = 0.0;
+
+        foreach ($rows as $r) {
+            $allocated = (float) ($r->allocated_amount ?? 0);
+            $due = (float) ($r->installment_due ?? 0);
+
+            // If allocated covers the full installment due, it's a full payment
+            if ($allocated >= $due && $due > 0) {
+                $fullCount++;
+                $fullAmount += $allocated;
+            } else {
+                $partialCount++;
+                $partialAmount += $allocated;
+            }
+        }
 
         return [
-            'full_payments_count' => (int) ($rows->full_count ?? 0),
-            'partial_payments_count' => (int) ($rows->partial_count ?? 0),
-            'full_payments_amount' => round((float) ($rows->full_amount ?? 0), 2),
-            'partial_payments_amount' => round((float) ($rows->partial_amount ?? 0), 2),
+            'full_payments_count' => $fullCount,
+            'partial_payments_count' => $partialCount,
+            'full_payments_amount' => round($fullAmount, 2),
+            'partial_payments_amount' => round($partialAmount, 2),
         ];
     }
 
@@ -673,17 +726,16 @@ class LoanRepaymentReportService
             ->keyBy('user_id');
 
         $asOf = $dateTo->toDateString();
-        $overdueByOfficer = LoanInstallments::query()
-            ->withoutGlobalScopes()
-            ->from('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->leftJoin('loan_payments as lp', function ($j) use ($dateFrom, $dateTo) {
-                $j->on('lp.loan_id', '=', 'loans.id')
-                    ->where('lp.status', 'confirmed')
-                    ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
-            })
+
+        // Get overdue per officer: sum of outstanding on loans where this officer made payments in the period
+        // This correctly attributes overdue to officers who are actively collecting from those loans
+        $overdueByOfficer = DB::table('loan_payments as lp')
+            ->join('loans', 'loans.id', '=', 'lp.loan_id')
+            ->join('loan_installments as li', 'li.loan_id', '=', 'loans.id')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->whereIn('loans.id', $loanIdsScope)
+            ->where('lp.status', 'confirmed')
+            ->whereBetween('lp.payment_date', [$dateFrom->toDateString(), $dateTo->toDateString()])
             ->where('li.is_active', 1)
             ->where('li.outstanding_amount', '>', 0)
             ->where('li.due_date', '<', $asOf)

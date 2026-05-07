@@ -567,6 +567,70 @@
         </div>
       </div>
 
+      {{-- Report Documentation / Calculation Methodology --}}
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card border-info">
+            <div class="card-header bg-info text-white" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-info-circle"></i> How are these calculations performed?</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+            </div>
+            <div id="calculationDocs" class="collapse">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Key Metrics</h6>
+                    <ul class="small">
+                      <li><strong>Portfolio Outstanding:</strong> Sum of all outstanding balances from loan_installments for active loans (status: disbursed, partially_paid, defaulted) that are not written off. Calculated using LoanDelinquencyEngine from loan_installments as single source of truth.</li>
+                      <li><strong>PAR30 (Portfolio at Risk 30+ days):</strong> Percentage of portfolio with maximum DPD (Days Past Due) >= 30 days. Uses LoanDelinquencyEngine to calculate max_dpd per loan from installment due dates.</li>
+                      <li><strong>Default Rate:</strong> Percentage of loans with max_dpd >= 90 days. Calculated via LoanDelinquencyEngine parBaseQuery with max_dpd >= 90 threshold.</li>
+                      <li><strong>Health Score:</strong> Composite score = (50% x (1 - PAR30/100)) + (30% x Collection Efficiency/100) + (20% x (1 - Default Rate/100)).</li>
+                      <li><strong>Collection Efficiency:</strong> (Total Collected / Total Expected) x 100 based on payments within the selected period.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Product Profitability</h6>
+                    <ul class="small">
+                      <li><strong>Revenue:</strong> Sum of interest earned + fees collected + penalties collected per product.</li>
+                      <li><strong>PAR30 per Product:</strong> Outstanding balance with max_dpd >= 30 days grouped by loan_product_id.</li>
+                      <li><strong>Risk Level:</strong> Low (PAR30 &lt; 5%), Medium (5-15%), High (&gt; 15%).</li>
+                    </ul>
+                  </div>
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Officer Performance</h6>
+                    <ul class="small">
+                      <li><strong>Portfolio by Officer:</strong> Sum of outstanding balances linked to the officer who processed the loan disbursement.</li>
+                      <li><strong>PAR30 by Officer:</strong> Outstanding with max_dpd >= 30 for loans disbursed by that officer.</li>
+                      <li><strong>Score:</strong> Based on portfolio size, low PAR30, and high collection efficiency.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Customer Segmentation</h6>
+                    <ul class="small">
+                      <li><strong>VIP:</strong> Portfolio >= top 20% threshold AND PAR30 &lt; 10%.</li>
+                      <li><strong>High-Risk:</strong> PAR30 >= 10% of customer's portfolio.</li>
+                      <li><strong>New Borrowers:</strong> Customers with only 1 loan ever.</li>
+                      <li><strong>Repeat Borrowers:</strong> Customers with 2+ loans.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Calculation Engine</h6>
+                    <ul class="small">
+                      <li>All DPD calculations use <code>LoanDelinquencyEngine</code> with loan_installments as the single source of truth.</li>
+                      <li>max_dpd = Maximum days past due across all installments for a loan.</li>
+                      <li>PAR30 = (Sum of outstanding for max_dpd >= 30 / Total portfolio) x 100.</li>
+                      <li>All amounts are calculated from installment balances as of the report end date (date_to).</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0 small">
+                  <strong>Note:</strong> This report uses SQL aggregations for performance. All delinquency metrics (DPD, PAR30, Default Rate) are calculated using the LoanDelinquencyEngine which queries loan_installments directly, ensuring consistency across all reports.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

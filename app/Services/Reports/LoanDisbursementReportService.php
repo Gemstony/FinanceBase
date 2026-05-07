@@ -440,18 +440,59 @@ class LoanDisbursementReportService
 
     private function disbursementVsRepayment(array $filters, array $subshopIds, Carbon $dateFrom, Carbon $dateTo): array
     {
+        // Total disbursed in the period (includes top-ups as separate disbursements)
         $disbQ = $this->filteredDisbursementsQuery($filters, $subshopIds)
             ->whereBetween('loan_disbursements.disbursement_date', [$dateFrom->toDateString(), $dateTo->toDateString()]);
 
-        // For repayment comparison, we want repayments in the selected period for loans that match
-        // the current scope filters (product/officer/method/drilldown), even if the loan was
-        // disbursed before the selected period.
-        $loanIdsScope = $this->filteredDisbursementsQuery($filters, $subshopIds)
-            ->distinct()
-            ->pluck('loan_disbursements.loan_id');
-
         $totalDisbursed = (float) (clone $disbQ)->sum('loan_disbursements.amount');
 
+        // For repayments, we want ALL loans that match the filter criteria (product, officer, etc.)
+        // regardless of when they were disbursed. This ensures repayments on pre-existing loans
+        // are included, and top-up loans are properly accounted for.
+        $loanIdsScope = DB::table('loans')
+            ->whereIn('subshop_id', $subshopIds)
+            ->when(!empty($filters['loan_product_id']), fn ($q) => $q->where('loan_product_id', (int) $filters['loan_product_id']))
+            ->when(!empty($filters['loan_status']), fn ($q) => $q->where('status', (string) $filters['loan_status']))
+            ->when(!empty($filters['drilldown']) && is_array($filters['drilldown']), function ($q) use ($filters) {
+                $dd = $filters['drilldown'];
+                if (!empty($dd['product_id'])) {
+                    $q->where('loan_product_id', (int) $dd['product_id']);
+                }
+                if (!empty($dd['branch_id'])) {
+                    $q->where('subshop_id', (int) $dd['branch_id']);
+                }
+                // Officer drilldown: filter to loans disbursed by that officer (any time)
+                if (!empty($dd['officer_id'])) {
+                    $q->whereExists(function ($sq) use ($dd) {
+                        $sq->selectRaw('1')
+                            ->from('loan_disbursements as ld')
+                            ->whereColumn('ld.loan_id', 'loans.id')
+                            ->where('ld.processed_by', (int) $dd['officer_id']);
+                    });
+                }
+            })
+            // Officer filter: include loans that ever had disbursement by this officer
+            ->when(!empty($filters['loan_officer_id']), function ($q) use ($filters) {
+                $q->whereExists(function ($sq) use ($filters) {
+                    $sq->selectRaw('1')
+                        ->from('loan_disbursements as ld')
+                        ->whereColumn('ld.loan_id', 'loans.id')
+                        ->where('ld.processed_by', (int) $filters['loan_officer_id']);
+                });
+            })
+            // Method filter: include loans that used this disbursement method (any time)
+            ->when(!empty($filters['disbursement_method_id']), function ($q) use ($filters) {
+                $q->whereExists(function ($sq) use ($filters) {
+                    $sq->selectRaw('1')
+                        ->from('loan_disbursements as ld')
+                        ->whereColumn('ld.loan_id', 'loans.id')
+                        ->where('ld.disbursement_method_id', (int) $filters['disbursement_method_id']);
+                });
+            })
+            ->pluck('id');
+
+        // Get repayments in the period for all matching loans (including top-ups)
+        // Note: This includes all payment allocations (principal + interest + fees)
         $paymentsQ = LoanPayments::query()
             ->join('loans', 'loans.id', '=', 'loan_payments.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
@@ -516,6 +557,16 @@ class LoanDisbursementReportService
             $approvedInPeriodQ->where('loans.loan_product_id', (int) $filters['loan_product_id']);
         }
 
+        // Officer filter: include loans that ever had disbursement by this officer
+        if (!empty($filters['loan_officer_id'])) {
+            $approvedInPeriodQ->whereExists(function ($sq) use ($filters) {
+                $sq->selectRaw('1')
+                    ->from('loan_disbursements as ld')
+                    ->whereColumn('ld.loan_id', 'loans.id')
+                    ->where('ld.processed_by', (int) $filters['loan_officer_id']);
+            });
+        }
+
         if (!empty($filters['drilldown']) && is_array($filters['drilldown'])) {
             $dd = $filters['drilldown'];
             if (!empty($dd['product_id'])) {
@@ -523,6 +574,15 @@ class LoanDisbursementReportService
             }
             if (!empty($dd['branch_id'])) {
                 $approvedInPeriodQ->where('loans.subshop_id', (int) $dd['branch_id']);
+            }
+            // Officer drilldown: filter to loans disbursed by that officer (any time)
+            if (!empty($dd['officer_id'])) {
+                $approvedInPeriodQ->whereExists(function ($sq) use ($dd) {
+                    $sq->selectRaw('1')
+                        ->from('loan_disbursements as ld')
+                        ->whereColumn('ld.loan_id', 'loans.id')
+                        ->where('ld.processed_by', (int) $dd['officer_id']);
+                });
             }
         }
 

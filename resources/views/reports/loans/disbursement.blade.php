@@ -399,6 +399,67 @@
         </div>
       </div>
 
+      {{-- Report Documentation / Calculation Methodology --}}
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card border-info">
+            <div class="card-header bg-info text-white" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-info-circle"></i> How are these calculations performed?</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+            </div>
+            <div id="calculationDocs" class="collapse">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Summary KPIs</h6>
+                    <ul class="small">
+                      <li><strong>Loans Disbursed:</strong> Count of distinct loans with disbursements in the period. Top-up loans (multiple disbursements on same loan) are de-duplicated for the count but all disbursement amounts are summed.</li>
+                      <li><strong>Total Disbursement Amount:</strong> Sum of all disbursement amounts in the period, including top-ups.</li>
+                      <li><strong>Average Loan Size:</strong> Total Amount / Loans Disbursed.</li>
+                      <li><strong>Disbursement Growth %:</strong> Compares current period disbursements vs same-length previous period. Formula: ((Current - Previous) / Previous) × 100.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">New vs Repeat Borrowers</h6>
+                    <ul class="small">
+                      <li><strong>New Borrowers:</strong> Customers whose FIRST-EVER disbursement occurred in this period (based on customer’s entire history, not filtered scope).</li>
+                      <li><strong>Repeat Borrowers:</strong> Customers who had previous disbursements before this period.</li>
+                      <li><strong>Note:</strong> A customer with multiple disbursements in the period is still counted once in their respective category.</li>
+                    </ul>
+                  </div>
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Disbursement vs Repayment</h6>
+                    <ul class="small">
+                      <li><strong>Total Disbursed:</strong> All disbursements in the period matching filters (product, officer, branch, method).</li>
+                      <li><strong>Total Repaid:</strong> All payments (principal + interest + fees) received in the period for loans matching the filter criteria, regardless of when those loans were disbursed. This includes repayments on pre-existing loans.</li>
+                      <li><strong>Net Portfolio Growth:</strong> Total Disbursed - Total Repaid. Positive = net growth, Negative = net contraction.</li>
+                      <li><strong>Top-up handling:</strong> Loans with top-ups are included in repayment calculations based on all their disbursement history matching the filters.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Efficiency Metrics</h6>
+                    <ul class="small">
+                      <li><strong>Avg Time to Disburse:</strong> Average days between loan approval and first disbursement for loans disbursed in the period.</li>
+                      <li><strong>Approval Conversion Rate:</strong> Percentage of loans approved in the period that were subsequently disbursed. Formula: (Disbursed / Approved) × 100. Respects all filters including officer.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Breakdowns (Product/Branch/Officer)</h6>
+                    <ul class="small">
+                      <li>All breakdowns respect the applied filters (date range, product, officer, status, method).</li>
+                      <li>Officer is determined by who processed the disbursement (processed_by field).</li>
+                      <li>Drill-down links apply additional filters while preserving existing ones.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0 small">
+                  <strong>Note:</strong> This report focuses on disbursement origination flow. Unlike portfolio quality reports, it does not use LoanDelinquencyEngine or loan_installments for calculations. All amounts are based on disbursement and payment transactions within the selected period.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

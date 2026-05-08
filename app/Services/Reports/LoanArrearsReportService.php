@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Services\Loans\Risk\LoanDelinquencyEngine;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -14,6 +15,10 @@ use App\Models\User;
 
 class LoanArrearsReportService
 {
+    public function __construct(
+        private readonly LoanDelinquencyEngine $delinquencyEngine,
+    ) {
+    }
     /**
      * @param array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,dpd_min?:int|null,dpd_max?:int|null,customer_id?:int|null,loan_id?:int|null,per_page?:int|null,page?:int|null,installments_page?:int|null} $filters
      * @param array<int> $accessibleSubshopIds
@@ -111,24 +116,20 @@ class LoanArrearsReportService
 
     private function portfolioOutstanding(array $subshopIds, $loanIds): float
     {
-        return (float) DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->where('li.is_active', true)
-            ->where('loans.is_active', true)
-            ->where('loans.is_written_off', false)
-            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-            ->sum('li.outstanding_amount');
+        // Use LoanDelinquencyEngine for single source of truth on portfolio outstanding
+        return $this->delinquencyEngine->calculatePortfolioOutstandingFromInstallments($subshopIds, $loanIds);
     }
 
     private function arrearsLoansBase(array $subshopIds, $loanIds, Carbon $asAt): QueryBuilder
     {
+        // Use LoanDelinquencyEngine as single source of truth for delinquency data
+        // Engine provides: loan_id, max_dpd, overdue_amount, outstanding_balance
+        $base = $this->delinquencyEngine->delinquencyBaseQuery($subshopIds, $loanIds, $asAt);
+
         $asAtDate = $asAt->toDateString();
 
-        $overdue = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
+        // Supplement with installment-level details that engine doesn't provide
+        $installmentDetails = DB::table('loan_installments as li')
             ->where('li.is_active', true)
             ->where('li.outstanding_amount', '>', 0)
             ->whereDate('li.due_date', '<', $asAtDate)
@@ -136,12 +137,19 @@ class LoanArrearsReportService
             ->selectRaw('li.loan_id as loan_id')
             ->selectRaw('COUNT(*) as overdue_installments')
             ->selectRaw('MIN(li.due_date) as oldest_due_date')
-            ->selectRaw('MAX(DATEDIFF(?, li.due_date)) as dpd', [$asAtDate])
-            ->selectRaw('SUM(li.outstanding_amount) as arrears_amount')
             ->groupBy('li.loan_id');
 
-        return DB::query()->fromSub($overdue, 'o')
-            ->where('o.arrears_amount', '>', 0);
+        // Wrap and map engine columns to report-compatible names
+        return DB::query()
+            ->fromSub($base, 'd')
+            ->leftJoinSub($installmentDetails, 'idet', fn ($j) => $j->on('idet.loan_id', '=', 'd.loan_id'))
+            ->selectRaw('d.loan_id as loan_id')
+            ->selectRaw('d.max_dpd as dpd')
+            ->selectRaw('d.overdue_amount as arrears_amount')
+            ->selectRaw('d.outstanding_balance as outstanding_balance')
+            ->selectRaw('COALESCE(idet.overdue_installments, 0) as overdue_installments')
+            ->selectRaw('idet.oldest_due_date as oldest_due_date')
+            ->where('d.overdue_amount', '>', 0);
     }
 
     private function summaryKpis(QueryBuilder $loanAgg): array
@@ -171,16 +179,17 @@ class LoanArrearsReportService
 
         $asAtDate = $asAt->toDateString();
 
-        $overdueAgg = DB::table('loan_installments as li')
-            ->where('li.is_active', true)
-            ->where('li.outstanding_amount', '>', 0)
-            ->whereDate('li.due_date', '<', $asAtDate)
-            ->selectRaw('li.loan_id as loan_id')
-            ->selectRaw('COUNT(*) as overdue_installments')
-            ->selectRaw('MIN(li.due_date) as oldest_due_date')
-            ->selectRaw('MAX(DATEDIFF(?, li.due_date)) as dpd', [$asAtDate])
-            ->selectRaw('SUM(li.outstanding_amount) as arrears_amount')
-            ->groupBy('li.loan_id');
+        // Use LoanDelinquencyEngine's arrearsLoansBase for single source of truth on arrears data
+        // This ensures DPD and arrears calculations are consistent across all report sections
+        $arrearsBase = $this->arrearsLoansBase($subshopIds, $loanIds, $asAt);
+
+        // Filter by DPD range if specified
+        if ($dpdMin !== null) {
+            $arrearsBase = DB::query()->fromSub($arrearsBase, 'base')->where('dpd', '>=', $dpdMin);
+        }
+        if ($dpdMax !== null) {
+            $arrearsBase = DB::query()->fromSub($arrearsBase, 'base')->where('dpd', '<=', $dpdMax);
+        }
 
         $lastPayment = DB::table('loan_payments as lp')
             ->where('lp.status', 'confirmed')
@@ -196,8 +205,9 @@ class LoanArrearsReportService
             ->joinSub($latestDisb, 'ld_latest', fn ($j) => $j->on('ld_latest.id', '=', 'ld.id'))
             ->selectRaw('ld.loan_id as loan_id, ld.processed_by as officer_id');
 
+        // Join arrears base with loan details
         $q = DB::table('loans')
-            ->joinSub($overdueAgg, 'od', fn ($j) => $j->on('od.loan_id', '=', 'loans.id'))
+            ->joinSub($arrearsBase, 'od', fn ($j) => $j->on('od.loan_id', '=', 'loans.id'))
             ->leftJoinSub($lastPayment, 'lp', fn ($j) => $j->on('lp.loan_id', '=', 'loans.id'))
             ->leftJoinSub($officerMap, 'om', fn ($j) => $j->on('om.loan_id', '=', 'loans.id'))
             ->leftJoin('users as u', 'u.id', '=', 'om.officer_id')
@@ -205,9 +215,6 @@ class LoanArrearsReportService
             ->leftJoin('loan_products as p', 'p.id', '=', 'loans.loan_product_id')
             ->leftJoin('sub_shops as ss', 'ss.id', '=', 'loans.subshop_id')
             ->whereIn('loans.subshop_id', $subshopIds)
-            ->when($loanIds->isNotEmpty(), fn ($qq) => $qq->whereIn('loans.id', $loanIds), fn ($qq) => $qq->whereRaw('1=0'))
-            ->when($dpdMin !== null, fn ($qq) => $qq->where('od.dpd', '>=', $dpdMin))
-            ->when($dpdMax !== null, fn ($qq) => $qq->where('od.dpd', '<=', $dpdMax))
             ->select([
                 'loans.id as loan_id',
                 'loans.loan_code',
@@ -234,41 +241,46 @@ class LoanArrearsReportService
         $perPage = !empty($filters['per_page']) ? max(5, min(200, (int) $filters['per_page'])) : 25;
         $page = !empty($filters['installments_page']) ? max(1, (int) $filters['installments_page']) : 1;
 
+        // Use LoanDelinquencyEngine for installment-level query (single source of truth)
+        // Engine provides: DPD, aging buckets, officer, branch, product, customer info
+        $q = $this->delinquencyEngine->installmentLevelBaseQuery(
+            $subshopIds,
+            $asAt,
+            $filters['loan_product_id'] ?? null,
+            $filters['loan_officer_id'] ?? null,
+            $filters['loan_status'] ?? null,
+            null, // customer_search - we use customer_id filter instead
+            $filters['dpd_min'] ?? null,
+            $filters['dpd_max'] ?? null
+        );
+
+        // Add loanIds filter if specific loans are filtered
+        if ($loanIds->isNotEmpty()) {
+            $q->whereIn('li.loan_id', $loanIds->toArray());
+        } else {
+            $q->whereRaw('1=0');
+        }
+
+        // Filter to overdue installments only (due_date < asAt)
+        // Note: Engine's query already filters outstanding_amount > 0, we add the overdue date filter
         $asAtDate = $asAt->toDateString();
+        $q->whereDate('li.due_date', '<', $asAtDate);
 
-        $paidAgg = DB::table('loan_payment_allocations as lpa')
-            ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
-            ->where('lp.status', 'confirmed')
-            ->whereDate('lp.payment_date', '<=', $asAtDate)
-            ->selectRaw('lpa.loan_installment_id as installment_id')
-            ->selectRaw('SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0) + COALESCE(lpa.penalty_amount,0)) as paid_amount')
-            ->groupBy('installment_id');
-
-        $q = DB::table('loan_installments as li')
-            ->join('loans', 'loans.id', '=', 'li.loan_id')
-            ->leftJoinSub($paidAgg, 'pd', fn ($j) => $j->on('pd.installment_id', '=', 'li.id'))
-            ->leftJoin('customers as c', 'c.id', '=', 'loans.customer_id')
-            ->whereIn('loans.subshop_id', $subshopIds)
-            ->when($loanIds->isNotEmpty(), fn ($qq) => $qq->whereIn('li.loan_id', $loanIds), fn ($qq) => $qq->whereRaw('1=0'))
-            ->where('li.is_active', true)
-            ->where('li.outstanding_amount', '>', 0)
-            ->whereDate('li.due_date', '<', $asAtDate)
-            ->select([
-                'li.loan_id as loan_id',
-                'loans.loan_code as loan_code',
-                'c.id as customer_id',
-                'c.name as customer',
-                'li.installment_number as installment_number',
-                'li.due_date as due_date',
-            ])
+        // Map engine columns to report-compatible names
+        // Engine provides: outstanding_balance (rename to arrears_amount), dpd, aging_bucket
+        return $q->selectRaw('li.loan_id as loan_id')
+            ->selectRaw('loans.loan_code as loan_code')
+            ->selectRaw('customers.id as customer_id')
+            ->selectRaw('customers.name as customer')
+            ->selectRaw('li.installment_number as installment_number')
+            ->selectRaw('li.due_date as due_date')
             ->selectRaw('li.total_due as installment_amount')
-            ->selectRaw('COALESCE(pd.paid_amount,0) as paid_amount')
+            ->selectRaw('li.amount_paid as paid_amount')
             ->selectRaw('li.outstanding_amount as arrears_amount')
-            ->selectRaw('DATEDIFF(?, li.due_date) as dpd', [$asAtDate])
+            ->selectRaw('CASE WHEN li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END as dpd', [$asAtDate, $asAtDate])
             ->orderByDesc('dpd')
-            ->orderByDesc('arrears_amount');
-
-        return $q->paginate($perPage, ['*'], 'installments_page', $page);
+            ->orderByDesc('arrears_amount')
+            ->paginate($perPage, ['*'], 'installments_page', $page);
     }
 
     private function agingBuckets(QueryBuilder $loanAgg): array
@@ -447,37 +459,60 @@ class LoanArrearsReportService
 
     private function arrearsTrend(array $filters, array $subshopIds, $loanIds, Carbon $asAt): array
     {
-        $months = [];
+        // Build month-end dates for the last 12 months
+        $monthEnds = [];
         $start = (clone $asAt)->startOfMonth()->subMonths(11);
         for ($d = $start->copy(); $d->lte($asAt); $d->addMonth()) {
-            $months[] = $d->format('Y-m');
+            $monthEnd = $d->copy()->endOfMonth();
+            if ($monthEnd->gt($asAt)) {
+                $monthEnd = $asAt->copy();
+            }
+            $monthEnds[] = $monthEnd;
         }
 
-        $rows = [];
-        foreach ($months as $ym) {
-            $dt = Carbon::createFromFormat('Y-m', $ym)->endOfMonth();
-            if ($dt->gt($asAt)) {
-                $dt = $asAt->copy();
-            }
-
-            $asAtDate = $dt->toDateString();
-
-            $total = (float) DB::table('loan_installments as li')
-                ->join('loans', 'loans.id', '=', 'li.loan_id')
-                ->whereIn('loans.subshop_id', $subshopIds)
-                ->where('li.is_active', true)
-                ->where('li.outstanding_amount', '>', 0)
-                ->whereDate('li.due_date', '<', $asAtDate)
-                ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
-                ->sum('li.outstanding_amount');
-
-            $rows[] = [
+        if ($loanIds->isEmpty()) {
+            // Return empty trend if no loans match filters
+            return collect($monthEnds)->map(fn ($dt) => [
                 'date' => $dt->toDateString(),
-                'total_arrears' => round($total, 2),
+                'total_arrears' => 0.0,
+            ])->all();
+        }
+
+        // Batch query: Get all arrears data in one query, then calculate per-month totals
+        // This avoids N+1 queries (12 separate queries)
+        $startDate = $monthEnds[0]->copy()->startOfMonth();
+        $endDate = $asAt->copy();
+
+        // Get all overdue installments that could be in the date range
+        $loanIdsArray = $loanIds->toArray();
+        $overdueData = DB::table('loan_installments as li')
+            ->join('loans', 'loans.id', '=', 'li.loan_id')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('li.loan_id', $loanIdsArray)
+            ->where('li.is_active', true)
+            ->where('li.outstanding_amount', '>', 0)
+            ->whereDate('li.due_date', '<', $endDate->toDateString())
+            ->whereDate('li.due_date', '>=', $startDate->toDateString())
+            ->select(['li.loan_id', 'li.due_date', 'li.outstanding_amount'])
+            ->get();
+
+        // Group by month and calculate totals
+        $arrearsByMonth = [];
+        foreach ($monthEnds as $dt) {
+            $monthKey = $dt->toDateString();
+            $monthCutoff = $dt->toDateString();
+
+            $total = $overdueData
+                ->filter(fn ($row) => $row->due_date < $monthCutoff)
+                ->sum('outstanding_amount');
+
+            $arrearsByMonth[] = [
+                'date' => $monthKey,
+                'total_arrears' => round((float) $total, 2),
             ];
         }
 
-        return $rows;
+        return $arrearsByMonth;
     }
 
     private function partialPaymentDetection(array $subshopIds, $loanIds, Carbon $asAt): array

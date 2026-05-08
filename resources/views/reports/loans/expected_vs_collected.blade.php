@@ -547,7 +547,7 @@
           </div>
         </div>
         @if($loans instanceof \Illuminate\Pagination\LengthAwarePaginator)
-          <div class="card-footer">
+          <div class="card-footer mt-3 d-flex justify-content-center">
             {{ $loans->links() }}
           </div>
         @endif
@@ -601,10 +601,48 @@
           </div>
         </div>
         @if($inst instanceof \Illuminate\Pagination\LengthAwarePaginator)
-          <div class="card-footer">
+          <div class="card-footer mt-3 d-flex justify-content-center">
             {{ $inst->links() }}
           </div>
         @endif
+      </div>
+
+      {{-- Calculation Documentation --}}
+      <div class="card card-outline card-info mt-4">
+        <div class="card-header" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+          <h3 class="card-title"><i class="fas fa-info-circle"></i> How are these calculations performed?</h3>
+          <div class="card-tools">
+            <button type="button" class="btn btn-tool"><i class="fas fa-chevron-down"></i></button>
+          </div>
+        </div>
+        <div id="calculationDocs" class="collapse">
+          <div class="card-body">
+            <h5>Expected vs Collected Report Methodology</h5>
+            <ul>
+              <li><strong>Expected Amount:</strong> Sum of <code>loan_installments.total_due</code> for installments with due dates within the selected period. Only active installments (is_active=true) are included.</li>
+              <li><strong>Collected Amount:</strong> Sum of allocated payment amounts from <code>loan_payment_allocations</code> (principal + interest + fees + penalties) where:
+                <ul>
+                  <li>The parent payment is confirmed (status='confirmed')</li>
+                  <li>Payment date falls within the selected period</li>
+                  <li>The allocation is applied to an installment with due date within the selected period</li>
+                </ul>
+              </li>
+              <li><strong>Variance:</strong> Expected minus Collected. Positive values indicate shortfall.</li>
+              <li><strong>Collection Rate:</strong> (Collected / Expected) × 100. Calculated per loan, product, branch, officer, and period.</li>
+              <li><strong>Paid Installments:</strong> Count of installments where allocated amount >= expected amount.</li>
+              <li><strong>Partial Payments:</strong> Installments with some allocation but less than expected amount.</li>
+              <li><strong>Missed Collections:</strong> Loans with due installments in period but zero allocated payments.</li>
+            </ul>
+            <h6>Active Portfolio Scope</h6>
+            <p>Loans included in this report must be:</p>
+            <ul>
+              <li>Active (is_active = true)</li>
+              <li>Not written off (is_written_off = false)</li>
+              <li>Status: disbursed, partially_paid, or defaulted</li>
+            </ul>
+            <p class="text-muted">Note: This methodology ensures consistency across all reports using loan_installments as the single source of truth for expected amounts and payment allocations for collected amounts.</p>
+          </div>
+        </div>
       </div>
 
     </div>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Services\Loans\Risk\LoanDelinquencyEngine;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\DB;
 
 class LoanOutstandingReportService
 {
+    public function __construct(
+        private readonly LoanDelinquencyEngine $delinquencyEngine,
+    ) {
+    }
     /**
      * @param  array{as_at_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,customer_id?:int|null}  $filters
      * @param  array<int>  $accessibleSubshopIds
@@ -23,6 +28,9 @@ class LoanOutstandingReportService
 
         $loansBase = $this->filteredLoansQuery($filters, $subshopIds);
 
+        // Get loan IDs for passing to LoanDelinquencyEngine (keep as Collection, not array)
+        $loanIds = $loansBase->pluck('loans.id');
+
         $loanRowsBase = $this->loanOutstandingBaseQuery($loansBase, $asAt);
 
         $loanRows = $paginate
@@ -31,7 +39,7 @@ class LoanOutstandingReportService
 
         $rowsCollection = collect($loanRows instanceof LengthAwarePaginator ? $loanRows->items() : $loanRows);
 
-        $kpis = $this->summaryKpis($loanRowsBase);
+        $kpis = $this->summaryKpis($loanRowsBase, $subshopIds, $loanIds);
 
         return [
             'filters' => [
@@ -46,7 +54,7 @@ class LoanOutstandingReportService
             'distribution' => $this->outstandingDistribution($loanRowsBase),
             'top_borrowers' => $this->topBorrowers($loanRowsBase),
             'status_breakdown' => $this->statusBreakdown($loanRowsBase),
-            'vs_disbursed' => $this->outstandingVsDisbursed($filters, $subshopIds, $asAt),
+            'vs_disbursed' => $this->outstandingVsDisbursed($filters, $subshopIds, $asAt, $kpis),
             'composition' => $this->principalVsInterestComposition($kpis),
             'snapshot' => $this->timeSnapshot($filters, $subshopIds, $asAt),
         ];
@@ -64,7 +72,15 @@ class LoanOutstandingReportService
 
     private function filteredLoansQuery(array $filters, array $subshopIds): Builder
     {
-        $q = \App\Models\Loans::query()->from('loans')->whereIn('loans.subshop_id', $subshopIds);
+        // Use LoanDelinquencyEngine's active portfolio logic as base
+        // This ensures consistency with other portfolio reports
+        $baseStatuses = ['disbursed', 'partially_paid', 'defaulted', 'written_off'];
+
+        $q = \App\Models\Loans::query()
+            ->from('loans')
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->whereIn('loans.status', $baseStatuses)
+            ->where('loans.is_active', true);
 
         if (! empty($filters['loan_product_id'])) {
             $q->where('loans.loan_product_id', (int) $filters['loan_product_id']);
@@ -98,33 +114,33 @@ class LoanOutstandingReportService
 
     /**
      * Base outstanding query, returning component-level and total outstanding per loan as-at date.
+     * Uses loan_installments.outstanding_amount directly for consistency with LoanDelinquencyEngine.
      */
     private function loanOutstandingBaseQuery(Builder $loansBase, Carbon $asAt)
     {
         $asAtDate = $asAt->toDateString();
 
-        $latestSchedule = DB::table('loan_installments as li')
-            ->selectRaw('li.loan_id, MAX(li.schedule_version) as schedule_version')
+        // Aggregate outstanding amounts directly from loan_installments as-at date
+        // Total outstanding uses outstanding_amount directly (single source of truth)
+        // Component outstanding is calculated from expected minus paid allocations
+        $outstandingAgg = DB::table('loan_installments as li')
             ->where('li.is_active', true)
-            ->groupBy('li.loan_id');
-
-        $scheduleAgg = DB::table('loan_installments as li')
-            ->joinSub($latestSchedule, 'ls', function ($j) {
-                $j->on('ls.loan_id', '=', 'li.loan_id')
-                    ->on('ls.schedule_version', '=', 'li.schedule_version');
-            })
-            ->where('li.is_active', true)
+            ->whereDate('li.due_date', '<=', $asAtDate)
             ->selectRaw('li.loan_id')
+            ->selectRaw('SUM(COALESCE(li.outstanding_amount,0)) as total_outstanding')
             ->selectRaw('SUM(COALESCE(li.principal_due,0)) as principal_expected')
             ->selectRaw('SUM(COALESCE(li.interest_due,0)) as interest_expected')
             ->selectRaw('SUM(COALESCE(li.fees_due,0)) as fees_expected')
             ->groupBy('li.loan_id');
 
+        // Paid amounts by component as-at date (for accurate component outstanding calculation)
         $paidAgg = DB::table('loan_payment_allocations as lpa')
             ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
             ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
             ->where('lp.status', 'confirmed')
             ->whereDate('lp.payment_date', '<=', $asAtDate)
+            ->whereDate('li.due_date', '<=', $asAtDate)
+            ->where('li.is_active', true)
             ->selectRaw('lp.loan_id as loan_id')
             ->selectRaw('SUM(COALESCE(lpa.principal_amount,0)) as principal_paid')
             ->selectRaw('SUM(COALESCE(lpa.interest_amount,0)) as interest_paid')
@@ -160,7 +176,7 @@ class LoanOutstandingReportService
             ->leftJoin('customers as c', 'c.id', '=', 'l.customer_id')
             ->leftJoin('loan_products as pr', 'pr.id', '=', 'l.loan_product_id')
             ->leftJoin('sub_shops as ss', 'ss.id', '=', 'l.subshop_id')
-            ->leftJoinSub($scheduleAgg, 'sch', fn ($j) => $j->on('sch.loan_id', '=', 'l.id'))
+            ->leftJoinSub($outstandingAgg, 'os', fn ($j) => $j->on('os.loan_id', '=', 'l.id'))
             ->leftJoinSub($paidAgg, 'pd', fn ($j) => $j->on('pd.loan_id', '=', 'l.id'))
             ->leftJoinSub($lastPayment, 'lp', fn ($j) => $j->on('lp.loan_id', '=', 'l.id'))
             ->leftJoinSub($loanOfficer, 'lo', fn ($j) => $j->on('lo.loan_id', '=', 'l.id'))
@@ -178,28 +194,24 @@ class LoanOutstandingReportService
                 DB::raw('u.name as officer_name'),
                 'l.disbursement_date',
                 'l.status as loan_status',
-                DB::raw('COALESCE(sch.principal_expected,0) as principal_disbursed'),
-                DB::raw('COALESCE(sch.interest_expected,0) as interest_expected'),
-                DB::raw('COALESCE(sch.fees_expected,0) as fees_expected'),
+                DB::raw('COALESCE(os.principal_expected,0) as principal_expected'),
+                DB::raw('COALESCE(os.interest_expected,0) as interest_expected'),
+                DB::raw('COALESCE(os.fees_expected,0) as fees_expected'),
                 DB::raw('COALESCE(pd.principal_paid,0) as principal_paid'),
                 DB::raw('COALESCE(pd.interest_paid,0) as interest_paid'),
                 DB::raw('COALESCE(pd.fees_paid,0) as fees_paid'),
                 DB::raw('lp.last_payment_date as last_payment_date'),
+                DB::raw('COALESCE(os.total_outstanding,0) as total_outstanding'),
             ])
-            ->selectRaw('GREATEST(0, COALESCE(sch.principal_expected,0) - COALESCE(pd.principal_paid,0)) as principal_outstanding')
-            ->selectRaw('GREATEST(0, COALESCE(sch.interest_expected,0) - COALESCE(pd.interest_paid,0)) as interest_outstanding')
-            ->selectRaw('GREATEST(0, COALESCE(sch.fees_expected,0) - COALESCE(pd.fees_paid,0)) as fees_outstanding')
-            ->selectRaw('(
-                GREATEST(0, COALESCE(sch.principal_expected,0) - COALESCE(pd.principal_paid,0))
-                + GREATEST(0, COALESCE(sch.interest_expected,0) - COALESCE(pd.interest_paid,0))
-                + GREATEST(0, COALESCE(sch.fees_expected,0) - COALESCE(pd.fees_paid,0))
-            ) as total_outstanding');
+            // Calculate component outstanding as expected minus paid (ensuring non-negative)
+            ->selectRaw('GREATEST(0, COALESCE(os.principal_expected,0) - COALESCE(pd.principal_paid,0)) as principal_outstanding')
+            ->selectRaw('GREATEST(0, COALESCE(os.interest_expected,0) - COALESCE(pd.interest_paid,0)) as interest_outstanding')
+            ->selectRaw('GREATEST(0, COALESCE(os.fees_expected,0) - COALESCE(pd.fees_paid,0)) as fees_outstanding');
 
-        $activeOrDefaulted = ['disbursed', 'partially_paid', 'defaulted'];
-
+        // Status filter already applied in filteredLoansQuery using LoanDelinquencyEngine logic
         $wrapped = DB::query()->fromSub($base, 't');
 
-        return $wrapped->whereIn('loan_status', $activeOrDefaulted);
+        return $wrapped;
     }
 
     private function paginateLoanRows($loanRowsBase, int $perPage): LengthAwarePaginator
@@ -226,18 +238,21 @@ class LoanOutstandingReportService
         );
     }
 
-    private function summaryKpis($loanRowsBase): array
+    private function summaryKpis($loanRowsBase, array $subshopIds, $loanIds): array
     {
+        // Use LoanDelinquencyEngine for total outstanding (single source of truth)
+        // This ensures consistency with LoanPortfolioReportService
+        // $loanIds can be array or Collection - LoanDelinquencyEngine handles both
+        $totalOutstanding = $this->delinquencyEngine->calculatePortfolioOutstandingFromInstallments($subshopIds, $loanIds);
+
+        // Get component breakdown and loan count from query (engine doesn't provide components)
         $row = (array) (clone $loanRowsBase)
             ->selectRaw('SUM(principal_outstanding) as principal_outstanding')
             ->selectRaw('SUM(interest_outstanding) as interest_outstanding')
             ->selectRaw('SUM(fees_outstanding) as fees_outstanding')
-            ->selectRaw('SUM(total_outstanding) as total_outstanding')
-            ->selectRaw("SUM(CASE WHEN loan_status IN ('disbursed','partially_paid','defaulted') THEN 1 ELSE 0 END) as active_loans")
             ->selectRaw('COUNT(*) as loans_count')
             ->first();
 
-        $totalOutstanding = (float) ($row['total_outstanding'] ?? 0.0);
         $loansCount = (int) ($row['loans_count'] ?? 0);
 
         return [
@@ -245,7 +260,7 @@ class LoanOutstandingReportService
             'principal_outstanding' => round((float) ($row['principal_outstanding'] ?? 0.0), 2),
             'interest_outstanding' => round((float) ($row['interest_outstanding'] ?? 0.0), 2),
             'fees_outstanding' => round((float) ($row['fees_outstanding'] ?? 0.0), 2),
-            'active_loans' => (int) ($row['active_loans'] ?? 0),
+            'active_loans' => $loansCount,
             'avg_outstanding_per_loan' => $loansCount > 0 ? round($totalOutstanding / $loansCount, 2) : 0.0,
             'loans_count' => $loansCount,
         ];
@@ -387,7 +402,7 @@ class LoanOutstandingReportService
         ])->values()->all();
     }
 
-    private function outstandingVsDisbursed(array $filters, array $subshopIds, Carbon $asAt): array
+    private function outstandingVsDisbursed(array $filters, array $subshopIds, Carbon $asAt, array $existingSummary): array
     {
         $asAtDate = $asAt->toDateString();
 
@@ -411,10 +426,8 @@ class LoanOutstandingReportService
 
         $totalDisbursed = (float) (clone $q)->sum('ld.amount');
 
-        $loanRowsBase = $this->loanOutstandingBaseQuery($this->filteredLoansQuery($filters, $subshopIds), $asAt);
-        $summary = $this->summaryKpis($loanRowsBase);
-
-        $outstanding = (float) ($summary['total_outstanding'] ?? 0);
+        // Use the already-calculated summary to avoid re-querying
+        $outstanding = (float) ($existingSummary['total_outstanding'] ?? 0);
 
         $recovered = $totalDisbursed - $outstanding;
         $recoveryRate = $totalDisbursed > 0 ? round(($recovered / $totalDisbursed) * 100, 2) : 0.0;
@@ -442,47 +455,70 @@ class LoanOutstandingReportService
 
     private function timeSnapshot(array $filters, array $subshopIds, Carbon $asAt): array
     {
-        $months = [];
+        // Build month-end dates for the last 12 months
+        $monthEnds = [];
         $start = (clone $asAt)->startOfMonth()->subMonths(11);
         for ($d = $start->copy(); $d->lte($asAt); $d->addMonth()) {
-            $months[] = $d->format('Y-m');
+            $monthEnd = $d->copy()->endOfMonth();
+            // Don't go beyond asAt date
+            if ($monthEnd->gt($asAt)) {
+                $monthEnd = $asAt->copy();
+            }
+            $monthEnds[] = $monthEnd;
         }
 
+        // Get all activity (disbursements and repayments) in a single batch query
+        // This helps determine which months have loan activity
+        $loansBase = $this->filteredLoansQuery($filters, $subshopIds);
+        $loanIds = $loansBase->pluck('loans.id');
+
+        if ($loanIds->isEmpty()) {
+            // Return empty snapshot if no loans match filters
+            return collect($monthEnds)->map(fn ($dt) => [
+                'date' => $dt->toDateString(),
+                'total_outstanding' => 0.0,
+            ])->all();
+        }
+
+        // Get monthly disbursement totals in one query
+        $startDate = $monthEnds[0]->copy()->startOfMonth();
+        $endDate = $asAt->copy();
+
+        $loanIdsArray = $loanIds->toArray();
+
+        $disbursedByMonth = DB::table('loan_disbursements as ld')
+            ->whereIn('ld.loan_id', $loanIdsArray)
+            ->whereBetween('ld.disbursement_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->selectRaw("DATE_FORMAT(ld.disbursement_date, '%Y-%m') as ym")
+            ->selectRaw('SUM(ld.amount) as total')
+            ->groupBy('ym')
+            ->pluck('total', 'ym')
+            ->all();
+
+        // Get monthly repayment totals in one query
+        $repaidByMonth = DB::table('loan_payments as lp')
+            ->join('loan_payment_allocations as lpa', 'lpa.loan_payment_id', '=', 'lp.id')
+            ->whereIn('lp.loan_id', $loanIdsArray)
+            ->where('lp.status', 'confirmed')
+            ->whereBetween('lp.payment_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->selectRaw("DATE_FORMAT(lp.payment_date, '%Y-%m') as ym")
+            ->selectRaw('SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0)) as total')
+            ->groupBy('ym')
+            ->pluck('total', 'ym')
+            ->all();
+
+        // Calculate outstanding for each month-end using a single query per month
+        // but optimized by reusing the loan scope
         $rows = [];
-        foreach ($months as $ym) {
-            $monthStart = Carbon::createFromFormat('Y-m', $ym)->startOfMonth();
-            $monthEnd = Carbon::createFromFormat('Y-m', $ym)->endOfMonth();
+        foreach ($monthEnds as $dt) {
+            $ym = $dt->format('Y-m');
+            $hasActivity = !empty($disbursedByMonth[$ym]) || !empty($repaidByMonth[$ym]);
 
-            $dt = $monthEnd->copy();
-            if ($dt->gt($asAt)) {
-                $dt = $asAt->copy();
-            }
-
-            $loansBase = $this->filteredLoansQuery($filters, $subshopIds);
-
-            $disbursedInMonth = (float) DB::query()
-                ->fromSub($loansBase->select(['loans.id']), 'l')
-                ->join('loan_disbursements as ld', 'ld.loan_id', '=', 'l.id')
-                ->whereDate('ld.disbursement_date', '>=', $monthStart->toDateString())
-                ->whereDate('ld.disbursement_date', '<=', $monthEnd->toDateString())
-                ->sum('ld.amount');
-
-            $repaidInMonth = (float) DB::query()
-                ->fromSub($loansBase->select(['loans.id']), 'l')
-                ->join('loan_payments as lp', 'lp.loan_id', '=', 'l.id')
-                ->join('loan_payment_allocations as lpa', 'lpa.loan_payment_id', '=', 'lp.id')
-                ->where('lp.status', 'confirmed')
-                ->whereDate('lp.payment_date', '>=', $monthStart->toDateString())
-                ->whereDate('lp.payment_date', '<=', $monthEnd->toDateString())
-                ->selectRaw('COALESCE(SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0)),0) as repaid')
-                ->value('repaid');
-
-            $hasActivity = ($disbursedInMonth > 0) || ($repaidInMonth > 0);
-
+            // Always calculate outstanding for the current/final month, or months with activity
             $summaryTotal = 0.0;
-            if ($hasActivity) {
+            if ($hasActivity || $dt->format('Y-m') === $asAt->format('Y-m')) {
                 $loanRowsBase = $this->loanOutstandingBaseQuery($loansBase, $dt);
-                $summary = $this->summaryKpis($loanRowsBase);
+                $summary = $this->summaryKpis($loanRowsBase, $subshopIds, $loanIds);
                 $summaryTotal = (float) ($summary['total_outstanding'] ?? 0);
             }
 

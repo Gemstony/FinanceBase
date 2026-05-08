@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Reports;
 
+use App\Services\Loans\Risk\LoanDelinquencyEngine;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -11,6 +12,10 @@ use Illuminate\Support\Facades\DB;
 
 class ExpectedVsCollectedReportService
 {
+    public function __construct(
+        private readonly LoanDelinquencyEngine $delinquencyEngine,
+    ) {
+    }
     /**
      * @param array{start_date:Carbon,end_date:Carbon,subshop_id?:int|null,loan_product_id?:int|null,loan_officer_id?:int|null,loan_status?:string|null,customer_id?:int|null,group_by?:string|null,per_page?:int|null,page?:int|null,installments_page?:int|null,loan_id?:int|null} $filters
      * @param array<int> $accessibleSubshopIds
@@ -87,8 +92,13 @@ class ExpectedVsCollectedReportService
      */
     private function filteredLoanIds(array $filters, array $subshopIds)
     {
+        // Active portfolio loan filter - consistent with LoanDelinquencyEngine logic
+        // This ensures same loan scope as other reports (Arrears, Outstanding, etc.)
         $q = DB::table('loans')
             ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('loans.is_active', true)
+            ->where('loans.is_written_off', false)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted'])
             ->when(!empty($filters['loan_id']), fn ($qq) => $qq->where('loans.id', (int) $filters['loan_id']))
             ->when(!empty($filters['loan_product_id']), fn ($qq) => $qq->where('loans.loan_product_id', (int) $filters['loan_product_id']))
             ->when(!empty($filters['loan_status']), fn ($qq) => $qq->where('loans.status', (string) $filters['loan_status']))
@@ -122,14 +132,18 @@ class ExpectedVsCollectedReportService
         $totalExpected = (float) (clone $expectedQ)->sum('li.total_due');
         $totalDueInstallments = (int) (clone $expectedQ)->count('li.id');
 
-        $collectedQ = DB::table('loan_payments as lp')
+        // Use payment allocations for consistency with detail tables (installmentLevelTable, etc.)
+        // This ensures we only count payments actually applied to installments within the period
+        $totalCollected = (float) DB::table('loan_payment_allocations as lpa')
+            ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
+            ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
             ->join('loans', 'loans.id', '=', 'lp.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$startDate, $endDate])
-            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'));
-
-        $totalCollected = (float) (clone $collectedQ)->sum('lp.amount');
+            ->whereBetween('li.due_date', [$startDate, $endDate])
+            ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'))
+            ->sum(DB::raw('COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0) + COALESCE(lpa.penalty_amount,0)'));
 
         $alloc = DB::table('loan_payment_allocations as lpa')
             ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
@@ -196,11 +210,16 @@ class ExpectedVsCollectedReportService
             ->whereBetween('li.due_date', [$startDate, $endDate])
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('li.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'));
 
-        $collectedBase = DB::table('loan_payments as lp')
+        // Use payment allocations for collected amounts (consistent with summaryKpis)
+        // Base query without selects - selects added per group type to avoid GROUP BY conflicts
+        $collectedBase = DB::table('loan_payment_allocations as lpa')
+            ->join('loan_payments as lp', 'lp.id', '=', 'lpa.loan_payment_id')
+            ->join('loan_installments as li', 'li.id', '=', 'lpa.loan_installment_id')
             ->join('loans', 'loans.id', '=', 'lp.loan_id')
             ->whereIn('loans.subshop_id', $subshopIds)
             ->where('lp.status', 'confirmed')
             ->whereBetween('lp.payment_date', [$startDate, $endDate])
+            ->whereBetween('li.due_date', [$startDate, $endDate])
             ->when($loanIds->isNotEmpty(), fn ($q) => $q->whereIn('lp.loan_id', $loanIds), fn ($q) => $q->whereRaw('1=0'));
 
         if ($groupBy === 'daily') {
@@ -213,7 +232,7 @@ class ExpectedVsCollectedReportService
 
             $collectedRows = (clone $collectedBase)
                 ->selectRaw('DATE(lp.payment_date) as period')
-                ->selectRaw('SUM(lp.amount) as collected')
+                ->selectRaw('SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0) + COALESCE(lpa.penalty_amount,0)) as collected')
                 ->groupBy('period')
                 ->orderBy('period')
                 ->get();
@@ -234,7 +253,7 @@ class ExpectedVsCollectedReportService
             $collectedRows = (clone $collectedBase)
                 ->selectRaw("DATE_FORMAT(lp.payment_date, '%x-W%v') as period")
                 ->selectRaw('MIN(DATE(lp.payment_date)) as period_start')
-                ->selectRaw('SUM(lp.amount) as collected')
+                ->selectRaw('SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0) + COALESCE(lpa.penalty_amount,0)) as collected')
                 ->groupBy('period')
                 ->orderBy('period_start')
                 ->get();
@@ -253,7 +272,7 @@ class ExpectedVsCollectedReportService
 
             $collectedRows = (clone $collectedBase)
                 ->selectRaw("DATE_FORMAT(lp.payment_date, '%Y-%m') as period")
-                ->selectRaw('SUM(lp.amount) as collected')
+                ->selectRaw('SUM(COALESCE(lpa.principal_amount,0) + COALESCE(lpa.interest_amount,0) + COALESCE(lpa.fee_amount,0) + COALESCE(lpa.penalty_amount,0)) as collected')
                 ->groupBy('period')
                 ->orderBy('period')
                 ->get();

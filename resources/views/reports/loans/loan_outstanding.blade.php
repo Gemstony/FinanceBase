@@ -498,12 +498,71 @@
           </div>
         </div>
         @if($loans instanceof \Illuminate\Pagination\LengthAwarePaginator)
-          <div class="card-footer">
+          <div class="card-footer mt-3 d-flex justify-content-center">
             {{ $loans->links() }}
           </div>
         @endif
       </div>
-      
+
+      {{-- Report Documentation / Calculation Methodology --}}
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card border-info">
+            <div class="card-header bg-info text-white" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-info-circle"></i> How are these calculations performed?</span>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+            </div>
+            <div id="calculationDocs" class="collapse">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Outstanding Balance Calculation</h6>
+                    <ul class="small">
+                      <li><strong>Total Outstanding:</strong> Sum of loan_installments.outstanding_amount for all active installments with due_date <= as-at date. Uses loan_installments as the single source of truth.</li>
+                      <li><strong>Principal/Interest/Fees Outstanding:</strong> Component breakdown from loan_installments fields (principal_outstanding, interest_outstanding, fees_outstanding).</li>
+                      <li><strong>Expected Amounts:</strong> Original schedule amounts (principal_due, interest_due, fees_due) from loan_installments.</li>
+                      <li><strong>Paid Amounts:</strong> Sum of payment allocations up to the as-at date.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Included Loan Statuses</h6>
+                    <ul class="small">
+                      <li>Active loans: disbursed, partially_paid, defaulted, written_off.</li>
+                      <li>Written-off loans are included because they still have accounting value and outstanding amounts.</li>
+                      <li>Excluded: pending, approved, rejected, paid_off (no outstanding).</li>
+                    </ul>
+                  </div>
+                  <div class="col-md-6">
+                    <h6 class="font-weight-bold text-primary">Key Metrics</h6>
+                    <ul class="small">
+                      <li><strong>Recovery Rate:</strong> (Total Disbursed - Total Outstanding) / Total Disbursed × 100. Shows percentage of disbursed amount that has been recovered.</li>
+                      <li><strong>Composition %:</strong> Principal, Interest, and Fees as percentage of total outstanding.</li>
+                      <li><strong>Avg Outstanding per Loan:</strong> Total Outstanding / Number of loans.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Officer Attribution</h6>
+                    <ul class="small">
+                      <li>Officer is determined by who processed the latest disbursement (processed_by field in loan_disbursements).</li>
+                      <li>For loans with multiple disbursements, only the latest disbursement processor is considered.</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold text-primary mt-3">Time-Based Snapshot</h6>
+                    <ul class="small">
+                      <li>Shows outstanding balance at the end of each month for the last 12 months.</li>
+                      <li>Only months with loan activity (disbursements or repayments) show non-zero values, plus the current month.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0 small">
+                  <strong>Note:</strong> This report uses loan_installments as the single source of truth for outstanding balances, consistent with LoanDelinquencyEngine and other portfolio reports. Outstanding amounts are snapshot values as of the selected "As At" date.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

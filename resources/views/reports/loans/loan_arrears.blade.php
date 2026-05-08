@@ -453,7 +453,7 @@
           </div>
         </div>
         @if($loans instanceof \Illuminate\Pagination\LengthAwarePaginator)
-          <div class="card-footer">
+          <div class="card-footer mt-3 d-flex justify-content-center">
             {{ $loans->links() }}
           </div>
         @endif
@@ -595,7 +595,7 @@
           </div>
         </div>
         @if($inst instanceof \Illuminate\Pagination\LengthAwarePaginator)
-          <div class="card-footer">
+          <div class="card-footer mt-3 d-flex justify-content-center">
             {{ $inst->links() }}
           </div>
         @endif

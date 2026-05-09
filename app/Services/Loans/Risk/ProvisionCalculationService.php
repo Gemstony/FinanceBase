@@ -44,8 +44,9 @@ class ProvisionCalculationService
             ];
         }
 
-        $maxDpd = $this->dpdCalculator->calculateMaxDaysOverdueForLoan($loan->id);
-        $riskStatus = $this->dpdCalculator->classifyByDpd($maxDpd);
+        // Use LoanDelinquencyEngine for consistent risk classification
+        $maxDpd = $this->delinquencyEngine->calculateMaxDaysOverdueForLoan($loan->id);
+        $riskStatus = $this->delinquencyEngine->classifyLoanRisk($loan);
 
         $provisionRate = $thresholds ? $thresholds->getProvisionRate($riskStatus) : $this->getDefaultProvisionRate($riskStatus);
         $provisionAmount = $outstanding * ($provisionRate / 100);
@@ -89,7 +90,9 @@ class ProvisionCalculationService
         }
 
         $outstandingMap = $this->portfolioRisk->bulkCalculateOutstanding($loanIds);
-        $maxDpdMap = $this->dpdCalculator->bulkCalculateMaxDpd($loanIds);
+
+        // Use LoanDelinquencyEngine for bulk risk classification (optimized single-query approach)
+        $riskClassifications = $this->delinquencyEngine->bulkClassifyLoanRisk($loanIds);
 
         $breakdown = [
             'current' => ['count' => 0, 'outstanding' => 0, 'provision' => 0, 'rate' => 0],
@@ -108,8 +111,8 @@ class ProvisionCalculationService
                 continue;
             }
 
-            $maxDpd = $maxDpdMap[$loanId] ?? 0;
-            $riskStatus = $this->dpdCalculator->classifyByDpd($maxDpd);
+            // Use pre-computed risk classification from LoanDelinquencyEngine
+            $riskStatus = $riskClassifications[$loanId] ?? 'current';
             $provisionRate = $thresholds ? $thresholds->getProvisionRate($riskStatus) : $this->getDefaultProvisionRate($riskStatus);
             $provisionAmount = $outstanding * ($provisionRate / 100);
 

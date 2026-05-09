@@ -244,6 +244,49 @@
                 </div>
             </div>
         </div>
+
+        {{-- Calculation Documentation --}}
+        <div class="card card-outline card-info mt-4">
+            <div class="card-header" data-toggle="collapse" data-target="#calculationDocs" style="cursor: pointer;">
+                <h3 class="card-title"><i class="fas fa-info-circle"></i> How are these calculations performed?</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool"><i class="fas fa-chevron-down"></i></button>
+                </div>
+            </div>
+            <div id="calculationDocs" class="collapse">
+                <div class="card-body">
+                    <h5>Loan Loss Provision Methodology</h5>
+                    <ul>
+                        <li><strong>Outstanding Balance:</strong> Calculated from <code>loan_installments.outstanding_amount</code> for all active installments belonging to the loan. This represents the remaining principal + interest + fees that the borrower still owes.</li>
+                        <li><strong>Risk Classification:</strong> Based on maximum Days Past Due (DPD) across all installments:
+                            <ul>
+                                <li><strong>Current:</strong> 0 days overdue</li>
+                                <li><strong>PAR30:</strong> 1-30 days overdue</li>
+                                <li><strong>PAR60:</strong> 31-60 days overdue</li>
+                                <li><strong>PAR90:</strong> 61-90 days overdue</li>
+                                <li><strong>Default:</strong> 91+ days overdue</li>
+                            </ul>
+                        </li>
+                        <li><strong>Provision Rate:</strong> Configurable percentage applied to outstanding balance based on risk category. Uses subshop-specific thresholds if configured, otherwise global or default rates.</li>
+                        <li><strong>Provision Amount:</strong> <code>Outstanding Balance × (Provision Rate / 100)</code></li>
+                        <li><strong>Portfolio Scope:</strong> Only active portfolio loans are included:
+                            <ul>
+                                <li>is_active = true</li>
+                                <li>is_written_off = false</li>
+                                <li>Status: disbursed, partially_paid, or defaulted</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <h6>Journal Entry</h6>
+                    <p>The suggested journal entry represents the accounting impact:</p>
+                    <ul>
+                        <li><strong>Debit:</strong> Loan Loss Expense (P&L impact)</li>
+                        <li><strong>Credit:</strong> Allowance for Loan Losses (balance sheet contra-asset)</li>
+                    </ul>
+                    <p class="text-muted">Note: Risk classification uses LoanDelinquencyEngine for consistent DPD calculation across all risk reports.</p>
+                </div>
+            </div>
+        </div>
     </div>
 @stop
 

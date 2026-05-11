@@ -69,7 +69,9 @@ class LoanDisbursementReportService
         $q = LoanDisbursements::query()
             ->from('loan_disbursements')
             ->join('loans', 'loans.id', '=', 'loan_disbursements.loan_id')
-            ->whereIn('loans.subshop_id', $subshopIds);
+            ->whereIn('loans.subshop_id', $subshopIds)
+            ->where('loans.is_active', true)
+            ->whereIn('loans.status', ['disbursed', 'partially_paid', 'defaulted']);
 
         if (!empty($filters['drilldown']) && is_array($filters['drilldown'])) {
             $dd = $filters['drilldown'];

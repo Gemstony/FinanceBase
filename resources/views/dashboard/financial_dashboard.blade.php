@@ -395,14 +395,14 @@
             </div>
 
             <div class="col-md-4">
-                <a href="{{ route('reports.loan_outstanding.index') }}" class="text-decoration-none">
+                <a href="{{ route('reports.loan_disbursement.index') }}" class="text-decoration-none">
                     <div class="card text-white bg-info">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="text-uppercase small">Outstanding</div>
+                                    <div class="text-uppercase small">Total Disbursed</div>
                                     <div class="h4 mb-0">
-                                        {{ number_format($dashboardData['kpis']['total_outstanding'] ?? 0, 0) }}</div>
+                                        {{ number_format($dashboardData['kpis']['total_disbursed'] ?? 0, 0) }}</div>
                                 </div>
                                 <i class="fas fa-file-invoice-dollar fa-2x opacity-50"></i>
                             </div>

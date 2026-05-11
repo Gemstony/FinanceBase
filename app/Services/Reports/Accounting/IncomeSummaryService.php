@@ -97,13 +97,11 @@ class IncomeSummaryService
         $code = strtoupper(trim($classCode));
         $name = strtoupper(trim($className));
 
-        if ($code !== '') {
-            if (str_starts_with($code, '4') || str_contains($code, 'INCOME')) {
-                return 'income';
-            }
+        if ($code !== '' && str_starts_with($code, '4')) {
+            return 'income';
         }
 
-        if (str_contains($name, 'INCOME')) {
+        if ($name !== '' && str_contains($name, 'INCOME')) {
             return 'income';
         }
 
@@ -285,11 +283,7 @@ class IncomeSummaryService
             ->when($incomeAccountId !== null, fn ($qq) => $qq->where('coa.id', $incomeAccountId))
             ->where(function ($w) {
                 $w->whereRaw("UPPER(ac.code) like '4%'")
-                    ->orWhereRaw("UPPER(ac.code) like '5%'")
-                    ->orWhereRaw("UPPER(ac.code) like '%INCOME%'")
-                    ->orWhereRaw("UPPER(ac.code) like '%REVENUE%'")
-                    ->orWhereRaw("UPPER(ac.name) like '%INCOME%'")
-                    ->orWhereRaw("UPPER(ac.name) like '%REVENUE%'");
+                    ->orWhereRaw("UPPER(ac.name) like '%INCOME%'");
             })
             ->selectRaw("DATE_FORMAT(je.transaction_date, '%Y-%m') as month")
             ->selectRaw('SUM(jel.credit - jel.debit) as amount')

@@ -914,7 +914,7 @@
                                         </div>
                                         <div class="form-group col-md-3">
                                             <label>Approver Role</label>
-                                            <select name="approval_levels[{{ $i }}][role_id]" class="form-control" form="loanProductForm" required>
+                                            <select name="approval_levels[{{ $i }}][role_id]" class="form-control" form="loanProductForm">
                                                 <option value="">-- Select Role --</option>
                                                 @foreach ($roles as $role)
                                                     @if($role->name !== 'Super Admin')

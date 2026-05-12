@@ -175,6 +175,7 @@
             <table class="table table-striped table-hover" id="repaymentsTable">
                 <thead class="thead-light" >
                     <tr>
+                        <th>Date</th>
                         <th class="text-nowrap">Loan Code</th>
                         <th class="text-nowrap">Borrower</th>
                         <th class="text-nowrap">Product / Cycle</th>
@@ -219,6 +220,9 @@
                             $paymentStatusText = $hasOverdue ? 'Overdue' : ($loan->status === 'paid_off' ? 'Paid Off' : ($loan->status === 'disbursed' || $loan->status === 'partially_paid' ? 'Current' : '-'));
                         @endphp
                         <tr>
+                            <td class="text-nowrap">
+                               <strong> <i>{{ $loan->created_at->format('Y-m-d') }}</i></strong>
+                            </td>
                             <td class="text-nowrap">
                                 <strong>{{ $loan->loan_code }}</strong>
                             </td>

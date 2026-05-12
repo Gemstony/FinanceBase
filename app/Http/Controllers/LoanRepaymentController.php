@@ -640,4 +640,47 @@ class LoanRepaymentController extends Controller
 
         return redirect()->back()->with('info', 'Payment is still pending. Please wait for AzamPay to send the payment confirmation. You can refresh this page to check for updates.');
     }
+
+    public function historyPdf(Loans $loan): Response
+    {
+        $subshopId = (int) session('subshop_id');
+        if ((int) $loan->subshop_id !== $subshopId) {
+            abort(403);
+        }
+
+        $loan->loadMissing(['customer', 'loanGroup', 'loanProduct', 'installments' => function ($q) {
+            $q->where('is_active', true)->orderBy('installment_number');
+        }]);
+
+        $payments = LoanPayments::query()
+            ->with(['user', 'allocations.loanInstallment'])
+            ->where('loan_id', (int) $loan->id)
+            ->where('status', '!=', 'reversed')
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $summary = $this->loanAccountEngine->getLoanAccountSummary($loan);
+
+        // Get shop details for PDF header
+        $subshop = SubShop::find($subshopId);
+        $shop = $subshop?->shop;
+
+        // Prepare logo path for PDF
+        $shopLogoPath = $shop?->logo ? public_path('storage/' . ltrim((string) $shop->logo, '/')) : null;
+
+        $data = [
+            'loan' => $loan,
+            'payments' => $payments,
+            'summary' => $summary,
+            'shop' => $shop,
+            'shopLogoPath' => $shopLogoPath,
+        ];
+
+        $pdf = Pdf::loadView('loans.repayments.pdf.history', $data);
+
+        $filename = 'payment_history_' . $loan->loan_code . '_' . now()->format('Y-m-d') . '.pdf';
+
+        return $pdf->download($filename);
+    }
 }

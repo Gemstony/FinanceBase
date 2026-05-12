@@ -27,9 +27,14 @@
                 <li class="breadcrumb-item active" aria-current="page">History</li>
             </ol>
         </nav>
-        <a href="{{ route('loan.repayments.create', $loan) }}" class="btn btn-success">
-            <i class="fas fa-plus"></i> Make Payment
-        </a>
+        <div>
+            <a href="{{ route('loan.repayments.history.pdf', $loan) }}" class="btn btn-danger mr-2">
+                <i class="fas fa-file-pdf"></i> Download PDF
+            </a>
+            <a href="{{ route('loan.repayments.create', $loan) }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Make Payment
+            </a>
+        </div>
     </div>
 @stop
 

@@ -793,7 +793,7 @@ class LoansController extends Controller
             'repayment_frequency_code' => (string) $repaymentFrequency->code,
             'supports_collateral' => (bool) $loanProduct->supports_collateral,
             'requires_approval' => (bool) $loanProduct->requires_approval,
-            'status' => 'pending',
+            'status' => $loanProduct->requires_approval ? 'pending' : 'approved',
             'is_active' => true,
             'allow_top_up' => (bool) ($rules?->allow_top_up ?? false),
             'requires_collateral' => (bool) ($rules?->requires_collateral ?? false),
@@ -803,7 +803,7 @@ class LoansController extends Controller
             'security_deposit_amount' => $request->filled('security_deposit_amount')
                 ? (float) $validated['security_deposit_amount']
                 : null,
-            'approval_completed' => false,
+            'approval_completed' => ! $loanProduct->requires_approval,
             'approval_history' => null,
             'principal_account_id' => (int) $accounts->principal_account_id,
             'interest_receivable_account_id' => (int) $accounts->interest_receivable_account_id,

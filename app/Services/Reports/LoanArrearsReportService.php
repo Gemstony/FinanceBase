@@ -266,18 +266,8 @@ class LoanArrearsReportService
         $asAtDate = $asAt->toDateString();
         $q->whereDate('li.due_date', '<', $asAtDate);
 
-        // Map engine columns to report-compatible names
-        // Engine provides: outstanding_balance (rename to arrears_amount), dpd, aging_bucket
-        return $q->selectRaw('li.loan_id as loan_id')
-            ->selectRaw('loans.loan_code as loan_code')
-            ->selectRaw('customers.id as customer_id')
-            ->selectRaw('customers.name as customer')
-            ->selectRaw('li.installment_number as installment_number')
-            ->selectRaw('li.due_date as due_date')
-            ->selectRaw('li.total_due as installment_amount')
-            ->selectRaw('li.amount_paid as paid_amount')
-            ->selectRaw('li.outstanding_amount as arrears_amount')
-            ->selectRaw('CASE WHEN li.due_date < ? THEN DATEDIFF(?, li.due_date) ELSE 0 END as dpd', [$asAtDate, $asAtDate])
+        return $q->addSelect(DB::raw('li.outstanding_amount as arrears_amount'))
+            ->addSelect(DB::raw('li.total_due as installment_amount'))
             ->orderByDesc('dpd')
             ->orderByDesc('arrears_amount')
             ->paginate($perPage, ['*'], 'installments_page', $page);

@@ -48,7 +48,7 @@ class LoanPortfolioReportService
         // Get active loan and borrower counts from base query
         $loanBase = $this->filteredLoansQuery($filters, $subshopIds);
         $activeStatuses = ['disbursed', 'partially_paid', 'defaulted'];
-        $activeLoansCount = (clone $loanBase)->whereIn('status', $activeStatuses)->count('id');
+        $activeLoansCount = (clone $loanBase)->whereIn('status', $activeStatuses)->count('loans.id');
 
         $activeBorrowersCount = (clone $loanBase)
             ->whereIn('status', $activeStatuses)

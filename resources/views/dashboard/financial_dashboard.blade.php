@@ -692,7 +692,7 @@
                                 <!-- Chart Loader -->
                                 <div class="chart-loader" id="loansReleasedChart-loader">
                                     <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Loading chart...</span>
+                                        <span class="visually-hidden"></span>
                                     </div>
                                 </div>
                                 <canvas id="loansReleasedChart" style="display: none;"></canvas>
@@ -717,7 +717,7 @@
                                 <!-- Chart Loader -->
                                 <div class="chart-loader" id="loansCollectionsChart-loader">
                                     <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Loading chart...</span>
+                                        <span class="visually-hidden"></span>
                                     </div>
                                 </div>
                                 <canvas id="loansCollectionsChart" style="display: none;"></canvas>
@@ -746,7 +746,7 @@
                                 <!-- Chart Loader -->
                                 <div class="chart-loader" id="customerStatusChart-loader">
                                     <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Loading chart...</span>
+                                        <span class="visually-hidden"></span>
                                     </div>
                                 </div>
                                 <canvas id="customerStatusChart" style="display: none;"></canvas>
@@ -771,7 +771,7 @@
                                 <!-- Chart Loader -->
                                 <div class="chart-loader" id="loanAmountStatusChart-loader">
                                     <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Loading chart...</span>
+                                        <span class="visually-hidden"></span>
                                     </div>
                                 </div>
                                 <canvas id="loanAmountStatusChart" style="display: none;"></canvas>
@@ -799,7 +799,7 @@
                         <!-- Chart Loader -->
                         <div class="chart-loader" id="incomeVsExpensesChart-loader">
                             <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading chart...</span>
+                                <span class="visually-hidden"></span>
                             </div>
                         </div>
                         <canvas id="incomeVsExpensesChart" style="display: none;"></canvas>
@@ -817,7 +817,7 @@
                         <!-- Chart Loader -->
                         <div class="chart-loader" id="cashFlowChart-loader">
                             <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading chart...</span>
+                                <span class="visually-hidden"></span>
                             </div>
                         </div>
                         <canvas id="cashFlowChart" style="display: none;"></canvas>
@@ -840,7 +840,7 @@
                             <!-- Chart Loader -->
                             <div class="chart-loader" id="incomeDistributionChart-loader">
                                 <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Loading chart...</span>
+                                    <span class="visually-hidden"></span>
                                 </div>
                             </div>
                             <canvas id="incomeDistributionChart" style="display: none;"></canvas>
@@ -865,7 +865,7 @@
                             <!-- Chart Loader -->
                             <div class="chart-loader" id="expenseDistributionChart-loader">
                                 <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Loading chart...</span>
+                                    <span class="visually-hidden"></span>
                                 </div>
                             </div>
                             <canvas id="expenseDistributionChart" style="display: none;"></canvas>
@@ -893,7 +893,7 @@
                         <!-- Chart Loader -->
                         <div class="chart-loader" id="profitTrendChart-loader">
                             <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading chart...</span>
+                                <span class="visually-hidden"></span>
                             </div>
                         </div>
                         <canvas id="profitTrendChart" style="display: none;"></canvas>
@@ -912,7 +912,7 @@
                             <!-- Chart Loader -->
                             <div class="chart-loader" id="branchPerformanceChart-loader">
                                 <div class="spinner-border" role="status">
-                                    <span class="visually-hidden">Loading chart...</span>
+                                    <span class="visually-hidden"></span>
                                 </div>
                             </div>
                             <canvas id="branchPerformanceChart" style="display: none;"></canvas>

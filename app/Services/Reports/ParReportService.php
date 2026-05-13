@@ -40,8 +40,8 @@ class ParReportService
 
         $loanAgg = DB::query()
             ->fromSub($loanAggBase, 'la')
-            ->when($dpdMin !== null, fn ($q) => $q->where('la.dpd', '>=', $dpdMin))
-            ->when($dpdMax !== null, fn ($q) => $q->where('la.dpd', '<=', $dpdMax))
+            ->when($dpdMin !== null, fn ($q) => $q->where('la.max_dpd', '>=', $dpdMin))
+            ->when($dpdMax !== null, fn ($q) => $q->where('la.max_dpd', '<=', $dpdMax))
             ->select([
                 DB::raw('la.loan_id as loan_id'),
                 DB::raw('la.max_dpd as dpd'),
@@ -380,8 +380,8 @@ class ParReportService
             $loanAggBase = $this->delinquencyEngine->parBaseQuery($subshopIds, $loanIds, $to);
             $loanAgg = DB::query()
                 ->fromSub($loanAggBase, 'la')
-                ->when($dpdMin !== null, fn ($q) => $q->where('la.dpd', '>=', $dpdMin))
-                ->when($dpdMax !== null, fn ($q) => $q->where('la.dpd', '<=', $dpdMax))
+                ->when($dpdMin !== null, fn ($q) => $q->where('la.max_dpd', '>=', $dpdMin))
+                ->when($dpdMax !== null, fn ($q) => $q->where('la.max_dpd', '<=', $dpdMax))
                 ->select([
                     DB::raw('la.loan_id as loan_id'),
                     DB::raw('la.max_dpd as dpd'),
@@ -595,8 +595,8 @@ class ParReportService
 
         $curAgg = DB::query()
             ->fromSub($curAggBase, 'la')
-            ->when($dpdMin !== null, fn ($q) => $q->where('la.dpd', '>=', $dpdMin))
-            ->when($dpdMax !== null, fn ($q) => $q->where('la.dpd', '<=', $dpdMax))
+            ->when($dpdMin !== null, fn ($q) => $q->where('la.max_dpd', '>=', $dpdMin))
+            ->when($dpdMax !== null, fn ($q) => $q->where('la.max_dpd', '<=', $dpdMax))
             ->select([
                 DB::raw('la.loan_id as loan_id'),
                 DB::raw('la.max_dpd as dpd'),
@@ -606,8 +606,8 @@ class ParReportService
 
         $prevAgg = DB::query()
             ->fromSub($prevAggBase, 'la')
-            ->when($dpdMin !== null, fn ($q) => $q->where('la.dpd', '>=', $dpdMin))
-            ->when($dpdMax !== null, fn ($q) => $q->where('la.dpd', '<=', $dpdMax))
+            ->when($dpdMin !== null, fn ($q) => $q->where('la.max_dpd', '>=', $dpdMin))
+            ->when($dpdMax !== null, fn ($q) => $q->where('la.max_dpd', '<=', $dpdMax))
             ->select([
                 DB::raw('la.loan_id as loan_id'),
                 DB::raw('la.max_dpd as dpd'),

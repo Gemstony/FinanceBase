@@ -84,13 +84,13 @@
               <label for="dpd_max">DPD Max</label>
               <input type="number" class="form-control form-control-sm" id="dpd_max" name="dpd_max" value="{{ request('dpd_max') }}" min="0" step="1">
             </div>
-            <div class="form-group col-md-3">
+            <!-- <div class="form-group col-md-3">
               <label for="customer_id">Customer ID (optional)</label>
               <input type="number" class="form-control form-control-sm" id="customer_id" name="customer_id" value="{{ request('customer_id') }}">
               @if(!empty($customer))
                 <div class="small text-muted mt-1">Selected: {{ $customer->name }}</div>
               @endif
-            </div>
+            </div> -->
             <div class="form-group col-md-2">
               <label for="per_page">Per Page</label>
               <select class="form-control form-control-sm" id="per_page" name="per_page">

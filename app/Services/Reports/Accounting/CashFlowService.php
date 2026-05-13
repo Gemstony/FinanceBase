@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
 
+use App\Services\Reports\Accounting\AccountClassificationTrait;
+
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class CashFlowService
 {
+    use AccountClassificationTrait;
     /**
      * @param array{cash_account_id:int,from_date?:Carbon|null,to_date?:Carbon|null,subshop_id?:int|null,reference_type?:string|null,per_page?:int|null,page?:int|null} $filters
      * @param array<int> $accessibleSubshopIds
@@ -34,6 +37,25 @@ class CashFlowService
 
         $cashAccount = $this->loadAccount($cashAccountId);
 
+        // Validate that the account is a valid cash/bank account
+        if (($cashAccount['is_valid_cash_account'] ?? false) === false) {
+            return [
+                'filters' => [
+                    'cash_account_id' => $cashAccountId,
+                    'from_date' => $fromDate?->toDateString(),
+                    'to_date' => $toDate?->toDateString(),
+                    'subshop_ids' => $subshopIds,
+                    'reference_type' => $filters['reference_type'] ?? null,
+                ],
+                'cash_account' => $cashAccount,
+                'error' => $cashAccount['validation_error'] ?? 'Invalid cash account',
+                'opening_balance' => 0.0,
+                'totals' => $this->emptyTotals(),
+                'sections' => $this->emptySections(),
+                'transactions' => null,
+            ];
+        }
+
         $opening = $this->openingBalance($subshopIds, $cashAccountId, $fromDate);
 
         $perPage = (int) ($filters['per_page'] ?? 50);
@@ -52,7 +74,7 @@ class CashFlowService
         $rows = array_map(function ($r) {
             $row = is_array($r) ? $r : (array) $r;
             $cat = (string) ($row['counter_cash_flow_category'] ?? '');
-            $row['activity_type'] = $this->resolveActivityType($cat, (string) ($row['reference_type'] ?? ''));
+            $row['activity_type'] = $this->resolveActivityType($cat, (string) ($row['reference_type'] ?? ''), (string) ($row['counter_account_class_code'] ?? ''));
             return $row;
         }, $transactionsPaginator->items());
 
@@ -142,6 +164,26 @@ class CashFlowService
         $toDate = $filters['to_date'] ?? null;
 
         $cashAccount = $this->loadAccount($cashAccountId);
+
+        // Validate that the account is a valid cash/bank account
+        if (($cashAccount['is_valid_cash_account'] ?? false) === false) {
+            return [
+                'filters' => [
+                    'cash_account_id' => $cashAccountId,
+                    'from_date' => $fromDate?->toDateString(),
+                    'to_date' => $toDate?->toDateString(),
+                    'subshop_ids' => $subshopIds,
+                    'reference_type' => $filters['reference_type'] ?? null,
+                ],
+                'cash_account' => $cashAccount,
+                'error' => $cashAccount['validation_error'] ?? 'Invalid cash account',
+                'opening_balance' => 0.0,
+                'totals' => $this->emptyTotals(),
+                'sections' => $this->emptySections(),
+                'transactions_all' => [],
+            ];
+        }
+
         $opening = $this->openingBalance($subshopIds, $cashAccountId, $fromDate);
 
         $rows = $this->transactionsAll(
@@ -210,18 +252,59 @@ class CashFlowService
         return $accessibleSubshopIds;
     }
 
-    /** @return array{account_id:int,account_code:string,account_name:string} */
+    /** @return array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_code:string,account_class_name:string} */
     private function loadAccount(int $accountId): array
     {
         $r = DB::table('charts_of_accounts as coa')
+            ->join('account_classes as ac', 'ac.id', '=', 'coa.account_class_id')
             ->where('coa.id', $accountId)
-            ->select(['coa.id as account_id', 'coa.account_code as account_code', 'coa.account_name as account_name'])
+            ->select([
+                'coa.id as account_id',
+                'coa.account_code as account_code',
+                'coa.account_name as account_name',
+                'coa.account_class_id as account_class_id',
+                'ac.code as account_class_code',
+                'ac.name as account_class_name',
+            ])
             ->first();
+
+        if (!$r) {
+            return [
+                'account_id' => $accountId,
+                'account_code' => '',
+                'account_name' => 'Account not found',
+                'account_class_id' => 0,
+                'account_class_code' => '',
+                'account_class_name' => '',
+            ];
+        }
+
+        $classCode = (string) ($r->account_class_code ?? '');
+        $className = (string) ($r->account_class_name ?? '');
+        $category = $this->classifyAccountClass($classCode, $className);
+
+        // Validate that this is an asset account (required for cash flow reporting)
+        if ($category !== 'assets') {
+            return [
+                'account_id' => $accountId,
+                'account_code' => (string) ($r->account_code ?? ''),
+                'account_name' => (string) ($r->account_name ?? ''),
+                'account_class_id' => (int) ($r->account_class_id ?? 0),
+                'account_class_code' => $classCode,
+                'account_class_name' => $className,
+                'is_valid_cash_account' => false,
+                'validation_error' => 'Account must be an asset account (class code 1) for cash flow reporting',
+            ];
+        }
 
         return [
             'account_id' => (int) ($r->account_id ?? $accountId),
             'account_code' => (string) ($r->account_code ?? ''),
             'account_name' => (string) ($r->account_name ?? ''),
+            'account_class_id' => (int) ($r->account_class_id ?? 0),
+            'account_class_code' => $classCode,
+            'account_class_name' => $className,
+            'is_valid_cash_account' => true,
         ];
     }
 
@@ -280,6 +363,7 @@ class CashFlowService
                     ->where('jel_other.account_id', '<>', $cashAccountId);
             })
             ->leftJoin('charts_of_accounts as coa_other', 'coa_other.id', '=', 'jel_other.account_id')
+            ->leftJoin('account_classes as ac_other', 'ac_other.id', '=', 'coa_other.account_class_id')
             ->select([
                 'je.id as journal_entry_id',
                 'je.reference_type as reference_type',
@@ -295,6 +379,7 @@ class CashFlowService
                 'coa_other.account_code as counter_account_code',
                 'coa_other.account_name as counter_account_name',
                 'coa_other.cash_flow_category as counter_cash_flow_category',
+                'ac_other.code as counter_account_class_code',
             ])
             ->orderBy('je.transaction_date')
             ->orderBy('jel.id');
@@ -319,6 +404,7 @@ class CashFlowService
                     ->where('jel_other.account_id', '<>', $cashAccountId);
             })
             ->leftJoin('charts_of_accounts as coa_other', 'coa_other.id', '=', 'jel_other.account_id')
+            ->leftJoin('account_classes as ac_other', 'ac_other.id', '=', 'coa_other.account_class_id')
             ->select([
                 'je.id as journal_entry_id',
                 'je.reference_type as reference_type',
@@ -334,13 +420,14 @@ class CashFlowService
                 'coa_other.account_code as counter_account_code',
                 'coa_other.account_name as counter_account_name',
                 'coa_other.cash_flow_category as counter_cash_flow_category',
+                'ac_other.code as counter_account_class_code',
             ])
             ->orderBy('je.transaction_date')
             ->orderBy('jel.id');
 
         return $q->get()->map(function ($r) {
             $cat = (string) ($r->counter_cash_flow_category ?? '');
-            $activity = $this->resolveActivityType($cat, (string) ($r->reference_type ?? ''));
+            $activity = $this->resolveActivityType($cat, (string) ($r->reference_type ?? ''), (string) ($r->counter_account_class_code ?? ''));
 
             return [
                 'journal_entry_id' => (int) ($r->journal_entry_id ?? 0),
@@ -393,17 +480,20 @@ class CashFlowService
                     ->where('jel_other.account_id', '<>', $cashAccountId);
             })
             ->leftJoin('charts_of_accounts as coa_other', 'coa_other.id', '=', 'jel_other.account_id')
+            ->leftJoin('account_classes as ac_other', 'ac_other.id', '=', 'coa_other.account_class_id')
             ->selectRaw('COALESCE(coa_other.cash_flow_category, "") as category')
+            ->selectRaw('COALESCE(ac_other.code, "") as class_code')
             ->selectRaw('SUM(jel.debit) as inflow')
             ->selectRaw('SUM(jel.credit) as outflow')
-            ->groupBy('category')
+            ->groupBy('category', 'class_code')
             ->get();
 
         $sections = $this->emptySections();
 
         foreach ($rows as $r) {
             $cat = (string) ($r->category ?? '');
-            $activity = $this->resolveActivityType($cat, null);
+            $classCode = (string) ($r->class_code ?? '');
+            $activity = $this->resolveActivityType($cat, null, $classCode);
 
             $in = round((float) ($r->inflow ?? 0), 2);
             $out = round((float) ($r->outflow ?? 0), 2);
@@ -420,13 +510,28 @@ class CashFlowService
         return $sections;
     }
 
-    private function resolveActivityType(?string $cashFlowCategory, ?string $referenceType): string
+    private function resolveActivityType(?string $cashFlowCategory, ?string $referenceType, ?string $counterAccountClass = null): string
     {
         $cat = strtoupper(trim((string) $cashFlowCategory));
         if (in_array($cat, ['OPERATING', 'INVESTING', 'FINANCING'], true)) {
             return $cat;
         }
 
+        // Fallback: infer from counter-account class if available
+        if ($counterAccountClass !== null) {
+            $counterClass = $this->classifyAccountClass($counterAccountClass, '');
+            if ($counterClass === 'assets') {
+                return 'INVESTING';
+            }
+            if ($counterClass === 'liabilities' || $counterClass === 'equity') {
+                return 'FINANCING';
+            }
+            if ($counterClass === 'income' || $counterClass === 'expense') {
+                return 'OPERATING';
+            }
+        }
+
+        // Fallback: infer from reference type
         $rt = strtolower(trim((string) $referenceType));
         if ($rt !== '') {
             if (str_contains($rt, 'repay') || str_contains($rt, 'interest') || str_contains($rt, 'fee') || str_contains($rt, 'deposit') || str_contains($rt, 'expense')) {

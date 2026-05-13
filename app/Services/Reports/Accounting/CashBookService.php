@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
 
+use App\Services\Reports\Accounting\AccountClassificationTrait;
+
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class CashBookService
 {
+    use AccountClassificationTrait;
     public function build(array $filters, array $accessibleSubshopIds): array
     {
         $accountId = (int) ($filters['cash_account_id'] ?? 0);
@@ -28,6 +31,25 @@ class CashBookService
         $toDate = $filters['to_date'] ?? null;
 
         $account = $this->loadAccount($accountId);
+
+        // Validate that the account is a valid cash/bank account
+        if (($account['is_valid_cash_account'] ?? false) === false) {
+            return [
+                'filters' => [
+                    'cash_account_id' => $accountId,
+                    'from_date' => $fromDate?->toDateString(),
+                    'to_date' => $toDate?->toDateString(),
+                    'subshop_ids' => $subshopIds,
+                    'reference_type' => $filters['reference_type'] ?? null,
+                    'reference_search' => $filters['reference_search'] ?? null,
+                ],
+                'account' => $account,
+                'error' => $account['validation_error'] ?? 'Invalid cash account',
+                'opening' => ['total_debit' => 0.0, 'total_credit' => 0.0, 'balance' => 0.0],
+                'totals' => ['period_debit' => 0.0, 'period_credit' => 0.0, 'closing_balance' => 0.0],
+                'transactions' => null,
+            ];
+        }
 
         $opening = $this->openingBalance($subshopIds, $accountId, $fromDate);
 
@@ -122,6 +144,25 @@ class CashBookService
 
         $account = $this->loadAccount($accountId);
 
+        // Validate that the account is a valid cash/bank account
+        if (($account['is_valid_cash_account'] ?? false) === false) {
+            return [
+                'filters' => [
+                    'cash_account_id' => $accountId,
+                    'from_date' => $fromDate?->toDateString(),
+                    'to_date' => $toDate?->toDateString(),
+                    'subshop_ids' => $subshopIds,
+                    'reference_type' => $filters['reference_type'] ?? null,
+                    'reference_search' => $filters['reference_search'] ?? null,
+                ],
+                'account' => $account,
+                'error' => $account['validation_error'] ?? 'Invalid cash account',
+                'opening' => ['total_debit' => 0.0, 'total_credit' => 0.0, 'balance' => 0.0],
+                'totals' => ['period_debit' => 0.0, 'period_credit' => 0.0, 'closing_balance' => 0.0],
+                'transactions_all' => [],
+            ];
+        }
+
         $opening = $this->openingBalance($subshopIds, $accountId, $fromDate);
 
         $rows = $this->transactionsAll(
@@ -182,21 +223,59 @@ class CashBookService
         return $accessibleSubshopIds;
     }
 
+    /** @return array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_code:string,account_class_name:string} */
     private function loadAccount(int $accountId): array
     {
         $r = DB::table('charts_of_accounts as coa')
+            ->join('account_classes as ac', 'ac.id', '=', 'coa.account_class_id')
             ->where('coa.id', $accountId)
             ->select([
                 'coa.id as account_id',
                 'coa.account_code as account_code',
                 'coa.account_name as account_name',
+                'coa.account_class_id as account_class_id',
+                'ac.code as account_class_code',
+                'ac.name as account_class_name',
             ])
             ->first();
+
+        if (!$r) {
+            return [
+                'account_id' => $accountId,
+                'account_code' => '',
+                'account_name' => 'Account not found',
+                'account_class_id' => 0,
+                'account_class_code' => '',
+                'account_class_name' => '',
+            ];
+        }
+
+        $classCode = (string) ($r->account_class_code ?? '');
+        $className = (string) ($r->account_class_name ?? '');
+        $category = $this->classifyAccountClass($classCode, $className);
+
+        // Validate that this is an asset account (required for cash book reporting)
+        if ($category !== 'assets') {
+            return [
+                'account_id' => $accountId,
+                'account_code' => (string) ($r->account_code ?? ''),
+                'account_name' => (string) ($r->account_name ?? ''),
+                'account_class_id' => (int) ($r->account_class_id ?? 0),
+                'account_class_code' => $classCode,
+                'account_class_name' => $className,
+                'is_valid_cash_account' => false,
+                'validation_error' => 'Account must be an asset account (class code 1) for cash book reporting',
+            ];
+        }
 
         return [
             'account_id' => (int) ($r->account_id ?? $accountId),
             'account_code' => (string) ($r->account_code ?? ''),
             'account_name' => (string) ($r->account_name ?? ''),
+            'account_class_id' => (int) ($r->account_class_id ?? 0),
+            'account_class_code' => $classCode,
+            'account_class_name' => $className,
+            'is_valid_cash_account' => true,
         ];
     }
 
@@ -208,7 +287,7 @@ class CashBookService
 
         $r = DB::table('journal_entry_lines as jel')
             ->join('journal_entries as je', 'je.id', '=', 'jel.journal_entry_id')
-            ->whereIn('je.subshop_id', $subshopIds ?: [-1])
+            ->whereIn('je.subshop_id', $subshopIds)
             ->where('jel.account_id', $accountId)
             ->whereDate('je.transaction_date', '<', $fromDate->toDateString())
             ->selectRaw('COALESCE(SUM(jel.debit),0) as total_debit, COALESCE(SUM(jel.credit),0) as total_credit')
@@ -229,7 +308,7 @@ class CashBookService
         $q = DB::table('journal_entry_lines as jel')
             ->join('journal_entries as je', 'je.id', '=', 'jel.journal_entry_id')
             ->leftJoin('users as u', 'u.id', '=', 'je.created_by')
-            ->whereIn('je.subshop_id', $subshopIds ?: [-1])
+            ->whereIn('je.subshop_id', $subshopIds)
             ->where('jel.account_id', $accountId);
 
         if ($fromDate) {

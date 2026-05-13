@@ -54,9 +54,7 @@ class CashFlowController extends Controller
             ->all();
 
         $cashAccountId = $request->integer('cash_account_id');
-        if ($cashAccountId && !in_array($cashAccountId, $bankLinkedAccountIds, true)) {
-            abort(422, 'Invalid cash/bank account selection');
-        }
+
 
         $filters = [
             'cash_account_id' => $cashAccountId ?: 0,
@@ -71,11 +69,12 @@ class CashFlowController extends Controller
         $report = $cashAccountId ? $this->service->build($filters, $accessibleSubshopIds) : null;
 
         $cashAccounts = ChartsOfAccount::query()
-            ->whereIn('id', $bankLinkedAccountIds ?: [-1])
-            ->whereIn('subshop_id', $accessibleSubshopIds ?: [-1])
-            ->where('is_active', 1)
-            ->orderBy('account_name')
-            ->get(['id', 'account_code', 'account_name']);
+            ->join('account_classes as ac', 'ac.id', '=', 'charts_of_accounts.account_class_id')
+            ->where('ac.code', '1')  // Assets class
+            ->whereIn('charts_of_accounts.subshop_id', $accessibleSubshopIds)
+            ->where('charts_of_accounts.is_active', 1)
+            ->orderBy('charts_of_accounts.account_name')
+            ->get(['charts_of_accounts.id', 'charts_of_accounts.account_code', 'charts_of_accounts.account_name']);
 
         $referenceTypes = JournalEntries::query()
             ->whereIn('subshop_id', $accessibleSubshopIds ?: [-1])

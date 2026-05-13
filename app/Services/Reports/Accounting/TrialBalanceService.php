@@ -3,13 +3,14 @@
 declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
+use App\Services\Reports\Accounting\AccountClassificationTrait;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class TrialBalanceService
 {
-    /**
+    use AccountClassificationTrait;    /**
      * @param array{as_of:Carbon,subshop_id?:int|null,account_class_id?:int|null,hide_zero?:bool|null} $filters
      * @param array<int> $accessibleSubshopIds
      */
@@ -235,45 +236,5 @@ class TrialBalanceService
      * Classify account based on class code and name.
      * Returns: assets, liabilities, equity, income, expense, or unclassified.
      */
-    private function classifyAccountClass(string $classCode, string $className): string
-    {
-        $code = strtoupper(trim($classCode));
-        $name = strtoupper(trim($className));
 
-        if ($code !== '') {
-            if (str_starts_with($code, '1')) {
-                return 'assets';
-            }
-            if (str_starts_with($code, '2')) {
-                return 'liabilities';
-            }
-            if (str_starts_with($code, '3')) {
-                return 'equity';
-            }
-            if (str_starts_with($code, '4')) {
-                return 'income';
-            }
-            if (str_starts_with($code, '5')) {
-                return 'expense';
-            }
-        }
-
-        if (str_contains($name, 'ASSET')) {
-            return 'assets';
-        }
-        if (str_contains($name, 'LIAB')) {
-            return 'liabilities';
-        }
-        if (str_contains($name, 'EQUITY')) {
-            return 'equity';
-        }
-        if (str_contains($name, 'INCOME')) {
-            return 'income';
-        }
-        if (str_contains($name, 'EXPENSE')) {
-            return 'expense';
-        }
-
-        return 'unclassified';
-    }
 }

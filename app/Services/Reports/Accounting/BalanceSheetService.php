@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
 
+use App\Services\Reports\Accounting\AccountClassificationTrait;
+
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class BalanceSheetService
 {
+    use AccountClassificationTrait;
     /**
      * @param array{as_of:Carbon,subshop_id?:int|null,account_class_id?:int|null,compare_as_of?:Carbon|null} $filters
      * @param array<int> $accessibleSubshopIds
@@ -297,47 +300,7 @@ class BalanceSheetService
         return $tree;
     }
 
-    private function classifyAccountClass(string $classCode, string $className): string
-    {
-        $code = strtoupper(trim($classCode));
-        $name = strtoupper(trim($className));
 
-        if ($code !== '') {
-            if (str_starts_with($code, '1') || str_contains($code, 'ASSET')) {
-                return 'assets';
-            }
-            if (str_starts_with($code, '2') || str_contains($code, 'LIAB')) {
-                return 'liabilities';
-            }
-            if (str_starts_with($code, '3') || str_contains($code, 'EQUITY')) {
-                return 'equity';
-            }
-            if (str_starts_with($code, '4') || str_contains($code, 'INCOME')) {
-                return 'income';
-            }
-            if (str_starts_with($code, '5') || str_contains($code, 'EXPENSE')) {
-                return 'expense';
-            }
-        }
-
-        if (str_contains($name, 'ASSET')) {
-            return 'assets';
-        }
-        if (str_contains($name, 'LIAB')) {
-            return 'liabilities';
-        }
-        if (str_contains($name, 'EQUITY')) {
-            return 'equity';
-        }
-        if (str_contains($name, 'INCOME')) {
-            return 'income';
-        }
-        if (str_contains($name, 'EXPENSE')) {
-            return 'expense';
-        }
-
-        return 'unclassified';
-    }
 
     private function classifyCurrentNonCurrent(string $category, string $groupName, string $accountName): string
     {

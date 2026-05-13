@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
 
+
+use App\Services\Reports\Accounting\AccountClassificationTrait;
+
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ProfitLossService
 {
-    /**
+    use AccountClassificationTrait;    /**
      * @param array{from_date:Carbon|null,to_date:Carbon|null,subshop_id?:int|null,account_group_id?:int|null,compare?:string|null,show_pct?:bool|null} $filters
      * @param array<int> $accessibleSubshopIds
      */
@@ -26,6 +29,16 @@ class ProfitLossService
         $showPct = (bool) ($filters['show_pct'] ?? false);
 
         $currentRows = $this->accountTotals($subshopIds, $fromDate, $toDate, $accountGroupId);
+        
+        // Validate that journal entries are balanced
+        $totalDebits = array_sum(array_column($currentRows, 'total_debit'));
+        $totalCredits = array_sum(array_column($currentRows, 'total_credit'));
+        if (abs($totalDebits - $totalCredits) > 0.01) {
+            // Log warning or add validation flag
+            // For now, we'll just continue but this could be extended to add validation to results
+            error_log(sprintf('Journal entries are not balanced: debits=%.2f, credits=%.2f, difference=%.2f', $totalDebits, $totalCredits, $totalDebits - $totalCredits));
+        }
+        
         $currentTree = $this->buildTree($currentRows);
 
         $previousTree = null;
@@ -141,29 +154,7 @@ class ProfitLossService
         })->filter()->values()->all();
     }
 
-    private function classifyAccountClass(string $classCode, string $className): string
-    {
-        $code = strtoupper(trim($classCode));
-        $name = strtoupper(trim($className));
 
-        if ($code !== '') {
-            if (str_starts_with($code, '4') || str_contains($code, 'INCOME')) {
-                return 'income';
-            }
-            if (str_starts_with($code, '5') || str_contains($code, 'EXPENSE')) {
-                return 'expense';
-            }
-        }
-
-        if (str_contains($name, 'INCOME')) {
-            return 'income';
-        }
-        if (str_contains($name, 'EXPENSE')) {
-            return 'expense';
-        }
-
-        return 'unclassified';
-    }
 
     /**
      * @param array<int, array{section:string,account_class_id:int,account_class_code:string,account_class_name:string,group_id:int,group_code:string,group_name:string,account_id:int,account_code:string,account_name:string,amount:float}> $rows

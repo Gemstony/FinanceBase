@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Reports\Accounting;
 
+use App\Services\Reports\Accounting\AccountClassificationTrait;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class GeneralLedgerService
 {
+    use AccountClassificationTrait;
     /**
      * @param array{account_id:int,from_date?:Carbon|null,to_date?:Carbon|null,subshop_id?:int|null,reference_type?:string|null,reference_search?:string|null,per_page?:int|null,page?:int|null} $filters
      * @param array<int> $accessibleSubshopIds
@@ -232,29 +234,18 @@ class GeneralLedgerService
 
     private function detectAccountType(string $classCode, string $className): string
     {
-        $code = trim($classCode);
-        if ($code === '1') {
-            return 'asset';
-        }
-        if ($code === '2') {
-            return 'liability';
-        }
-        if ($code === '3') {
-            return 'equity';
-        }
-
-        $name = strtolower(trim($className));
-        if (str_contains($name, 'asset')) {
-            return 'asset';
-        }
-        if (str_contains($name, 'liabil')) {
-            return 'liability';
-        }
-        if (str_contains($name, 'equity')) {
-            return 'equity';
-        }
-
-        return 'other';
+        // Use the shared classification logic from the trait
+        $sharedClassification = $this->classifyAccountClass($classCode, $className);
+        
+        // Map from BalanceSheetService format to GeneralLedgerService format
+        return match ($sharedClassification) {
+            'assets' => 'asset',
+            'liabilities' => 'liability',
+            'equity' => 'equity',
+            'income' => 'income',
+            'expense' => 'expense',
+            default => 'other',
+        };
     }
 
     /** @return array{total_debit:float,total_credit:float,balance:float} */
@@ -289,15 +280,13 @@ class GeneralLedgerService
 
     private function movement(float $debit, float $credit, string $accountType): float
     {
-        if ($accountType === 'asset') {
+        if ($accountType === 'asset' || $accountType === 'expense') {
             return $debit - $credit;
         }
-
-        if ($accountType === 'liability' || $accountType === 'equity') {
+        if ($accountType === 'liability' || $accountType === 'equity' || $accountType === 'income') {
             return $credit - $debit;
         }
-
-        return $debit - $credit;
+        return $debit - $credit;  // default fallback
     }
 
     private function baseTransactionsQuery(

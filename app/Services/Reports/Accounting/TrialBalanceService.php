@@ -55,7 +55,7 @@ class TrialBalanceService
     }
 
     /**
-     * @return array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,total_debit:float,total_credit:float,debit_balance:float,credit_balance:float}>
+     * @return array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,total_debit:float,total_credit:float,debit_balance:float,credit_balance:float,category:string}>
      */
     private function accountTotals(array $subshopIds, Carbon $asOf, ?int $accountClassId): array
     {
@@ -93,6 +93,11 @@ class TrialBalanceService
             $debitBal = $net > 0 ? round($net, 2) : 0.0;
             $creditBal = $net < 0 ? round(abs($net), 2) : 0.0;
 
+            $category = $this->classifyAccountClass(
+                (string) ($r->account_class_code ?? ''),
+                (string) ($r->account_class_name ?? '')
+            );
+
             return [
                 'account_id' => (int) ($r->account_id ?? 0),
                 'account_code' => (string) ($r->account_code ?? ''),
@@ -107,12 +112,13 @@ class TrialBalanceService
                 'total_credit' => $credit,
                 'debit_balance' => $debitBal,
                 'credit_balance' => $creditBal,
+                'category' => $category,
             ];
         })->all();
     }
 
     /**
-     * @param array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,total_debit:float,total_credit:float,debit_balance:float,credit_balance:float}> $rows
+     * @param array<int, array{account_id:int,account_code:string,account_name:string,account_class_id:int,account_class_name:string,account_class_code:string,group_id:int,group_name:string,group_code:string,total_debit:float,total_credit:float,debit_balance:float,credit_balance:float,category:string}> $rows
      * @return array<string, mixed>
      */
     private function buildTree(array $rows, bool $hideZero): array
@@ -223,5 +229,51 @@ class TrialBalanceService
             'total_debit' => round($debit, 2),
             'total_credit' => round($credit, 2),
         ];
+    }
+
+    /**
+     * Classify account based on class code and name.
+     * Returns: assets, liabilities, equity, income, expense, or unclassified.
+     */
+    private function classifyAccountClass(string $classCode, string $className): string
+    {
+        $code = strtoupper(trim($classCode));
+        $name = strtoupper(trim($className));
+
+        if ($code !== '') {
+            if (str_starts_with($code, '1')) {
+                return 'assets';
+            }
+            if (str_starts_with($code, '2')) {
+                return 'liabilities';
+            }
+            if (str_starts_with($code, '3')) {
+                return 'equity';
+            }
+            if (str_starts_with($code, '4')) {
+                return 'income';
+            }
+            if (str_starts_with($code, '5')) {
+                return 'expense';
+            }
+        }
+
+        if (str_contains($name, 'ASSET')) {
+            return 'assets';
+        }
+        if (str_contains($name, 'LIAB')) {
+            return 'liabilities';
+        }
+        if (str_contains($name, 'EQUITY')) {
+            return 'equity';
+        }
+        if (str_contains($name, 'INCOME')) {
+            return 'income';
+        }
+        if (str_contains($name, 'EXPENSE')) {
+            return 'expense';
+        }
+
+        return 'unclassified';
     }
 }
